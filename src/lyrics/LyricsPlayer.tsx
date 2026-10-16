@@ -27,6 +27,8 @@ export interface LyricsPlayerProps {
   readonly offset?: number;
   /** 点了某一行：交回那一行的开始时间，秒。 */
   readonly onSeek?: (seconds: number) => void;
+  /** Ctrl+滚轮 调字号：上滚 +1、下滚 -1。给了才接管 Ctrl+滚轮，普通滚轮照旧交给 AMLL 滚动。 */
+  readonly onZoom?: (direction: 1 | -1) => void;
 }
 
 const curve = ([x1, y1, x2, y2]: LyricsMotion['transitionCurve']) =>
@@ -45,6 +47,7 @@ export function LyricsPlayer({
   display,
   offset = 0,
   onSeek,
+  onZoom,
 }: LyricsPlayerProps) {
   const host = useRef<HTMLDivElement>(null);
   const [player, setPlayer] = useState<DomLyricPlayer | null>(null);
@@ -53,6 +56,23 @@ export function LyricsPlayer({
   const scheme = useAtomValueRawSync(colorSchemeAtom);
   const seek = useRef(onSeek);
   seek.current = onSeek;
+  const zoom = useRef(onZoom);
+  zoom.current = onZoom;
+
+  // Ctrl+滚轮 调字号：在**捕获阶段**抢先拦下，免得 AMLL 自己也把这次滚轮当成竖向滚动。
+  // 普通滚轮原样放行，交给 AMLL 滚动歌词。
+  useEffect(() => {
+    const element = host.current;
+    if (!element || !onZoom) return undefined;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey || event.deltaY === 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      zoom.current?.(event.deltaY < 0 ? 1 : -1);
+    };
+    element.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    return () => element.removeEventListener('wheel', onWheel, { capture: true });
+  }, [onZoom]);
 
   useLayoutEffect(() => {
     const parent = host.current;

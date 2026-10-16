@@ -5,6 +5,7 @@ import { lyricsDisplayKey } from '../../lyrics/lyricsDisplay.ts';
 import { lyricsMotionKey } from '../../lyrics/lyricsMotion.ts';
 import { playbackCanSeekAtom } from '../../playback/playerAtoms.ts';
 import { LyricsPlayer } from '../../lyrics/LyricsPlayer.tsx';
+import { useLyricFontZoom } from '../../lyrics/useLyricFontZoom.ts';
 import { useViewServices } from '../page/viewServices.ts';
 import styles from './ImmersiveLyricsPlayer.module.css';
 
@@ -16,6 +17,7 @@ export function ImmersiveLyricsPlayer() {
   const state = useAtomValueRawSync(lyrics.state);
   const offset = useAtomValueRawSync(lyrics.offset);
   const canSeek = useAtomValueRawSync(playbackCanSeekAtom);
+  const zoom = useLyricFontZoom();
   if (!services.lyrics || state.status !== 'ready' || state.content.kind !== 'synced') return null;
   return (
     <div className={styles.root} data-immersive-lyrics-player>
@@ -28,6 +30,7 @@ export function ImmersiveLyricsPlayer() {
         display={display}
         offset={offset}
         onSeek={canSeek ? (seconds) => void services.lyrics?.seek(state.key, seconds) : undefined}
+        onZoom={zoom}
       />
     </div>
   );

@@ -12,6 +12,7 @@ import type { MessageKey } from '../../../i18n/en.ts';
 import { localeAtom, translateAtom } from '../../../i18n/locale.ts';
 import { useService } from '../../../kit/useService.ts';
 import { LyricsPlayer } from '../../../lyrics/LyricsPlayer.tsx';
+import { useLyricFontZoom } from '../../../lyrics/useLyricFontZoom.ts';
 import type { LyricsClockFace } from '../../../lyrics/lyricsDriver.ts';
 import { lyricsKey, type LyricsState } from '../../../lyrics/lyricsService.ts';
 import { lyricsPrefsKey } from '../../../lyrics/lyricsPrefs.ts';
@@ -84,6 +85,7 @@ export function LyricsPage(props: LyricsPageProps) {
   const online = useAtomValueRawSync(prefs.pref).enabled;
   const effects = useAtomValueRawSync(motion.motion);
   const display = useAtomValueRawSync(displayService.display);
+  const zoom = useLyricFontZoom();
   const { card } = useRightCard();
   const { place, entry } = useAtomValueRawSync(card.navigation);
   const searching = place.id === 'lyricsSearch';
@@ -290,6 +292,7 @@ export function LyricsPage(props: LyricsPageProps) {
                   display={display}
                   offset={offset}
                   onSeek={canSeek ? (seconds) => onSeek(ready.key, seconds) : undefined}
+                  onZoom={zoom}
                 />
               </div>
               <div className={styles['screen-reader-text']}>

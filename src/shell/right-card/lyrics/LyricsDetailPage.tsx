@@ -9,6 +9,7 @@ import { lyricsKey } from '../../../lyrics/lyricsService.ts';
 import { lyricsDisplayKey } from '../../../lyrics/lyricsDisplay.ts';
 import { lyricsMotionKey } from '../../../lyrics/lyricsMotion.ts';
 import { LyricsPlayer } from '../../../lyrics/LyricsPlayer.tsx';
+import { useLyricFontZoom } from '../../../lyrics/useLyricFontZoom.ts';
 import type { LyricsClockFace } from '../../../lyrics/lyricsDriver.ts';
 import { isWordLevel } from '../../../lyrics/lyricsText.ts';
 import { useRightCard } from '../rightCardContext.ts';
@@ -41,6 +42,7 @@ export function LyricsDetailPage({
   const canRemember = useAtomValueRawSync(service.canRemember);
   const displayService = useService(lyricsDisplayKey);
   const display = useAtomValueRawSync(displayService.display);
+  const zoom = useLyricFontZoom();
   const motionService = useService(lyricsMotionKey);
   const motion = useAtomValueRawSync(motionService.motion);
   const [remember, setRemember] = useState(false);
@@ -156,6 +158,7 @@ export function LyricsDetailPage({
               fontSize={display.fontSize}
               offset={offset}
               onSeek={canSeek ? (seconds) => onSeek(ready.key, seconds) : undefined}
+              onZoom={zoom}
             />
           )}
         </div>

@@ -159,7 +159,7 @@ test('本地无词时默认不联网，启用后取词并保存，关闭后撤�
     .toMatchObject({
       version: 1,
       enabled: true,
-      sources: ['netease', 'kugou', 'ttmlDb', 'lrclib', 'lrcmux'],
+      sources: ['netease', 'kugou', 'qq', 'ttmlDb', 'lrclib', 'lrcmux'],
     });
   expect(JSON.stringify(env.host.callsTo('http.get'))).not.toContain('E:/Music');
   await panel(page).getByRole('switch', { name: '在线歌词' }).uncheck();
@@ -358,6 +358,30 @@ for (const scheme of ['light', 'dark'] as const) {
     expect(env.errors).toEqual([]);
   });
 }
+
+test('Ctrl+滚轮 调歌词字号，写进共享设置；普通滚轮不动字号', async ({ page }) => {
+  const env = await openLyrics(page);
+  const player = lyricsPlayer(page);
+  await expect(player).toHaveCSS('font-size', '22px');
+  const wheel = (direction: 'up' | 'down') =>
+    player.dispatchEvent('wheel', {
+      deltaY: direction === 'up' ? -100 : 100,
+      ctrlKey: true,
+    });
+  await wheel('up');
+  await expect(player).toHaveCSS('font-size', '23px');
+  await expect
+    .poll(() => env.host.config.get('defaultTheme.lyrics.display'))
+    .toMatchObject({ fontSize: 23 });
+  await wheel('down');
+  await wheel('down');
+  await expect(player).toHaveCSS('font-size', '21px');
+  // 普通滚轮（不带 Ctrl）不改字号。
+  await player.dispatchEvent('wheel', { deltaY: -100 });
+  await page.waitForTimeout(120);
+  await expect(player).toHaveCSS('font-size', '21px');
+  expect(env.errors).toEqual([]);
+});
 
 test('设置键进入歌词栏目，两档动效与自定义即时生效，字号独立保存', async ({ page }) => {
   const env = await openLyrics(page);
