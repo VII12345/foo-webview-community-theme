@@ -11,6 +11,7 @@ import type { PageProps, PlaceId } from '../nav/places.ts';
 import { ARTISTS_PAGES } from '../library/artists/page/ArtistsPage.tsx';
 import { HomePage } from '../library/home/HomePage.tsx';
 import { PlayerPage } from '../shell/player/PlayerPage.tsx';
+import { StatsPage } from '../stats/StatsPage.tsx';
 import { ChannelPage } from '../library/home/ChannelPage.tsx';
 import { deferPage } from './DeferredPage.tsx';
 
@@ -26,6 +27,7 @@ export const PAGES: Partial<Record<PlaceId, ComponentType<PageProps>>> = {
   ...ARTISTS_PAGES,
   home: HomePage,
   player: PlayerPage,
+  stats: StatsPage,
   channel: ChannelPage,
   video: VideoPage,
   search: SearchPage,

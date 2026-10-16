@@ -28,6 +28,7 @@ export const LAYERS = {
   shell: 2,
   video: 2,
   update: 2,
+  stats: 2,
   app: 3,
   'App.tsx': 3,
   'main.tsx': 3,

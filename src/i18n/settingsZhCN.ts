@@ -162,5 +162,6 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
   'settings.creditRoleLyrics': '歌词解析与同步显示',
   'settings.creditRoleVolume': '音量听感曲线',
   'settings.creditRoleLyricsMatch': '在线歌词的匹配打分与酷狗歌词解密',
+  'settings.creditRoleStats': '读取播放统计的 SQLite 数据库',
   'settings.creditRoleChineseVariants': '歌词匹配繁简对照表',
 };

@@ -164,6 +164,7 @@ export const settingsEn = {
   'settings.creditRoleLyrics': 'Lyrics parsing and synced display',
   'settings.creditRoleVolume': 'Perceptual curve of the volume bar',
   'settings.creditRoleLyricsMatch': 'Online lyrics matching and KuGou lyrics decryption',
+  'settings.creditRoleStats': 'Reading the playback-stats SQLite database',
   'settings.creditRoleChineseVariants':
     'Traditional–Simplified Chinese table used for lyrics matching',
 };

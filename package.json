@@ -25,7 +25,8 @@
     "foo-webview-sdk": "file:vendor/foo-webview-sdk.tgz",
     "jotai": "3.0.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "sql.js": "1.15.0"
   },
   "devDependencies": {
     "@eslint-community/eslint-utils": "4.10.1",

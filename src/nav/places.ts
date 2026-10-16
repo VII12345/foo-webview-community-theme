@@ -11,6 +11,7 @@ export const PLACES = {
   video: { level: 2, subject: false },
   home: { level: 1, subject: false },
   player: { level: 1, subject: false },
+  stats: { level: 1, subject: false },
   channel: { level: 2, subject: true },
   recent: { level: 1, subject: false },
   /** 列表与详情同页，主体是艺术家名；空串表示未填写。 */
@@ -54,6 +55,7 @@ export const PLACE_LABELS: Readonly<Record<PlaceId, MessageKey>> = {
   video: 'place.video',
   home: 'place.home',
   player: 'place.player',
+  stats: 'place.stats',
   channel: 'place.channel',
   recent: 'place.recent',
   artists: 'place.artists',

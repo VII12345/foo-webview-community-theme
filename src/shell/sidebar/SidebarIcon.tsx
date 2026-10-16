@@ -9,6 +9,7 @@ import {
   MusicNote120Regular,
   PlayCircle20Regular,
   Settings20Regular,
+  DataBarVertical20Regular,
 } from '@fluentui/react-icons';
 import type { SidebarItemId } from '../../nav/sidebar/sidebarNav.ts';
 
@@ -19,6 +20,7 @@ const ICONS = {
   albums: Album20Regular,
   songs: MusicNote120Regular,
   player: PlayCircle20Regular,
+  stats: DataBarVertical20Regular,
   genres: Guitar20Regular,
   folders: Folder20Regular,
   playlists: Grid20Regular,

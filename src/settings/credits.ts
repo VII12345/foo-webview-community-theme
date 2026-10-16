@@ -10,6 +10,7 @@ export type CreditId =
   | 'tanstackVirtual'
   | 'materialColors'
   | 'amll'
+  | 'sqljs'
   | 'foobox'
   | 'lyricify'
   | 'opencc';
@@ -76,6 +77,15 @@ export const CREDIT_SECTIONS: readonly CreditSection[] = [
         license: 'AGPL-3.0-only',
         url: 'https://github.com/amll-dev/applemusic-like-lyrics',
         packages: ['@applemusic-like-lyrics/core', '@applemusic-like-lyrics/lyric'],
+      },
+      {
+        id: 'sqljs',
+        name: 'sql.js',
+        author: 'sql.js contributors',
+        role: 'settings.creditRoleStats',
+        license: 'MIT',
+        url: 'https://sql.js.org/',
+        packages: ['sql.js'],
       },
       {
         id: 'react',

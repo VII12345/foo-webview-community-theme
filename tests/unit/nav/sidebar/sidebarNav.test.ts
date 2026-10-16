@@ -10,8 +10,8 @@ import {
 } from '../../../../src/nav/sidebar/sidebarNav.ts';
 
 describe('sidebar nav', () => {
-  it('每一项去一个一级地点，顶部只有首页；资料库六项', () => {
-    expect(TOP_ITEMS.map((item) => item.place)).toEqual(['home', 'player']);
+  it('每一项去一个一级地点，顶部三项；资料库六项', () => {
+    expect(TOP_ITEMS.map((item) => item.place)).toEqual(['home', 'player', 'stats']);
     expect(LIBRARY_ITEMS.map((item) => item.place)).toEqual([
       'recent',
       'artists',
@@ -23,10 +23,11 @@ describe('sidebar nav', () => {
     for (const item of SIDEBAR_ITEMS) expect(PLACES[item.place].level).toBe(1);
   });
 
-  it('首页、艺人、专辑、歌曲、流派、文件夹与设置上线，其余置灰', () => {
+  it('首页、正在播放、播放统计、艺人、专辑、歌曲、流派、文件夹与设置上线，其余置灰', () => {
     expect(SIDEBAR_ITEMS.filter((item) => item.ready).map((item) => item.id)).toEqual([
       'home',
       'player',
+      'stats',
       'artists',
       'albums',
       'songs',
