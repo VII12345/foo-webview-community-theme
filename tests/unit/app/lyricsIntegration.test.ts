@@ -83,11 +83,7 @@ describe('歌词装配', () => {
         durationMs: 123450,
       },
     });
-    expect(env.host.callsTo('lyrics.get').at(-1)).toEqual({
-      path: track.handle,
-      source: 'embedded',
-      type: 'any',
-    });
+    expect(env.host.callsTo('lyrics.get').at(-1)).toEqual({ path: track.handle });
     expect(env.store.get(env.integration.service.state)).toMatchObject({
       status: 'ready',
       source: 'embedded',

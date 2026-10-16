@@ -72,7 +72,8 @@ for (const scheme of ['light', 'dark'] as const) {
     await panel(page).getByRole('switch', { name: '在线歌词' }).check();
     await panel(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
     const search = panel(page).locator('[data-lyrics-search]');
-    await search.getByRole('button', { name: '使用并记住' }).click();
+    await search.getByRole('radio').check();
+    await search.getByRole('button', { name: '使用歌词' }).click();
     await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('LRCLIB');
     const reads = env.host.callsTo('lyrics.get').length;
     const requests = env.host.callsTo('http.get').length;
@@ -95,9 +96,9 @@ for (const scheme of ['light', 'dark'] as const) {
       canSeek: true,
       hostTime: Date.now(),
     });
-    await expect(panel(page).locator('.amll-lyric-player')).toContainText('所选句');
-    await expect(panel(page).locator('.amll-lyric-player')).toContainText('所选下一句');
-    await expect(view(page).locator('.amll-lyric-player')).toBeVisible();
+    await expect(view(page).locator('[data-field="lyric-main"]')).toHaveText('所选句');
+    await expect(view(page).locator('[data-field="lyric-sub"]')).toHaveText('所选译文');
+    await expect(view(page).locator('[data-field="lyrics-source"]')).toHaveText('lrclib · synced');
     for (const [width, height, tier] of [
       [1200, 720, 'compact'],
       [390, 700, 'narrow'],
@@ -107,25 +108,25 @@ for (const scheme of ['light', 'dark'] as const) {
     ] as const) {
       await page.setViewportSize({ width, height });
       await expect(view(page).locator('[data-tier]')).toHaveAttribute('data-tier', tier);
-      const current = view(page).locator('.amll-lyric-player');
-      await expect(current).toBeVisible();
+      const current = view(page).locator('[data-slot="current"]');
+      await expect(current).toHaveText('00:40所选句');
       const box = await current.boundingBox();
       expect(box && box.width > 0 && box.x >= 0 && box.x + box.width <= width).toBe(true);
     }
     env.state.position = 46;
     await env.host.emit('playback:seeked', { position: 46, hostTime: Date.now() });
-    await expect(view(page).locator('.amll-lyric-player')).toContainText('所选下一句');
+    await expect(view(page).locator('[data-slot="current"]')).toHaveText('00:45所选下一句');
     await page.setViewportSize({ width: 1280, height: 800 });
     await expect(view(page).locator('[data-tier]')).toHaveAttribute('data-tier', 'full');
-    await expect(view(page).locator('.amll-lyric-player')).toContainText('所选下一句');
+    await expect(view(page).locator('[data-field="lyric-main"]')).toHaveText('所选下一句');
     await page.keyboard.press('Escape');
     await expect(view(page)).toHaveCount(0);
     await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('LRCLIB');
     await entry(page).click();
-    await expect(view(page).locator('.amll-lyric-player')).toContainText('所选下一句');
+    await expect(view(page).locator('[data-field="lyric-main"]')).toHaveText('所选下一句');
     expect(env.host.callsTo('lyrics.get')).toHaveLength(reads);
     expect(env.host.callsTo('http.get')).toHaveLength(requests);
-    expect(env.host.callsTo('lyrics.save')).toHaveLength(1);
+    expect(env.host.callsTo('lyrics.save')).toHaveLength(0);
     expect(env.errors).toEqual([]);
   });
 }
@@ -146,7 +147,7 @@ test('未打开预览也能在沉浸视图取在线词，关闭联网后不再�
   await entry(page).click();
   await expect(view(page).locator('[data-field="lyrics-status"]')).toHaveText('正在搜索歌词');
   held.release();
-  await expect(view(page).locator('.amll-lyric-player')).toContainText('所选句');
+  await expect(view(page).locator('[data-field="lyric-main"]')).toHaveText('所选句');
   await page.keyboard.press('Escape');
   await page.locator('[data-right-card-key="lyrics"]').click();
   await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('LRCLIB');
@@ -154,6 +155,7 @@ test('未打开预览也能在沉浸视图取在线词，关闭联网后不再�
   await panel(page).getByRole('switch', { name: '在线歌词' }).uncheck();
   await expect(panel(page)).toContainText('没有找到本地歌词');
   await entry(page).click();
+  await expect(view(page).locator('[data-field="lyric-main"]')).toHaveCount(0);
   await expect(view(page).locator('[data-field="lyrics-status"]')).toHaveCount(0);
   expect(env.errors).toEqual([]);
 });
@@ -161,7 +163,7 @@ test('未打开预览也能在沉浸视图取在线词，关闭联网后不再�
 test('切歌清除旧句并丢弃晚到内容，失败与纯文本保留对应状态，停播清空', async ({ page }) => {
   const env = await openLyrics(page);
   await entry(page).click();
-  await expect(view(page).locator('.amll-lyric-player')).toContainText('本地句');
+  await expect(view(page).locator('[data-field="lyric-main"]')).toHaveText('本地句');
   const held = env.host.hold('lyrics.get');
   for (const title of ['上一首', '新曲目']) {
     env.state.track = makeTrack({ path: `file://E:/${title}.flac`, title });
@@ -170,7 +172,7 @@ test('切歌清除旧句并丢弃晚到内容，失败与纯文本保留对应�
   }
   await expect.poll(() => held.pending.length).toBe(2);
   held.respond(1, localReply('[00:40]新曲歌词'));
-  await expect(view(page).locator('.amll-lyric-player')).toContainText('新曲歌词');
+  await expect(view(page).locator('[data-field="lyric-main"]')).toHaveText('新曲歌词');
   held.respond(0, localReply('[00:40]过期歌词'));
   await expect(view(page)).not.toContainText('过期歌词');
   held.release();
@@ -200,11 +202,11 @@ test('进入沉浸视图取消候选搜索；恢复预览后可继续查找', as
   await panel(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
   await expect.poll(() => held.pending.length).toBeGreaterThan(0);
   await entry(page).click();
-  await expect(view(page).locator('.amll-lyric-player')).toContainText('本地句');
+  await expect(view(page).locator('[data-field="lyric-main"]')).toHaveText('本地句');
   held.release();
   await expect(panel(page).getByRole('radio')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(view(page)).toHaveCount(0);
-  await expect(panel(page).locator('[data-lyrics-search]')).toBeVisible();
+  await expect(panel(page).getByRole('radio')).toHaveCount(1);
   expect(env.errors).toEqual([]);
 });

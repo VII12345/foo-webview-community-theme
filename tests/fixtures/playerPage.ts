@@ -70,12 +70,6 @@ export async function openPlayer(page: Page, options: OpenPlayerOptions = {}): P
   };
   const host = await installPageHost(page);
   options.onHost?.(host);
-  host.answer('lyrics.save', (params) => ({
-    success: true,
-    path: String(params['path']),
-    dispatched: true,
-    tagsApplied: { [String(params['tagName'] ?? 'LYRICS')]: String(params['lyrics'] ?? '') },
-  }));
   host.answer('playback.getState', () => ({
     success: true,
     state: state.state,

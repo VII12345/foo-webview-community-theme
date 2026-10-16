@@ -1,4 +1,3 @@
-import type { LyricLine as AmllLyricLine } from '@applemusic-like-lyrics/core';
 import type { LyricsDisplay } from '../../lyrics/lyricsDisplay.ts';
 import { atom, type Atom } from 'jotai/vanilla';
 import { playbackAtom } from '../../playback/playback.ts';
@@ -15,7 +14,6 @@ export const LYRIC_STATUS_MESSAGES = {
 export type LyricLogState = 'none' | 'plain' | 'synced' | keyof typeof LYRIC_STATUS_MESSAGES;
 
 interface LyricLine {
-  readonly raw: AmllLyricLine;
   /** 秒。 */
   readonly time: number;
   readonly end: number;
@@ -30,7 +28,6 @@ export interface LyricRows {
 }
 
 export interface LyricWindowLine {
-  readonly raw: AmllLyricLine;
   readonly time: number;
   readonly end: number;
   readonly text: string;
@@ -117,19 +114,6 @@ export const lyricCardAtom: Atom<LyricCardLines | null> = atom((get) => {
   return { main: current.text, sub: '', subKind: 'none' };
 });
 
-function emptyRawLine(startSeconds: number): AmllLyricLine {
-  const startTime = startSeconds * 1000;
-  return {
-    startTime,
-    endTime: startTime,
-    translatedLyric: '',
-    romanLyric: '',
-    isBG: false,
-    isDuet: false,
-    words: [],
-  };
-}
-
 function project(result: LyricsState): Loaded {
   if (result.status === 'loading')
     return { ...EMPTY, state: result.stage === 'online' ? 'searching' : 'loading' };
@@ -143,7 +127,6 @@ function project(result: LyricsState): Loaded {
   const main = content.lines.filter((line) => !line.isBG);
   const sorted = (main.length ? main : content.lines)
     .map((line) => ({
-      raw: line,
       time: line.startTime / 1000,
       end: line.endTime / 1000,
       text: line.words
@@ -157,7 +140,7 @@ function project(result: LyricsState): Loaded {
   const lines = sorted.flatMap((line, index) => {
     const next = sorted[index + 1];
     return next && line.end > line.time && line.end < next.time
-      ? [line, { raw: emptyRawLine(line.end), time: line.end, end: next.time, text: '', translation: '' }]
+      ? [line, { time: line.end, end: next.time, text: '', translation: '' }]
       : [line];
   });
   return {
