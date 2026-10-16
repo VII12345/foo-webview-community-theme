@@ -41,6 +41,12 @@ const httpLyrics = (
 function setup(enabled = false, withArchive = false) {
   const host = installFakeHost();
   host.answer('lyrics.get', { success: true, available: false, path: '' });
+  host.answer('lyrics.save', (params) => ({
+    success: true,
+    path: String(params['path']),
+    dispatched: true,
+    tagsApplied: { [String(params['tagName'] ?? 'LYRICS')]: String(params['lyrics']) },
+  }));
   host.answer('http.get', (params) => {
     const url = new URL(String(params['url']));
     return httpLyrics(url.searchParams.get('q') ?? url.searchParams.get('track_name') ?? '');
@@ -198,14 +204,27 @@ describe('当前曲目歌词', () => {
     const candidate = env.store.get(env.service.choices).candidates[0];
     if (!candidate) throw new Error('缺少候选');
     await env.service.choose(candidate, true);
-    const archiveKey = 'defaultTheme.lyrics.track.song-a';
-    await expect.poll(() => env.host.config.get(archiveKey)).toHaveProperty('selected');
+    const saved = env.host.callsTo('lyrics.save').at(-1);
+    expect(saved).toMatchObject({
+      path: target().handle,
+      target: ['embedded'],
+      tagName: 'SYNCED LYRICS',
+    });
+    expect(String(saved?.['lyrics'])).toContain('默认版本歌词');
+    env.host.answer('lyrics.get', {
+      success: true,
+      available: true,
+      source: 'embedded',
+      path: '',
+      lyrics: String(saved?.['lyrics'] ?? ''),
+      synced: true,
+    });
     env.service.refresh();
-    expect(env.state()).toMatchObject({ source: 'lrclib' });
+    await expect.poll(env.state).toMatchObject({ source: 'embedded' });
     await env.service.setOffset(2);
     expect(env.store.get(env.service.offset)).toBe(2);
     env.service.refresh();
-    expect(env.store.get(env.service.offset)).toBe(2);
+    await expect.poll(() => env.store.get(env.service.offset)).toBe(2);
     expect(env.service.seekTime(10)).toBe(12);
     expect(env.service.seekTime(119)).toBe(120);
     await env.service.setOffset(-3);
@@ -222,13 +241,11 @@ describe('当前曲目歌词', () => {
     const candidate = env.store.get(env.service.choices).candidates[0];
     if (!candidate) throw new Error('缺少候选');
     await env.service.choose(candidate, true);
-    const archiveKey = 'defaultTheme.lyrics.track.song-a';
-    await expect.poll(() => env.host.config.get(archiveKey)).toHaveProperty('selected');
-    const saving = env.host.hold('config.set');
+    const saved = env.host.callsTo('lyrics.save').at(-1);
+    expect(saved).toMatchObject({ path: target().handle, target: ['embedded'] });
     const fetching = env.host.hold('http.get');
     const restored = env.service.restoreAutomatic();
     await expect.poll(() => fetching.pending.length).toBe(1);
-    saving.respond(0, { success: true, key: archiveKey });
     await restored;
     fetching.respond(0, httpLyrics('a', '[00:01]恢复后的自动歌词'));
     await expect.poll(env.state).toMatchObject({

@@ -28,6 +28,12 @@ const track = (key: string, local = true): LyricsTrack => ({
 function setup(answer: Reply = found('[00:01.00]一')) {
   const host = installFakeHost();
   host.answer('lyrics.get', answer);
+  host.answer('lyrics.save', (params) => ({
+    success: true,
+    path: String(params['path']),
+    dispatched: true,
+    tagsApplied: { [String(params['tagName'] ?? 'LYRICS')]: String(params['lyrics']) },
+  }));
   const store = createStore();
   const current = atom<LyricsTrack | null>(null);
   const connected = atom(true);
@@ -50,7 +56,9 @@ describe('startLocalLyrics', () => {
     env.play(track('a.flac'));
     expect(env.state()).toStrictEqual({ status: 'loading', key: 'a.flac' });
     await flush();
-    expect(env.host.callsTo('lyrics.get')).toStrictEqual([{ path: 'E:/Music/a.flac' }]);
+    expect(env.host.callsTo('lyrics.get')).toStrictEqual([
+      { path: 'E:/Music/a.flac', source: 'embedded', type: 'any' },
+    ]);
     const state = env.state();
     expect(
       state.status === 'ready' && [state.source, state.sourcePath, state.content.kind],

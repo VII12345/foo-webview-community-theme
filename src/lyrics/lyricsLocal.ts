@@ -1,8 +1,9 @@
 import type { fb } from 'foo-webview-sdk/bridge';
-import { atom, type Atom } from 'jotai/vanilla';
 import { settle } from '../host/hostCall.ts';
+import { atom, type Atom } from 'jotai/vanilla';
 import type { Store } from '../kit/store.ts';
 import { parseLyricsText, type LyricsContent } from './lyricsText.ts';
+import { lyricsTagName, serializeLyricsContent } from './lyricsSerialize.ts';
 
 /** 取词要的那一首：由 `app/` 从正在播放的曲目换算后注入，本层不认播放服务。 */
 export interface LyricsTrack {
@@ -30,7 +31,9 @@ export type LocalLyricsState =
     };
 
 export interface LocalLyricsDeps {
-  readonly host: { readonly lyrics: Pick<typeof fb.lyrics, 'get'> };
+  readonly host: {
+    readonly lyrics: Pick<typeof fb.lyrics, 'get' | 'save'>;
+  };
   readonly track: Atom<LyricsTrack | null>;
   readonly connected: Atom<boolean>;
 }
@@ -38,6 +41,7 @@ export interface LocalLyricsDeps {
 export interface LocalLyricsService {
   readonly state: Atom<LocalLyricsState>;
   refresh(): void;
+  saveEmbedded(content: LyricsContent): Promise<boolean>;
   dispose(): void;
 }
 
@@ -55,7 +59,7 @@ export function startLocalLyrics(store: Store, deps: LocalLyricsDeps): LocalLyri
   let input: string | undefined;
 
   async function load(track: LyricsTrack, id: number): Promise<void> {
-    const answer = await settle(() => deps.host.lyrics.get(track.handle));
+    const answer = await settle(() => deps.host.lyrics.get(track.handle, { source: 'embedded', type: 'any' }));
     if (id !== generation) return;
     if (!answer || answer.success === false) {
       store.set(state, { status: 'failed', key: track.key });
@@ -109,6 +113,22 @@ export function startLocalLyrics(store: Store, deps: LocalLyricsDeps): LocalLyri
     refresh() {
       input = undefined;
       follow();
+    },
+    async saveEmbedded(content) {
+      const track = store.get(deps.track);
+      if (!track || !track.local) return false;
+      const text = serializeLyricsContent(content);
+      if (!text.trim()) return false;
+      const answer = await settle(() =>
+        deps.host.lyrics.save(track.handle, text, {
+          target: 'embedded',
+          tagName: lyricsTagName(content),
+        }),
+      );
+      if (!answer || answer.success === false || answer.dispatched !== true) return false;
+      input = undefined;
+      follow();
+      return true;
     },
     dispose() {
       disposed = true;
