@@ -1,7 +1,7 @@
 import type { LyricsContent } from '../lyricsText.ts';
 
 /** 在线来源的编号；存进偏好，已发布的不改名。 */
-export const LYRICS_SOURCE_IDS = ['lrclib', 'netease', 'kugou', 'ttmlDb', 'lrcmux'] as const;
+export const LYRICS_SOURCE_IDS = ['lrclib', 'netease', 'kugou', 'qq', 'ttmlDb', 'lrcmux'] as const;
 export type LyricsSourceId = (typeof LYRICS_SOURCE_IDS)[number];
 
 /** 拿去在线搜的那一首：只有这几项会发出去，不带路径。 */

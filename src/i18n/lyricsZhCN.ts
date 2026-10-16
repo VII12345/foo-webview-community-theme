@@ -61,6 +61,7 @@ export const lyricsZhCN = {
   'lyrics.source.lrclib': 'LRCLIB',
   'lyrics.source.netease': '网易云音乐',
   'lyrics.source.kugou': '酷狗音乐',
+  'lyrics.source.qq': 'QQ 音乐',
   'lyrics.source.ttmlDb': 'AMLL TTML DB',
   'lyrics.source.lrcmux': 'lrcmux',
   'lyrics.settings': '歌词设置',

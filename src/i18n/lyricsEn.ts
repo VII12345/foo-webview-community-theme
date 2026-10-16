@@ -61,6 +61,7 @@ export const lyricsEn = {
   'lyrics.source.lrclib': 'LRCLIB',
   'lyrics.source.netease': 'NetEase Music',
   'lyrics.source.kugou': 'Kugou Music',
+  'lyrics.source.qq': 'QQ Music',
   'lyrics.source.ttmlDb': 'AMLL TTML DB',
   'lyrics.source.lrcmux': 'lrcmux',
   'lyrics.settings': 'Lyrics settings',

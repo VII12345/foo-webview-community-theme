@@ -94,8 +94,8 @@ export function startLyricsPrefs(
         current.sources ??
         (enabled
           ? locale.toLowerCase().startsWith('zh')
-            ? ['netease', 'kugou', 'ttmlDb', 'lrclib', 'lrcmux']
-            : ['lrclib', 'ttmlDb', 'netease', 'kugou', 'lrcmux']
+            ? ['netease', 'kugou', 'qq', 'ttmlDb', 'lrclib', 'lrcmux']
+            : ['lrclib', 'ttmlDb', 'netease', 'kugou', 'qq', 'lrcmux']
           : null);
       return prefs.set(ONLINE_PREF, { version: 1, enabled, sources });
     },

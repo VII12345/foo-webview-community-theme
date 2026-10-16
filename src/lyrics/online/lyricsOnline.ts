@@ -4,6 +4,7 @@ import { createKugouSource } from './kugou.ts';
 import { createLrclibSource } from './lrclib.ts';
 import { createLrcmuxSource } from './lrcmux.ts';
 import { createNeteaseSource } from './netease.ts';
+import { createQqSource } from './qq.ts';
 import { createTtmlDbSource } from './ttmlDb.ts';
 import { searchOnline } from './lyricsSearch.ts';
 import type { LyricsQuery, LyricsSource } from './lyricsSource.ts';
@@ -14,6 +15,7 @@ export function createLyricsSources(host: LyricsHttpHost): LyricsSource[] {
     createLrclibSource(host),
     createNeteaseSource(host),
     createKugouSource(host),
+    createQqSource(host),
     createTtmlDbSource(host),
     createLrcmuxSource(host),
   ];
