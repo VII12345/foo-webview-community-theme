@@ -17,4 +17,7 @@ export const immersiveZhCN: Record<keyof typeof immersiveEn, string> = {
   'immersive.waveformLayers': '三频叠加',
   'immersive.waveformLanes': '三频分道',
   'immersive.waveformBandsFailed': '分频数据不可用，按全频显示',
+  'immersive.view': '沉浸视图',
+  'immersive.viewPaper': '图纸舞台',
+  'immersive.viewFocus': '聚焦视图',
 };

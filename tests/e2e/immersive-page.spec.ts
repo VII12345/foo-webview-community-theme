@@ -4,6 +4,19 @@ import { PLAYING_TRACK } from '../fixtures/playerPage.ts';
 
 // 正在播放全屏页的进出与舞台上的字：盖住整窗、曲目字段写出来，Esc 与胶囊都是后退。
 
+test('右上角可以切换聚焦视图，隐藏频谱并保持原图纸视图可恢复', async ({ page }) => {
+  const { view, errors } = await openImmersive(page);
+  await expect(view.locator('[data-tier][data-scene="paper"]')).toBeVisible();
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '聚焦视图', exact: true }).click();
+  await expect(view.locator('[data-tier][data-scene="focus"]')).toBeVisible();
+  await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(0);
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '图纸舞台', exact: true }).click();
+  await expect(view.locator('[data-tier][data-scene="paper"]')).toBeVisible();
+  await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(1);
+  expect(errors).toStrictEqual([]);
+});
 test('走到正在播放：整窗盖住，舞台写出曲名与艺术家，焦点收进这一层', async ({ page }) => {
   const { view, errors } = await openImmersive(page);
   await expect(view.locator('[data-field="title"]')).toHaveText(PLAYING_TRACK.title);

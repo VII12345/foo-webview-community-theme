@@ -31,7 +31,11 @@ import { useSceneSize } from './useSceneSize.ts';
  * 会压上来）→ 内容层。网格的护区取内容层里标了 `data-decor-guard` 的元素盒子（`useDecorGuards`），格线对齐
  * 内容层原点，三段弧随档位挪；舞台上格子、护区与弧跟着缩放，记号按网页版像素换算。
  */
-export function PaperScene() {
+export interface PaperSceneProps {
+  readonly variant?: 'paper' | 'focus';
+}
+
+export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
   const store = useStore();
   const root = useRef<HTMLDivElement>(null);
   const { width, height } = useSceneSize(root);
@@ -50,7 +54,7 @@ export function PaperScene() {
   useEffect(() => () => reportSceneTier(store, null), [store]);
 
   return (
-    <div ref={root} className={styles.paper} data-tier={tier} data-dark={dark || undefined}>
+    <div ref={root} className={styles.paper} data-tier={tier} data-scene={variant} data-dark={dark || undefined}>
       {wash && <PaperCoverWash />}
       {terrain && (
         <TerrainCanvas
@@ -68,7 +72,11 @@ export function PaperScene() {
         unit={stage ? scale : undefined}
       />
       {terrain && stage && <TerrainRuler />}
-      {stage ? <PaperStage scale={scale} origin={origin} /> : <PaperSheet geometry={geometry} />}
+      {stage ? (
+        <PaperStage scale={scale} origin={origin} variant={variant} />
+      ) : (
+        <PaperSheet geometry={geometry} variant={variant} />
+      )}
     </div>
   );
 }

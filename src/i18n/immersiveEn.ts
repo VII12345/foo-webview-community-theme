@@ -15,4 +15,7 @@ export const immersiveEn = {
   'immersive.waveformLayers': 'Three bands overlaid',
   'immersive.waveformLanes': 'Three bands in lanes',
   'immersive.waveformBandsFailed': 'No band data; showing the full band',
+  'immersive.view': 'Immersive view',
+  'immersive.viewPaper': 'Paper stage',
+  'immersive.viewFocus': 'Focus view',
 };

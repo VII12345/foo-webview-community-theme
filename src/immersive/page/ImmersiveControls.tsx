@@ -1,7 +1,9 @@
-import { Button, Tooltip } from '@fluentui/react-components';
-import { FullScreenMaximize20Regular, FullScreenMinimize20Regular } from '@fluentui/react-icons';
-import { useAtomValueRawSync } from 'jotai/react';
+import { Button, MenuItemRadio, MenuList, MenuPopover, MenuTrigger, Tooltip } from '@fluentui/react-components';
+import { FullScreenMaximize20Regular, FullScreenMinimize20Regular, Grid20Regular } from '@fluentui/react-icons';
+import { useAtomValueRawSync, useStore } from 'jotai/react';
+import { immersiveSceneAtom, chooseImmersiveScene, IMMERSIVE_SCENES, type ImmersiveScene } from './immersivePrefs.ts';
 import type { FocusEvent } from 'react';
+import { Menu } from '../../motion/Surfaces.tsx';
 import { translateAtom } from '../../i18n/locale.ts';
 import { hostFullscreenAtom, type ImmersiveShell } from './immersiveShell.ts';
 import styles from './ImmersiveControls.module.css';
@@ -20,6 +22,8 @@ export interface ImmersiveControlsProps {
  */
 export function ImmersiveControls({ shell, shown, onFocusWithin }: ImmersiveControlsProps) {
   const t = useAtomValueRawSync(translateAtom);
+  const store = useStore();
+  const scene = useAtomValueRawSync(immersiveSceneAtom);
   const fullscreen = useAtomValueRawSync(hostFullscreenAtom);
   const fullscreenLabel = fullscreen ? t('immersive.exitFullscreen') : t('immersive.fullscreen');
   // 只有键盘带来的焦点算：鼠标点过的键会一直留着焦点，算上的话控件层与光标就再也不藏了。
@@ -39,6 +43,27 @@ export function ImmersiveControls({ shell, shown, onFocusWithin }: ImmersiveCont
       onBlur={onBlur}
     >
       <div className={styles.corner}>
+        <Menu checkedValues={{ scene: [scene] }}>
+          <MenuTrigger disableButtonEnhancement>
+            <Tooltip content={t('immersive.view')} relationship="label">
+              <Button appearance="outline" size="small" shape="circular" icon={<Grid20Regular />} aria-label={t('immersive.view')} />
+            </Tooltip>
+          </MenuTrigger>
+          <MenuPopover>
+            <MenuList>
+              {IMMERSIVE_SCENES.map((value: ImmersiveScene) => (
+                <MenuItemRadio
+                  key={value}
+                  name="scene"
+                  value={value}
+                  onClick={() => chooseImmersiveScene(store, value)}
+                >
+                  {t(value === 'paper' ? 'immersive.viewPaper' : 'immersive.viewFocus')}
+                </MenuItemRadio>
+              ))}
+            </MenuList>
+          </MenuPopover>
+        </Menu>
         {fullscreen !== null && (
           <Tooltip content={fullscreenLabel} relationship="label">
             <Button

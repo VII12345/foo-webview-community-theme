@@ -12,6 +12,7 @@ import type { PaperGeometry } from './paperTiers.ts';
 export interface PaperSheetProps {
   /** 这一档的版心尺寸、位置与里面各块的排法（`paperTiers.ts`）。 */
   readonly geometry: PaperGeometry;
+  readonly variant?: 'paper' | 'focus';
 }
 
 /**
@@ -19,13 +20,14 @@ export interface PaperSheetProps {
  * 右栏里的声场是版心那一格（`PaperStereo`），歌词是三行日志（`LyricLog`）；频谱、整轨波形与量表与舞台共用同一批件，
  * 几何变量由右栏按版心档给。这一层不在舞台缩放的上下文里，canvas 件按缩放 1 开物理像素。
  */
-export function PaperSheet({ geometry }: PaperSheetProps) {
+export function PaperSheet({ geometry, variant = 'paper' }: PaperSheetProps) {
   const { origin, sheet, fields } = geometry;
   return (
     <div
       className={styles.sheet}
       style={{ left: origin.x, top: origin.y, width: sheet.width, height: sheet.height }}
       data-paper-content
+      data-scene={variant}
     >
       <PaperMarks crosses={geometry.crosses} pad={geometry.pad} />
       <PaperDial dial={geometry.dial} column={fields} />
@@ -34,7 +36,7 @@ export function PaperSheet({ geometry }: PaperSheetProps) {
         height={sheet.height - fields.y}
         slots={{
           stereo: <PaperStereo />,
-          spectrum: <PaperSpectrum />,
+          spectrum: variant === 'paper' ? <PaperSpectrum /> : null,
           waveform: <PaperWaveform />,
           gauges: <PaperGauges />,
           lyrics: <LyricLog />,

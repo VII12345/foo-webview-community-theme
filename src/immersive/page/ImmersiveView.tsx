@@ -15,6 +15,7 @@ import { reducedMotionAtom } from '../../motion/reducedMotion.ts';
 import { controlsVisibleAtom, type ImmersiveShell } from './immersiveShell.ts';
 import { attachImmersiveRoot } from './keyFocus.ts';
 import { PaperScene } from '../paper/PaperScene.tsx';
+import { immersiveSceneAtom } from './immersivePrefs.ts';
 import { PerfOverlay } from '../perf/PerfOverlay.tsx';
 import { ImmersiveControls } from './ImmersiveControls.tsx';
 import styles from './ImmersiveView.module.css';
@@ -58,6 +59,7 @@ function useViewMotion(root: RefObject<HTMLElement | null>, current: boolean): v
 export function ImmersiveView({ shell, current }: ImmersiveViewProps) {
   const t = useAtomValueRawSync(translateAtom);
   const controlsVisible = useAtomValueRawSync(controlsVisibleAtom);
+  const scene = useAtomValueRawSync(immersiveSceneAtom);
   const [controlsFocused, setControlsFocused] = useState(false);
   const root = useRef<HTMLElement>(null);
   const content = useRef<HTMLDivElement>(null);
@@ -97,7 +99,7 @@ export function ImmersiveView({ shell, current }: ImmersiveViewProps) {
     >
       <span className={styles.guard} tabIndex={0} aria-hidden onFocus={guard('start')} />
       <div ref={content} className={styles.content}>
-        <PaperScene />
+        {scene === 'paper' ? <PaperScene /> : <PaperScene variant="focus" />}
         <div className={styles.drag} aria-hidden />
         <ImmersiveControls shell={shell} shown={shown} onFocusWithin={setControlsFocused} />
         <PerfOverlay />

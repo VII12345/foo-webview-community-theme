@@ -42,11 +42,33 @@
 }
 
 /* 深色档染得淡一点、垫纸盖得厚一点。 */
-.paper[data-dark] {
+.paper[data-dark]:not([data-scene='focus']) {
   --paper-tint: color-mix(
     in oklab,
     var(--colorBrandForeground1) 8%,
     var(--colorNeutralBackground2)
   );
   --paper-pad: color-mix(in srgb, var(--paper-tint) 78%, transparent);
+}
+
+.paper[data-scene='focus'] {
+  --paper-pad: transparent;
+  background: transparent;
+}
+
+.paper[data-scene='focus'] :global([data-field-slot='spectrum']),
+.paper[data-scene='focus'] :global(.spectrum) {
+  display: none;
+}
+
+.paper[data-scene='focus'] :global([data-paper-content]) {
+  opacity: 0.92;
+}
+
+.paper[data-scene='focus'] :global([data-field='lyric-main']) {
+  font-size: 72px;
+}
+
+.paper[data-scene='focus'] :global([data-field='lyric-sub']) {
+  font-size: 42px;
 }

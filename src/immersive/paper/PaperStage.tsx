@@ -17,6 +17,7 @@ export interface PaperStageProps {
   readonly scale: number;
   /** 舞台左上角在场景里的位置，CSS 像素。 */
   readonly origin: { readonly x: number; readonly y: number };
+  readonly variant?: 'paper' | 'focus';
 }
 
 /**
@@ -26,7 +27,7 @@ export interface PaperStageProps {
  * 罗盘左区、右栏上半与仪表第一行、歌词卡各自按舞台坐标定位；频谱、整轨波形、量表与文件信息放进这里定位好的
  * 外框，外框上给全它们的几何变量（件里不写缺省，别的档在自己的外框上另给一套）。
  */
-export function PaperStage({ scale, origin }: PaperStageProps) {
+export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps) {
   const frame: CSSProperties = {
     left: origin.x,
     top: origin.y,
@@ -36,13 +37,15 @@ export function PaperStage({ scale, origin }: PaperStageProps) {
   };
   return (
     <StageScaleContext value={scale}>
-      <div className={styles.stage} style={frame} data-paper-content>
+      <div className={styles.stage} data-scene={variant} style={frame} data-paper-content>
         <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} />
         <StageDial />
         <StageFields stereo={<StageStereo />} />
-        <div className={`${styles.slot} ${styles.spectrum}`}>
-          <PaperSpectrum />
-        </div>
+        {variant === 'paper' && (
+          <div className={`${styles.slot} ${styles.spectrum}`} data-field-slot="spectrum">
+            <PaperSpectrum />
+          </div>
+        )}
         <div className={`${styles.slot} ${styles.waveform}`}>
           <PaperWaveform />
         </div>

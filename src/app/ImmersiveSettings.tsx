@@ -14,15 +14,19 @@ import {
   chooseImmersiveHostFullscreen,
   chooseImmersiveTerrain,
   chooseImmersiveWash,
+  chooseImmersiveScene,
   chooseWaveformMode,
   FPS_CAPS,
   immersiveFpsCapAtom,
   immersiveHostFullscreenAtom,
+  immersiveSceneAtom,
   immersiveTerrainAtom,
   immersiveWashAtom,
   IMMERSIVE_PREF_KEYS,
+  IMMERSIVE_SCENES,
   WASH_CHOICES,
   waveformModeAtom,
+  type ImmersiveScene,
   type WashChoice,
 } from '../immersive/page/immersivePrefs.ts';
 import {
@@ -50,6 +54,10 @@ const WAVEFORM_LABELS: Readonly<Record<WaveformMode, MessageKey>> = {
   layers: 'immersive.waveformLayers',
   lanes: 'immersive.waveformLanes',
 };
+const SCENE_LABELS: Readonly<Record<ImmersiveScene, MessageKey>> = {
+  paper: 'settings.immersiveViewPaper',
+  focus: 'settings.immersiveViewFocus',
+};
 
 /** 设置插槽只加载偏好；进入沉浸视图时仍由对应页面建立资源与全屏控制。 */
 export function ImmersiveSettings() {
@@ -60,6 +68,7 @@ export function ImmersiveSettings() {
   const wash = useAtomValueRawSync(immersiveWashAtom);
   const terrain = useAtomValueRawSync(immersiveTerrainAtom);
   const waveform = useAtomValueRawSync(waveformModeAtom);
+  const scene = useAtomValueRawSync(immersiveSceneAtom);
   const fps = useAtomValueRawSync(immersiveFpsCapAtom);
   const overlay = useAtomValueRawSync(perfOverlayEnabledAtom);
   useLayoutEffect(() => {
@@ -112,6 +121,24 @@ export function ImmersiveSettings() {
           )}
         </SettingsRow>
       </SettingsExpander>
+      <SettingsCard
+        icon={<Image20Regular />}
+        title={t('settings.immersiveView')}
+        field
+        feedback={<LocalSaveNotice keys={[IMMERSIVE_PREF_KEYS.scene]} />}
+      >
+        {(ids) => (
+          <SettingsSelect
+            {...ids}
+            value={scene}
+            options={IMMERSIVE_SCENES.map((value) => ({ value, label: t(SCENE_LABELS[value]) }))}
+            onChange={(value) => {
+              const next = IMMERSIVE_SCENES.find((item) => item === value);
+              if (next) chooseImmersiveScene(store, next);
+            }}
+          />
+        )}
+      </SettingsCard>
       <SettingsCard
         icon={<SoundWaveCircle20Regular />}
         title={t('immersive.waveformMode')}

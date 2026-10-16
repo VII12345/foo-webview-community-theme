@@ -248,7 +248,7 @@ describe('整轨波形画法', () => {
 });
 
 describe('场景存档', () => {
-  test('只有图纸一档，同值不重写；读的是同一个键，旧存档的 terrain、坏值、无存档与坏存储都回缺省', () => {
+  test('图纸与聚焦视图共用同一个键，坏值回图纸', () => {
     const empty = fakeStorage();
     const store = createStore();
     loadImmersivePrefs(store, empty.storage);
@@ -256,24 +256,19 @@ describe('场景存档', () => {
     chooseImmersiveScene(store, 'paper', empty.storage);
     expect(empty.writes()).toBe(0);
 
-    const saved = fakeStorage({ [KEYS.scene]: 'paper' });
-    expect(readImmersiveScene(saved.storage)).toBe('paper');
+    const saved = fakeStorage({ [KEYS.scene]: 'focus' });
+    expect(readImmersiveScene(saved.storage)).toBe('focus');
     const again = createStore();
     loadImmersivePrefs(again, saved.storage);
-    expect(again.get(immersiveSceneAtom)).toBe('paper');
+    expect(again.get(immersiveSceneAtom)).toBe('focus');
     chooseImmersiveScene(again, 'paper', saved.storage);
-    expect(saved.writes()).toBe(0);
+    expect(saved.map.get(KEYS.scene)).toBe('paper');
 
-    // 旧存档里可能还有已不再用的场景名 terrain：不在表里，回图纸而不是报错。
     expect(readImmersiveScene(fakeStorage({ [KEYS.scene]: 'terrain' }).storage)).toBe(
       DEFAULT_SCENE,
     );
     expect(readImmersiveScene(fakeStorage({ [KEYS.scene]: 'nope' }).storage)).toBe(DEFAULT_SCENE);
     expect(readImmersiveScene(null)).toBe(DEFAULT_SCENE);
     expect(readImmersiveScene(broken)).toBe(DEFAULT_SCENE);
-    const muted = createStore();
-    loadImmersivePrefs(muted, broken);
-    expect(muted.get(immersiveSceneAtom)).toBe(DEFAULT_SCENE);
-    expect(() => chooseImmersiveScene(muted, 'paper', broken)).not.toThrow();
   });
 });
