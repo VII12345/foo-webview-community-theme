@@ -31,11 +31,7 @@ function SyncedRows() {
               className={styles.text}
               style={{ fontFamily: lyricsFontFamily(display.fontFamily) }}
             >
-              {line && slot === 'current' ? (
-                <WordSyncedText words={line.words} text={line.text} />
-              ) : (
-                (line?.text ?? '')
-              )}
+              <WordSyncedText words={line?.words ?? []} text={line?.text ?? ''} />
             </span>
           </li>
         );
