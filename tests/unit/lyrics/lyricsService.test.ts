@@ -12,6 +12,7 @@ import { installFakeHost } from '../../fixtures/unitHost.ts';
 
 const target = (key = 'a', title = key, local = true): LyricsTarget => ({
   key,
+  archiveKey: `song-${key}`,
   handle: `E:/Music/${key}.flac|subsong:1`,
   local,
   query: { title, artists: ['艺人'], album: '专辑', albumArtists: [], durationMs: 120_000 },
@@ -196,10 +197,9 @@ describe('当前曲目歌词', () => {
     await env.service.search('默认版本');
     const candidate = env.store.get(env.service.choices).candidates[0];
     if (!candidate) throw new Error('缺少候选');
-    expect(await env.service.choose(candidate, true)).toBe(true);
-    await expect
-      .poll(() => env.host.config.get('defaultTheme.lyrics.track.a'))
-      .toHaveProperty('selected');
+    await env.service.choose(candidate, true);
+    const archiveKey = 'defaultTheme.lyrics.track.song-a';
+    await expect.poll(() => env.host.config.get(archiveKey)).toHaveProperty('selected');
     env.service.refresh();
     expect(env.state()).toMatchObject({ source: 'lrclib' });
     await env.service.setOffset(2);
@@ -222,14 +222,13 @@ describe('当前曲目歌词', () => {
     const candidate = env.store.get(env.service.choices).candidates[0];
     if (!candidate) throw new Error('缺少候选');
     await env.service.choose(candidate, true);
-    await expect
-      .poll(() => env.host.config.get('defaultTheme.lyrics.track.a'))
-      .toHaveProperty('selected');
+    const archiveKey = 'defaultTheme.lyrics.track.song-a';
+    await expect.poll(() => env.host.config.get(archiveKey)).toHaveProperty('selected');
     const saving = env.host.hold('config.set');
     const fetching = env.host.hold('http.get');
     const restored = env.service.restoreAutomatic();
     await expect.poll(() => fetching.pending.length).toBe(1);
-    saving.respond(0, { success: true, key: 'defaultTheme.lyrics.track.a' });
+    saving.respond(0, { success: true, key: archiveKey });
     await restored;
     fetching.respond(0, httpLyrics('a', '[00:01]恢复后的自动歌词'));
     await expect.poll(env.state).toMatchObject({

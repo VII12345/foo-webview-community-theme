@@ -18,6 +18,8 @@ import type { FoundLyrics } from './online/lyricsSearch.ts';
 import type { LyricsCandidate, LyricsQuery } from './online/lyricsSource.ts';
 
 export interface LyricsTarget extends LyricsTrack {
+  /** Path-free metadata identity used only for saved lyric preferences. */
+  readonly archiveKey: string | null;
   /** 网络流的曲名可在相同路径下变化，查询元数据也参与过期保护。 */
   readonly query: LyricsQuery;
 }
@@ -53,6 +55,7 @@ export interface LyricsService {
   readonly preview: Atom<LyricsCandidatePreview>;
   readonly offset: Atom<number>;
   readonly subject: Atom<string>;
+  readonly canRemember: Atom<boolean>;
   /** 为当前曲目保留一次预览取词需求，沿用已有来源设置，不刷新已经完成的结果。 */
   requestPreview(): void;
   candidate(id: string): LyricsCandidate | undefined;
@@ -144,7 +147,7 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
       store.set(state, { status: 'idle' });
       return;
     }
-    const preferred = chosen ?? (deps.archive ? store.get(deps.archive.selected) : null);
+    const preferred = chosen ?? (target.archiveKey && deps.archive ? store.get(deps.archive.selected) : null);
     if (preferred) {
       cancel();
       store.set(state, { ...preferred, key: target.key });
@@ -250,6 +253,7 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
     preview: session.preview,
     offset,
     subject,
+    canRemember: atom((get) => !!get(deps.track)?.archiveKey && !!deps.archive),
     requestPreview() {
       const current = store.get(subject);
       if (disposed || !current || previewInput === current) return;
@@ -267,9 +271,20 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
       const content = await session.previewCandidate(candidate, expected);
       if (!content || disposed || mine !== selection || expected !== store.get(subject))
         return false;
-      chosen = { status: 'ready', key: target.key, source: candidate.source, content, candidate };
+      chosen = {
+        status: 'ready',
+        key: target.key,
+        source: candidate.source,
+        content,
+        candidate,
+      };
       follow();
-      if (makeDefault && deps.archive) void deps.archive.select(target.key, chosen);
+      if (makeDefault && target.archiveKey && deps.archive) {
+        void deps.archive.select(target.archiveKey, target.key, {
+          ...chosen,
+          key: target.archiveKey,
+        });
+      }
       return true;
     },
     async restoreAutomatic() {
@@ -280,14 +295,18 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
       cancel();
       input = '';
       outcome = null;
-      const saved = deps.archive ? await deps.archive.select(target.key, null) : true;
+      const saved =
+        target.archiveKey && deps.archive
+          ? await deps.archive.select(target.archiveKey, target.key, null)
+          : true;
       if (!disposed) follow();
       return saved;
     },
     setOffset(seconds) {
       const current = store.get(state);
-      return current.status === 'ready' && deps.archive
-        ? deps.archive.setOffset(current.key, lyricsVersion(current), seconds)
+      const target = store.get(deps.track);
+      return current.status === 'ready' && target?.archiveKey && deps.archive
+        ? deps.archive.setOffset(target.archiveKey, target.key, lyricsVersion(current), seconds)
         : Promise.resolve(false);
     },
     seekTime(seconds) {

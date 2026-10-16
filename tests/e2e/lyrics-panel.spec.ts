@@ -473,7 +473,7 @@ test('全部整理与渲染参数落盘，保存失败保留当前值并可重�
   expect(env.errors).toEqual([]);
 });
 
-test('搜索入口打开候选选择器，选择在线歌词覆盖当前本地词但不写文件', async ({ page }) => {
+test('搜索入口打开候选选择器，选择在线歌词覆盖当前本地词并记住选择', async ({ page }) => {
   const env = await openLyrics(page);
   onlineReplies(env);
   await panel(page).hover();
@@ -501,12 +501,14 @@ test('搜索入口打开候选选择器，选择在线歌词覆盖当前本地�
   expect(new URL(String(lrclib?.['url'])).searchParams.get('q')).toBe(
     [env.state.track?.title, env.state.track?.artist].filter(Boolean).join(' '),
   );
-  await candidate.hover();
-  await candidate.getByRole('button', { name: '使用', exact: true }).click();
+  await candidate.getByRole('button', { name: '使用并记住', exact: true }).click();
   await expect(search).toHaveCount(0);
   await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('LRCLIB');
   await expect(lyricsPlayer(page).getByText('在线第一句', { exact: true })).toBeVisible();
   expect(env.host.callsTo('lyrics.save')).toHaveLength(0);
+  const saved = env.host.callsTo('config.set').at(-1);
+  expect(saved?.['key']).toMatch(/^defaultTheme\.lyrics\.track\.metadata-v1%3A/);
+  expect(JSON.stringify(saved?.['value'])).not.toContain(env.state.track?.path);
   await expect(panel(page).getByRole('button', { name: '搜索歌词', exact: true })).toBeVisible();
   expect(env.errors).toEqual([]);
 });
@@ -572,7 +574,7 @@ test('右卡历史独立、页签位置固定，候选预览与使用分开', as
   await page.keyboard.press('Alt+ArrowLeft');
   await expect(search).toBeVisible();
   await expect(search.getByRole('textbox')).not.toHaveValue('');
-  await page.keyboard.press('Alt+ArrowRight');
+  await candidate.getByRole('button', { name: '歌词预览', exact: true }).click();
   await expect(panel(page).locator('[data-lyrics-candidate-preview]')).toBeVisible();
   await panel(page).getByRole('checkbox', { name: '设为本曲目的默认歌词' }).check();
   await panel(page).getByRole('button', { name: '使用歌词', exact: true }).click();
@@ -599,9 +601,9 @@ test('显示面板与设置同步，校正应用于句首跳转且返回不重�
   await expect(settings.getByRole('spinbutton', { name: '字号 (px)', exact: true })).toHaveValue(
     '30',
   );
-  await page.keyboard.press('Escape');
-  await panel(page).hover();
-  await panel(page).getByRole('button', { name: '更多歌词操作' }).click();
+  await panel(page).getByRole('button', { name: '显示', exact: true }).click();
+  await expect(page.locator('[data-right-card-surface]')).toHaveCount(0);
+  await panel(page).getByRole('button', { name: '更多歌词操作' }).click({ force: true });
   await page.getByRole('menuitem', { name: '时间校正', exact: true }).click();
   const timing = panel(page).locator('[data-lyrics-timing]');
   const offset = timing.getByRole('spinbutton', { name: '延后时间 (秒)' });

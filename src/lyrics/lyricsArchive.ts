@@ -258,11 +258,7 @@ export function startLyricsArchive(
   let disposed = false;
   function follow() {
     const target = store.get(track);
-    const key = target
-      ? target.local
-        ? target.key
-        : JSON.stringify([target.key, target.query])
-      : undefined;
+    const key = target?.archiveKey ?? undefined;
     if (!key) {
       store.set(current, null);
       return;
@@ -298,8 +294,14 @@ export function startLyricsArchive(
       await Promise.all([...entries.values()].map((entry) => entry.persistence.settled()));
     },
   };
-  async function update(key: string, change: (value: typeof EMPTY) => typeof EMPTY) {
-    const entry = store.get(track)?.key === key ? store.get(current) : null;
+  async function update(
+    archiveKey: string,
+    runtimeKey: string,
+    change: (value: typeof EMPTY) => typeof EMPTY,
+  ) {
+    const target = store.get(track);
+    const entry =
+      target?.archiveKey === archiveKey && target.key === runtimeKey ? store.get(current) : null;
     if (disposed || !entry) return false;
     return entry.save(change);
   }
@@ -308,12 +310,16 @@ export function startLyricsArchive(
     record,
     persistence,
     selected: atom((get) => readSavedLyrics(get(selectedText))),
-    select(key: string, lyrics: LyricsReady | null) {
-      return update(key, (value) => ({ ...value, selected: lyrics ? JSON.stringify(lyrics) : '' }));
+    select(archiveKey: string, runtimeKey: string, lyrics: LyricsReady | null) {
+      const saved = lyrics ? { ...lyrics, key: archiveKey } : null;
+      return update(archiveKey, runtimeKey, (value) => ({
+        ...value,
+        selected: saved ? JSON.stringify(saved) : '',
+      }));
     },
-    setOffset(key: string, version: string, offset: number) {
+    setOffset(archiveKey: string, runtimeKey: string, version: string, offset: number) {
       if (!Number.isFinite(offset)) return Promise.resolve(false);
-      return update(key, (value) => ({
+      return update(archiveKey, runtimeKey, (value) => ({
         ...value,
         offsets: { ...value.offsets, [version]: Math.min(600, Math.max(-600, offset)) },
       }));

@@ -39,6 +39,7 @@ export interface OpenPlayerOptions {
   readonly state?: Partial<PlayerHostState>;
   /** 换成 `appHarnessEntry.ts` 这个入口，运行中能用 `switchPreference` 改偏好。 */
   readonly harness?: boolean;
+  readonly onHost?: (host: PageHost) => void;
 }
 
 const HARNESS_ENTRY = "import '/tests/fixtures/appHarnessEntry.ts';";
@@ -68,6 +69,7 @@ export async function openPlayer(page: Page, options: OpenPlayerOptions = {}): P
     ...options.state,
   };
   const host = await installPageHost(page);
+  options.onHost?.(host);
   host.answer('playback.getState', () => ({
     success: true,
     state: state.state,

@@ -89,6 +89,18 @@
   --header-background-scroll: 0;
 }
 
+.card:has([data-player-page]) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.card:has([data-player-page]) > [data-reading-surface] {
+  display: none;
+}
+
 .card:not([data-with-nav-row]):has([data-cover-glow]) {
   padding-top: 0;
 }

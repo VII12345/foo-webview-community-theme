@@ -38,6 +38,7 @@ export function LyricsDetailPage({
   const state = useAtomValueRawSync(service.state);
   const preview = useAtomValueRawSync(service.preview);
   const offset = useAtomValueRawSync(service.offset);
+  const canRemember = useAtomValueRawSync(service.canRemember);
   const displayService = useService(lyricsDisplayKey);
   const display = useAtomValueRawSync(displayService.display);
   const motionService = useService(lyricsMotionKey);
@@ -107,8 +108,9 @@ export function LyricsDetailPage({
         </div>
         <footer>
           <Checkbox
-            label={t('lyrics.remember')}
-            checked={remember}
+            label={t(canRemember ? 'lyrics.remember' : 'lyrics.rememberUnavailable')}
+            disabled={!canRemember}
+            checked={remember && canRemember}
             onChange={(_, data) => setRemember(data.checked === true)}
           />
           <Button

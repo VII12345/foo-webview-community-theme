@@ -49,7 +49,9 @@ export function LyricsSearch({
   const controls = useViewControlStyles();
   const service = useService(lyricsKey);
   const result = useAtomValueRawSync(service.choices);
+  const currentLyrics = useAtomValueRawSync(service.state);
   const subject = useAtomValueRawSync(service.subject);
+  const canRemember = useAtomValueRawSync(service.canRemember);
   const [keywords, setKeywords] = useState(
     result.keywords || [title, artist].filter(Boolean).join(' '),
   );
@@ -175,6 +177,10 @@ export function LyricsSearch({
         )}
         {result.candidates.map((candidate) => {
           const id = lyricsCandidateId(candidate);
+          const chosen =
+            currentLyrics.status === 'ready' &&
+            currentLyrics.candidate !== undefined &&
+            lyricsCandidateId(currentLyrics.candidate) === id;
           const kind = !candidate.content
             ? candidate.contentStatus === 'loading'
               ? 'loading'
@@ -202,6 +208,7 @@ export function LyricsSearch({
               />
               <div className={styles.heading}>
                 <strong>{candidate.title}</strong>
+                {chosen && <span className={styles.chosen}>{t('lyrics.selected')}</span>}
                 <Tooltip content={t('lyrics.preview')} relationship="label">
                   <Button
                     size="small"
@@ -261,14 +268,14 @@ export function LyricsSearch({
                     disabled={!!using}
                     onClick={() => {
                       setUsing(id);
-                      void service.choose(candidate, false, subject).then((used) => {
+                      void service.choose(candidate, true, subject).then((used) => {
                         if (!mounted.current) return;
                         setUsing('');
                         if (used) onUsed();
                       });
                     }}
                   >
-                    {using === id ? t('lyrics.loading') : t('lyrics.use')}
+                    {using === id ? t('lyrics.loading') : canRemember ? t(chosen ? 'lyrics.selected' : 'lyrics.use') : t('lyrics.useTemporarily')}
                   </Button>
                 </div>
               </div>

@@ -7,6 +7,7 @@ import { historyAtom } from '../nav/navHistory.ts';
 import { startLocalLyrics } from '../lyrics/lyricsLocal.ts';
 import { startLyricsMotion } from '../lyrics/lyricsMotion.ts';
 import { startLyricsArchive } from '../lyrics/lyricsArchive.ts';
+import { lyricsArchiveKey } from '../lyrics/lyricsArchiveKey.ts';
 import { startLyricsDisplay } from '../lyrics/lyricsDisplay.ts';
 import { startLyricsPrefs } from '../lyrics/lyricsPrefs.ts';
 import { startLyrics, type LyricsTarget } from '../lyrics/lyricsService.ts';
@@ -42,6 +43,7 @@ export function startLyricsIntegration(
     if (!current) return null;
     return {
       key: trackKeyOf(current),
+      archiveKey: lyricsArchiveKey(current),
       handle: current.handle,
       local: isLocalMedia(current.path),
       query: {

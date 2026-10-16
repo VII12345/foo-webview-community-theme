@@ -7,6 +7,7 @@ import {
   Home20Regular,
   Mic20Regular,
   MusicNote120Regular,
+  PlayCircle20Regular,
   Settings20Regular,
 } from '@fluentui/react-icons';
 import type { SidebarItemId } from '../../nav/sidebar/sidebarNav.ts';
@@ -17,6 +18,7 @@ const ICONS = {
   artists: Mic20Regular,
   albums: Album20Regular,
   songs: MusicNote120Regular,
+  player: PlayCircle20Regular,
   genres: Guitar20Regular,
   folders: Folder20Regular,
   playlists: Grid20Regular,

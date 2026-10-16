@@ -11,7 +11,7 @@ import {
 
 describe('sidebar nav', () => {
   it('每一项去一个一级地点，顶部只有首页；资料库六项', () => {
-    expect(TOP_ITEMS.map((item) => item.place)).toEqual(['home']);
+    expect(TOP_ITEMS.map((item) => item.place)).toEqual(['home', 'player']);
     expect(LIBRARY_ITEMS.map((item) => item.place)).toEqual([
       'recent',
       'artists',
@@ -26,6 +26,7 @@ describe('sidebar nav', () => {
   it('首页、艺人、专辑、歌曲、流派、文件夹与设置上线，其余置灰', () => {
     expect(SIDEBAR_ITEMS.filter((item) => item.ready).map((item) => item.id)).toEqual([
       'home',
+      'player',
       'artists',
       'albums',
       'songs',
