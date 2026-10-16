@@ -42,6 +42,46 @@ async function openLyricsSettings(page: Page) {
   await page.getByRole('menuitem', { name: '歌词设置', exact: true }).click();
 }
 
+/**
+ * 让宿主替身照真实宿主那样处理歌词写入：`lyrics.save` 派发并回一条 `metadata:writeComplete`，
+ * 写进去的正文按 handle 记下；`lyrics.get` 对写过的曲目回读文件里的那份，没写过的用 `fallback`。
+ */
+function tagWrites(env: PlayerPage, fallback: () => unknown) {
+  const written = new Map<string, string>();
+  env.host.answer('lyrics.save', (params) => {
+    const path = String(params['path'] ?? '');
+    const subsong = Number(params['subsong'] ?? 0);
+    written.set(path, String(params['lyrics'] ?? ''));
+    void env.host.emit('metadata:writeComplete', {
+      operation: 'write',
+      path,
+      subsong,
+      code: 0,
+      success: true,
+      status: 'success',
+    });
+    return {
+      success: true,
+      path,
+      handlePath: path,
+      subsong,
+      dispatched: true,
+      tagsApplied: { [String(params['tagName'] ?? 'LYRICS')]: String(params['lyrics'] ?? '') },
+      tagsSet: 1,
+    };
+  });
+  env.host.answer('lyrics.get', (params) => {
+    const path = String(params['path'] ?? '');
+    // 保存与读取可能一个带 `file://`、一个不带：按文件名归一，写过的曲目一律回读文件里的那份。
+    const name = path.split(/[\\/]/).pop();
+    const hit = [...written.entries()].find(([key]) => key.split(/[\\/]/).pop() === name);
+    return hit
+      ? { success: true, available: true, source: 'embedded', path, lyrics: hit[1], synced: true }
+      : (fallback() as never);
+  });
+  return written;
+}
+
 function onlineReplies(env: PlayerPage) {
   env.host.answer('http.get', (params) => {
     const url = new URL(String(params['url']));
@@ -475,6 +515,14 @@ test('全部整理与渲染参数落盘，保存失败保留当前值并可重�
 
 test('搜索入口打开候选选择器，选择在线歌词覆盖当前本地词并记住选择', async ({ page }) => {
   const env = await openLyrics(page);
+  const written = tagWrites(env, () => ({
+    success: true,
+    available: true,
+    source: 'embedded',
+    path: '',
+    lyrics: LOCAL,
+    synced: true,
+  }));
   onlineReplies(env);
   await panel(page).hover();
   await panel(page).getByRole('switch', { name: '在线歌词' }).check();
@@ -507,10 +555,11 @@ test('搜索入口打开候选选择器，选择在线歌词覆盖当前本地�
   await expect(search).toHaveCount(0);
   await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('LRCLIB');
   await expect(lyricsPlayer(page).getByText('在线第一句', { exact: true })).toBeVisible();
-  expect(env.host.callsTo('lyrics.save')).toHaveLength(0);
-  const saved = env.host.callsTo('config.set').at(-1);
-  expect(saved?.['key']).toMatch(/^defaultTheme\.lyrics\.track\.metadata-v1%3A/);
-  expect(JSON.stringify(saved?.['value'])).not.toContain(env.state.track?.path);
+  // 本地曲目：选择写进文件的内嵌歌词标签，写的是这份带时间轴的词。
+  const save = env.host.callsTo('lyrics.save').at(-1);
+  expect(String(save?.['path'])).toContain('01 Feather.flac');
+  expect(String(save?.['tagName'])).toBe('SYNCED LYRICS');
+  await expect.poll(() => [...written.values()].join('\n')).toContain('在线第一句');
   await expect(panel(page).getByRole('button', { name: '搜索歌词', exact: true })).toBeVisible();
   expect(env.errors).toEqual([]);
 });
@@ -555,6 +604,14 @@ test('单框搜索处理中文组词、清空和失败，窄窗返回保留预�
 
 test('右卡历史独立、页签位置固定，候选预览与使用分开', async ({ page }) => {
   const env = await openLyrics(page);
+  tagWrites(env, () => ({
+    success: true,
+    available: true,
+    source: 'embedded',
+    path: '',
+    lyrics: LOCAL,
+    synced: true,
+  }));
   onlineReplies(env);
   const tabs = page.getByRole('tablist', { name: '面板分页' });
   const before = await tabs.boundingBox();
@@ -581,8 +638,10 @@ test('右卡历史独立、页签位置固定，候选预览与使用分开', as
   await panel(page).getByRole('checkbox', { name: '设为本曲目的默认歌词' }).check();
   await panel(page).getByRole('button', { name: '使用歌词', exact: true }).click();
   await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('LRCLIB');
+  // 本地曲目：选择写进文件标签，重读读回的就是文件里那份（来源变成内嵌歌词），内容仍是在线选的那份。
   await panel(page).getByRole('button', { name: '重新读取歌词' }).click();
-  await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('LRCLIB');
+  await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('内嵌歌词');
+  await expect(lyricsPlayer(page).getByText('在线第一句', { exact: true })).toBeVisible();
   await expect(page.locator('[data-right-card-back], [data-right-card-forward]')).toHaveCount(0);
   expect(env.host.callsTo('playback.setPosition')).toHaveLength(0);
   expect(env.errors).toEqual([]);

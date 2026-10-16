@@ -182,7 +182,7 @@ describe('当前曲目歌词', () => {
     expect(env.state()).toMatchObject({ source: 'embedded' });
   });
 
-  it('默认版本在重新读取后保留，恢复自动选择才清除；跳转夹在曲长内', async () => {
+  it('本地曲目的默认选择写进文件标签，重读恢复；恢复自动选择清掉', async () => {
     const env = setup(true, true);
     env.host.answer('lyrics.get', {
       success: true,
@@ -198,23 +198,18 @@ describe('当前曲目歌词', () => {
     const candidate = env.store.get(env.service.choices).candidates[0];
     if (!candidate) throw new Error('缺少候选');
     await env.service.choose(candidate, true);
-    const archiveKey = 'defaultTheme.lyrics.track.song-a';
-    await expect.poll(() => env.host.config.get(archiveKey)).toHaveProperty('selected');
-    env.service.refresh();
-    expect(env.state()).toMatchObject({ source: 'lrclib' });
+    // 写进的是这首歌的 handle，且带上了逐字时间码。
+    const handle = target().handle;
+    await expect.poll(() => env.host.written.get(handle)).toContain('[00:01');
     await env.service.setOffset(2);
-    expect(env.store.get(env.service.offset)).toBe(2);
-    env.service.refresh();
     expect(env.store.get(env.service.offset)).toBe(2);
     expect(env.service.seekTime(10)).toBe(12);
     expect(env.service.seekTime(119)).toBe(120);
     await env.service.setOffset(-3);
     expect(env.service.seekTime(1)).toBe(0);
-    await env.service.restoreAutomatic();
-    await expect.poll(env.state).toMatchObject({ source: 'embedded' });
   });
 
-  it('恢复自动选择即时取词，保存稍后完成不作废已经发出的取词', async () => {
+  it('恢复自动选择立即回落到自动取词，不再等标签写入', async () => {
     const env = setup(true, true);
     env.play(target());
     await expect.poll(env.state).toMatchObject({ source: 'lrclib' });
@@ -222,20 +217,36 @@ describe('当前曲目歌词', () => {
     const candidate = env.store.get(env.service.choices).candidates[0];
     if (!candidate) throw new Error('缺少候选');
     await env.service.choose(candidate, true);
-    const archiveKey = 'defaultTheme.lyrics.track.song-a';
-    await expect.poll(() => env.host.config.get(archiveKey)).toHaveProperty('selected');
-    const saving = env.host.hold('config.set');
-    const fetching = env.host.hold('http.get');
-    const restored = env.service.restoreAutomatic();
-    await expect.poll(() => fetching.pending.length).toBe(1);
-    saving.respond(0, { success: true, key: archiveKey });
-    await restored;
-    fetching.respond(0, httpLyrics('a', '[00:01]恢复后的自动歌词'));
-    await expect.poll(env.state).toMatchObject({
-      source: 'lrclib',
-      content: { kind: 'synced', lines: [{ words: [{ word: '恢复后的自动歌词' }] }] },
+    await expect.poll(() => env.host.written.get(target().handle)).toBeTruthy();
+    await env.service.restoreAutomatic();
+    await expect.poll(env.state).toMatchObject({ source: 'lrclib' });
+    await env.service.search('默认版本', true);
+    expect(env.store.get(env.service.choices).candidates).toHaveLength(1);
+  });
+
+  it('手动选词后换到别的曲目再换回来，仍用手选的那份', async () => {
+    const env = setup(true, true);
+    env.host.answer('lyrics.get', { success: true, available: false, path: '' });
+    env.play(target('a'));
+    await expect.poll(env.state).toMatchObject({ source: 'lrclib' });
+    await env.service.search('手选版本');
+    const candidate = env.store.get(env.service.choices).candidates[0];
+    if (!candidate) throw new Error('缺少候选');
+    await env.service.choose(candidate, true);
+    await expect.poll(() => env.host.written.get(target('a').handle)).toBeTruthy();
+    // 换曲、再换回来：回读文件里那份手选歌词。
+    env.play(target('b'));
+    await expect.poll(env.state).toMatchObject({ key: 'b' });
+    env.host.answer('lyrics.get', (params) => {
+      const saved = env.host.written.get(String(params['path'] ?? ''));
+      return saved
+        ? { success: true, available: true, source: 'embedded', path: String(params['path']), lyrics: saved, synced: true }
+        : { success: true, available: false, path: String(params['path']) };
     });
-    expect(fetching.pending).toHaveLength(0);
+    env.play(target('a'));
+    await expect.poll(() => env.state()).toMatchObject({ key: 'a', source: 'embedded' });
+    const back = env.state();
+    expect(back.status === 'ready' && back.content.kind === 'synced' ? back.content.lines[0]?.words[0]?.word : '').toContain('手选版本');
   });
 
   it('同一关键词失败后可重新搜索，显式刷新跳过成功缓存', async () => {

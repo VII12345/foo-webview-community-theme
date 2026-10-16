@@ -42,7 +42,7 @@ export interface LyricsDeps {
   readonly connected: Atom<boolean>;
   readonly active: Atom<boolean>;
   readonly visible?: Atom<boolean>;
-  readonly local: Pick<LocalLyricsService, 'state' | 'refresh'>;
+  readonly local: Pick<LocalLyricsService, 'state' | 'refresh' | 'saveEmbedded'>;
   readonly prefs: Pick<LyricsPrefsService, 'pref'>;
   readonly archive?: LyricsArchive;
 }
@@ -274,6 +274,20 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
       const content = await session.previewCandidate(candidate, expected);
       if (!content || disposed || mine !== selection || expected !== store.get(subject))
         return false;
+      // 本地文件把选中的这份写进标签；写成功后不再用内存 chos，重读文件即恢复。非本地退回存档。
+      if (makeDefault && target.local) {
+        const saved = await deps.local.saveEmbedded(content);
+        if (disposed || mine !== selection || expected !== store.get(subject)) return false;
+        if (!saved) return false;
+      } else if (makeDefault && target.archiveKey && deps.archive) {
+        void deps.archive.select(target.archiveKey, target.key, {
+          status: 'ready',
+          key: target.archiveKey,
+          source: candidate.source,
+          content,
+          candidate,
+        });
+      }
       chosen = {
         status: 'ready',
         key: target.key,
@@ -282,12 +296,6 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
         candidate,
       };
       follow();
-      if (makeDefault && target.archiveKey && deps.archive) {
-        void deps.archive.select(target.archiveKey, target.key, {
-          ...chosen,
-          key: target.archiveKey,
-        });
-      }
       return true;
     },
     async chooseLocal(makeDefault = false, expected = store.get(subject)) {
@@ -300,14 +308,18 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
         local.key !== target.key
       )
         return false;
-      chosen = local;
-      follow();
-      if (makeDefault && target.archiveKey && deps.archive) {
+      if (makeDefault && target.local) {
+        const saved = await deps.local.saveEmbedded(local.content);
+        if (disposed || expected !== store.get(subject)) return false;
+        if (!saved) return false;
+      } else if (makeDefault && target.archiveKey && deps.archive) {
         void deps.archive.select(target.archiveKey, target.key, {
           ...local,
           key: target.archiveKey,
         });
       }
+      chosen = local;
+      follow();
       return true;
     },
     async restoreAutomatic() {

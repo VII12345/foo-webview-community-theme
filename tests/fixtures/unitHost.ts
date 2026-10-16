@@ -56,8 +56,37 @@ export class UnitHost extends FakeHost {
       this.arrive = resolve;
     });
     this.fb = { ...fb, isAvailable: () => this.available, ready: () => this.arrived };
+    // 缺省的 `lyrics.save`：照真实宿主那样先派发，再推一条 `metadata:writeComplete` 报成功，
+    // 并把正文按 handle 记进 `written`，测试据此验证写入与回读的往返。
+    this.answer('lyrics.save', (params) => {
+      const path = String(params['path'] ?? '');
+      const subsong = Number(params['subsong'] ?? 0);
+      this.written.set(path, String(params['lyrics'] ?? ''));
+      queueMicrotask(() =>
+        this.emit('metadata:writeComplete', {
+          operation: 'write',
+          path,
+          subsong,
+          code: 0,
+          success: true,
+          status: 'success',
+        }),
+      );
+      return {
+        success: true,
+        path,
+        handlePath: path,
+        subsong,
+        dispatched: true,
+        tagsApplied: { [String(params['tagName'] ?? 'LYRICS')]: String(params['lyrics'] ?? '') },
+        tagsSet: 1,
+      };
+    });
     if (options.available !== false) this.connect();
   }
+
+  /** `lyrics.save` 记下的内嵌标签正文，按 handle。测试用它验证写入的往返。 */
+  readonly written = new Map<string, string>();
 
   /** 宿主到了：放上原生桥，`isAvailable()` 转真，`ready()` 完成。之前的订阅不会补上，与 SDK 一致。 */
   connect(): void {

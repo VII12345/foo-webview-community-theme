@@ -1,7 +1,10 @@
+import type { MetadataWriteCompletePayload } from 'foo-webview-sdk';
 import type { fb } from 'foo-webview-sdk/bridge';
 import { atom, type Atom } from 'jotai/vanilla';
 import { settle } from '../host/hostCall.ts';
+import { normalizeHostPath } from '../host/hostPath.ts';
 import type { Store } from '../kit/store.ts';
+import { lyricsTagName, serializeLyricsContent } from './lyricsSerialize.ts';
 import { parseLyricsText, type LyricsContent } from './lyricsText.ts';
 
 /** 取词要的那一首：由 `app/` 从正在播放的曲目换算后注入，本层不认播放服务。 */
@@ -30,7 +33,14 @@ export type LocalLyricsState =
     };
 
 export interface LocalLyricsDeps {
-  readonly host: { readonly lyrics: Pick<typeof fb.lyrics, 'get'> };
+  readonly host: {
+    readonly lyrics: Pick<typeof fb.lyrics, 'get' | 'save'>;
+    /** 订 `metadata:writeComplete`，等标签真的落盘再算写成。 */
+    on(
+      event: 'metadata:writeComplete',
+      handler: (payload: MetadataWriteCompletePayload) => void,
+    ): () => void;
+  };
   readonly track: Atom<LyricsTrack | null>;
   readonly connected: Atom<boolean>;
 }
@@ -38,6 +48,8 @@ export interface LocalLyricsDeps {
 export interface LocalLyricsService {
   readonly state: Atom<LocalLyricsState>;
   refresh(): void;
+  /** 把一份歌词写进音频文件的内嵌标签；只在本地文件、且宿主确认落盘后兑现 true。 */
+  saveEmbedded(content: LyricsContent): Promise<boolean>;
   dispose(): void;
 }
 
@@ -109,6 +121,57 @@ export function startLocalLyrics(store: Store, deps: LocalLyricsDeps): LocalLyri
     refresh() {
       input = undefined;
       follow();
+    },
+    /**
+     * 写标签是异步派发：`lyrics.save` 答 `dispatched` 只说明已排队，结果走 `metadata:writeComplete`。
+     * 这里派发后等这条事件（按路径+分轨对上），再重读这首歌让界面用上文件里的新词。宿主没实现事件时
+     * 以派发本身为准，不把已排队的写入判成失败。写完让 `follow` 重读，绕过 `lyrics.get` 的短缓存。
+     */
+    async saveEmbedded(content) {
+      const track = store.get(deps.track);
+      if (disposed || !track || !track.local) return false;
+      const text = serializeLyricsContent(content);
+      if (!text.trim()) return false;
+      const handle = track.handle;
+      const subsong = Number(/\|subsong:(\d+)/.exec(handle)?.[1] ?? 0);
+      let resolveWritten: (ok: boolean) => void = () => {};
+      const written = new Promise<boolean>((resolve) => {
+        resolveWritten = resolve;
+      });
+      let off: (() => void) | undefined = deps.host.on('metadata:writeComplete', (payload) => {
+        if (
+          payload.operation === 'write' &&
+          normalizeHostPath(payload.path) === normalizeHostPath(handle) &&
+          payload.subsong === subsong
+        )
+          resolveWritten(payload.success);
+      });
+      const timer = setTimeout(() => resolveWritten(true), 3000);
+      const stop = () => {
+        clearTimeout(timer);
+        off?.();
+        off = undefined;
+      };
+      try {
+        const answer = await settle(() =>
+          deps.host.lyrics.save(handle, text, {
+            target: 'embedded',
+            tagName: lyricsTagName(content),
+          }),
+        );
+        if (disposed || !answer || answer.success === false) return false;
+        // 没有派发（没有可写的东西）时不必等事件。
+        const ok = answer.dispatched === true ? await written : true;
+        if (disposed) return false;
+        // 重读：input 清空逼 follow 重新取，读到的就是刚写进去的那份。
+        if (ok) {
+          input = undefined;
+          follow();
+        }
+        return ok;
+      } finally {
+        stop();
+      }
     },
     dispose() {
       disposed = true;

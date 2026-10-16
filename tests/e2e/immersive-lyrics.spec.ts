@@ -22,6 +22,31 @@ function localReply(text: string) {
   } as const;
 }
 
+/** 让宿主替身照真实宿主那样处理歌词写入：派发 `lyrics.save` 并回一条 `metadata:writeComplete`。 */
+function acceptTagWrites(env: PlayerPage) {
+  env.host.answer('lyrics.save', (params) => {
+    const path = String(params['path'] ?? '');
+    const subsong = Number(params['subsong'] ?? 0);
+    void env.host.emit('metadata:writeComplete', {
+      operation: 'write',
+      path,
+      subsong,
+      code: 0,
+      success: true,
+      status: 'success',
+    });
+    return {
+      success: true,
+      path,
+      handlePath: path,
+      subsong,
+      dispatched: true,
+      tagsApplied: { [String(params['tagName'] ?? 'LYRICS')]: String(params['lyrics'] ?? '') },
+      tagsSet: 1,
+    };
+  });
+}
+
 function onlineReplies(env: PlayerPage) {
   env.host.answer('http.get', (params) => {
     const url = new URL(String(params['url']));
@@ -55,6 +80,7 @@ async function openLyrics(page: Page) {
   const env = await openPlayer(page, { state: { state: 'paused' } });
   env.host.answer('lyrics.get', localReply(LOCAL));
   onlineReplies(env);
+  acceptTagWrites(env);
   await page.locator('[data-right-card-key="lyrics"]').click();
   await panel(page).getByRole('button', { name: '重新读取歌词' }).click();
   await expect(panel(page).locator('[data-lyrics-status]')).toHaveAttribute(
@@ -160,7 +186,8 @@ for (const scheme of ['light', 'dark'] as const) {
     await expect(view(page).locator('[data-field="lyric-main"]')).toHaveText('所选下一句');
     expect(env.host.callsTo('lyrics.get')).toHaveLength(reads);
     expect(env.host.callsTo('http.get')).toHaveLength(requests);
-    expect(env.host.callsTo('lyrics.save')).toHaveLength(0);
+    // 本地曲目选词写进文件标签，不再写 config 存档。
+    await expect.poll(() => env.host.callsTo('lyrics.save').length).toBeGreaterThan(0);
     expect(env.errors).toEqual([]);
   });
 }
