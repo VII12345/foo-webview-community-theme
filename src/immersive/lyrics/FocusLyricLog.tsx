@@ -2,6 +2,7 @@ import { useService } from '../../kit/useService.ts';
 import { lyricsDisplayKey, lyricsFontFamily } from '../../lyrics/lyricsDisplay.ts';
 import { useAtomValueRawSync } from 'jotai/react';
 import { lyricLogAtom, lyricWindowAtom } from './lyricLog.ts';
+import { WordSyncedText } from './WordSyncedText.tsx';
 import styles from './FocusLyricLog.module.css';
 
 export function FocusLyricLog() {
@@ -19,7 +20,15 @@ export function FocusLyricLog() {
         >
           <span className={styles.time}>{formatTime(line.time)}</span>
           <span style={{ fontFamily: lyricsFontFamily(display.fontFamily) }}>
-            {line.text || ' '}
+            {line.text ? (
+              line.current ? (
+                <WordSyncedText words={line.words} text={line.text} />
+              ) : (
+                line.text
+              )
+            ) : (
+              ' '
+            )}
           </span>
           {display.showTranslation && line.translation && (
             <span className={styles.translation}>{line.translation}</span>

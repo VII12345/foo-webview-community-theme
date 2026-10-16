@@ -1,0 +1,21 @@
+/* 逐字高亮：已唱过的一段用整行原色，还没唱的一段压淡；`--word-progress`（0…1）是这道分界的位置。
+   进度 0 时整字是淡色、1 时整字是原色，中间是横向扫过去。不吃外层字号、字体与行高。
+   `--lyric-dim` 没给时按当前色自行压淡。 */
+.word {
+  --lyric-dim: color-mix(in srgb, currentColor 42%, transparent);
+  background-image: linear-gradient(
+    90deg,
+    currentColor calc(var(--word-progress, 0) * 100%),
+    var(--lyric-dim) calc(var(--word-progress, 0) * 100%)
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .word {
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}

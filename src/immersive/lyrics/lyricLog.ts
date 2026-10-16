@@ -13,12 +13,21 @@ export const LYRIC_STATUS_MESSAGES = {
 
 export type LyricLogState = 'none' | 'plain' | 'synced' | keyof typeof LYRIC_STATUS_MESSAGES;
 
+/** 逐字时间（秒）；只有整行时间的歌词每个字与整行同起同止，逐字高亮退化为整行。 */
+export interface LyricWord {
+  readonly word: string;
+  readonly start: number;
+  readonly end: number;
+}
+
 interface LyricLine {
   /** 秒。 */
   readonly time: number;
   readonly end: number;
   readonly text: string;
   readonly translation: string;
+  /** 逐字时间；间奏空行没有。 */
+  readonly words: readonly LyricWord[];
 }
 
 export interface LyricRows {
@@ -32,8 +41,12 @@ export interface LyricWindowLine {
   readonly end: number;
   readonly text: string;
   readonly translation: string;
+  readonly words: readonly LyricWord[];
   readonly current: boolean;
 }
+
+/** 当前播放位置（秒，已减歌词偏移）；逐字高亮按它算每个字的进度。 */
+export const lyricPositionAtom: Atom<number> = atom((get) => get(positionAtom));
 
 export const lyricWindowAtom: Atom<readonly LyricWindowLine[]> = atom((get) => {
   const { state, lines } = get(loadedAtom);
@@ -52,6 +65,8 @@ export interface LyricCardLines {
   sub: string;
   /** 副行放的是什么：译文与下一句的颜色不同。 */
   subKind: 'translation' | 'next' | 'none';
+  /** 主行的逐字时间；卡片按它做逐字高亮。 */
+  mainWords: readonly LyricWord[];
 }
 
 export interface LyricLog {
@@ -108,10 +123,11 @@ export const lyricCardAtom: Atom<LyricCardLines | null> = atom((get) => {
   const { current, next } = get(lyricRowsAtom);
   if (!current) return null;
   if (current.translation && get(showTranslationAtom)) {
-    return { main: current.text, sub: current.translation, subKind: 'translation' };
+    return { main: current.text, sub: current.translation, subKind: 'translation', mainWords: current.words };
   }
-  if (next?.text) return { main: current.text, sub: next.text, subKind: 'next' };
-  return { main: current.text, sub: '', subKind: 'none' };
+  if (next?.text)
+    return { main: current.text, sub: next.text, subKind: 'next', mainWords: current.words };
+  return { main: current.text, sub: '', subKind: 'none', mainWords: current.words };
 });
 
 function project(result: LyricsState): Loaded {
@@ -126,21 +142,32 @@ function project(result: LyricsState): Loaded {
   // 双行卡和日志只跟随主唱，避免背景人声把当前句顶掉；不改共享的逐字数据。
   const main = content.lines.filter((line) => !line.isBG);
   const sorted = (main.length ? main : content.lines)
-    .map((line) => ({
-      time: line.startTime / 1000,
-      end: line.endTime / 1000,
-      text: line.words
-        .map((word) => word.word)
-        .join('')
-        .trim(),
-      translation: line.translatedLyric,
-    }))
+    .map((line) => {
+      // 逐字时间原样保留；整行只有一个「字」时（逐行 LRC）退化成整行同起同止。
+      const words = line.words
+        .map((word) => ({
+          word: word.word,
+          start: word.startTime / 1000,
+          end: word.endTime / 1000,
+        }))
+        .filter((word) => word.word !== '');
+      return {
+        time: line.startTime / 1000,
+        end: line.endTime / 1000,
+        text: line.words
+          .map((word) => word.word)
+          .join('')
+          .trim(),
+        translation: line.translatedLyric,
+        words,
+      };
+    })
     .sort((a, b) => a.time - b.time);
   // 解析器把间奏空行记在上一句的结束时间，日志将这段空隙还原为独立的一行。
   const lines = sorted.flatMap((line, index) => {
     const next = sorted[index + 1];
     return next && line.end > line.time && line.end < next.time
-      ? [line, { time: line.end, end: next.time, text: '', translation: '' }]
+      ? [line, { time: line.end, end: next.time, text: '', translation: '', words: [] }]
       : [line];
   });
   return {

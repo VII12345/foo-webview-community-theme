@@ -6,6 +6,7 @@ import { translateAtom } from '../../i18n/locale.ts';
 import { lyricCardAtom, lyricLogAtom, LYRIC_STATUS_MESSAGES } from './lyricLog.ts';
 import { LYRIC_FONT, LYRIC_TEXT_WIDTH } from '../paper/paperStage.ts';
 import { fittedFontSize } from '../fields/titleScroll.ts';
+import { WordSyncedText } from './WordSyncedText.tsx';
 import styles from './LyricCard.module.css';
 
 const CARD_MIN = 420;
@@ -122,7 +123,7 @@ export function LyricCard() {
             style={{ fontSize: `${fit.main}px`, fontFamily: lyricsFontFamily(display.fontFamily) }}
             data-field="lyric-main"
           >
-            {synced.main}
+            <WordSyncedText words={synced.mainWords} text={synced.main} />
           </div>
           {synced.sub ? (
             <div

@@ -9,6 +9,7 @@ import {
   LYRIC_STATUS_MESSAGES,
   type LyricRows,
 } from './lyricLog.ts';
+import { WordSyncedText } from './WordSyncedText.tsx';
 import styles from './LyricLog.module.css';
 
 const SLOTS: readonly (keyof LyricRows)[] = ['prev', 'current', 'next'];
@@ -30,7 +31,11 @@ function SyncedRows() {
               className={styles.text}
               style={{ fontFamily: lyricsFontFamily(display.fontFamily) }}
             >
-              {line?.text ?? ''}
+              {line && slot === 'current' ? (
+                <WordSyncedText words={line.words} text={line.text} />
+              ) : (
+                (line?.text ?? '')
+              )}
             </span>
           </li>
         );

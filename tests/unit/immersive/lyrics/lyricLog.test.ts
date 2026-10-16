@@ -5,6 +5,7 @@ import {
   lyricCardAtom,
   lyricLogAtom,
   lyricRowsAtom,
+  lyricWindowAtom,
   startLyricLog,
 } from '../../../../src/immersive/lyrics/lyricLog.ts';
 import type { LyricsState } from '../../../../src/lyrics/lyricsService.ts';
@@ -39,6 +40,7 @@ async function setup(initial = ready()) {
     log: () => store.get(lyricLogAtom),
     rows: () => store.get(lyricRowsAtom),
     card: () => store.get(lyricCardAtom),
+    window: () => store.get(lyricWindowAtom),
   };
 }
 
@@ -96,17 +98,17 @@ describe('沉浸歌词投影', () => {
       ),
     );
     env.seek(1.75);
-    expect(env.card()).toEqual({ main: 'one', sub: '一', subKind: 'translation' });
+    expect(env.card()).toMatchObject({ main: 'one', sub: '一', subKind: 'translation' });
     env.seek(6);
-    expect(env.card()).toEqual({ main: 'two', sub: 'three', subKind: 'next' });
+    expect(env.card()).toMatchObject({ main: 'two', sub: 'three', subKind: 'next' });
     env.seek(30);
-    expect(env.card()).toEqual({ main: 'three', sub: '', subKind: 'none' });
+    expect(env.card()).toMatchObject({ main: 'three', sub: '', subKind: 'none' });
   });
 
   test('间奏空行保留；纯文本只给行数', async () => {
     const env = await setup(ready('[00:01]one\n[00:05]\n[00:09]three'));
     env.seek(2);
-    expect(env.card()).toEqual({ main: 'one', sub: '', subKind: 'none' });
+    expect(env.card()).toMatchObject({ main: 'one', sub: '', subKind: 'none' });
     env.seek(5);
     expect(env.rows().current?.text).toBe('');
     env.publish(ready('纯文本\n两行'));
@@ -140,7 +142,7 @@ describe('沉浸歌词投影', () => {
     env.seek(2);
     expect(env.rows().current).toMatchObject({ text: '原句', time: 1 });
     expect(env.rows().next?.text).toBe('下一句');
-    expect(env.card()).toEqual({ main: '原句', sub: '译文', subKind: 'translation' });
+    expect(env.card()).toMatchObject({ main: '原句', sub: '译文', subKind: 'translation' });
     expect(env.log().source).toBe('file');
     expect(parsed.lines[0].translatedLyric).toBe('');
   });
@@ -182,6 +184,28 @@ describe('沉浸歌词投影', () => {
     env.show(true);
     expect(env.rows()).toBe(disposed);
     expect(env.host.callsTo('lyrics.get')).toHaveLength(0);
+  });
+
+  test('逐字时间随投影保留，整行时间的歌词退化为一个字一段', async () => {
+    const env = await setup(ready('[00:01.00]<00:01.00>你<00:02.00>好<00:03.00>\n[00:09.00]整行'));
+    env.seek(1.5);
+    expect(env.rows().current?.words).toEqual([
+      { word: '你', start: 1, end: 2 },
+      { word: '好', start: 2, end: 3 },
+    ]);
+    expect(env.card()?.mainWords).toHaveLength(2);
+    env.seek(9.5);
+    // 逐行 LRC：整行只有一个「字」，逐字高亮退化成整行同起同止。
+    expect(env.rows().current?.words).toMatchObject([{ word: '整行', start: 9 }]);
+    expect((env.rows().current?.words[0]?.end ?? 0) >= 9).toBe(true);
+  });
+
+  test('间奏空行没有逐字数据', async () => {
+    const env = await setup(ready('[00:01]one\n[00:05]\n[00:09]three'));
+    env.seek(5);
+    expect(env.rows().current?.text).toBe('');
+    expect(env.rows().current?.words).toEqual([]);
+    expect(env.window().length).toBeGreaterThan(0);
   });
 
   test('时间码保留两位分钟与秒，超过一百分钟不截断', () => {

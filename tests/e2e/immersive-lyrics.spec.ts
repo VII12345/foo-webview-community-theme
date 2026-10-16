@@ -64,6 +64,40 @@ async function openLyrics(page: Page) {
   return env;
 }
 
+test('图纸与聚焦视图的歌词逐字高亮，外观不改', async ({ page }) => {
+  const env = await openPlayer(page, { state: { state: 'paused' } });
+  env.host.answer(
+    'lyrics.get',
+    localReply('[00:40]<00:40.00>你<00:41.00>好<00:42.00>世<00:43.00>界\n[00:45]下一句'),
+  );
+  await page.locator('[data-right-card-key="lyrics"]').click();
+  await panel(page).getByRole('button', { name: '重新读取歌词' }).click();
+  await page.locator('[data-player-bar] [data-player-key="cover"]').click();
+  await expect(view(page).locator('[data-tier]')).toHaveAttribute('data-tier', 'full');
+  // 图纸视图：底部歌词卡按字切开，正文仍是完整的「你好世界」。
+  const main = view(page).locator('[data-field="lyric-main"]');
+  await expect(main).toHaveText('你好世界');
+  await expect(main.locator('[data-word-synced] [data-word-start]')).toHaveCount(4);
+  // 播放推进到 42 s 之后：前两字已唱完（进度 1）、末字尚未开始（进度 0），中间随位置在半途。
+  env.state.position = 42.5;
+  await env.host.emit('playback:seeked', { position: 42.5, hostTime: Date.now() });
+  const progress = () =>
+    main.evaluate((node) =>
+      [...node.querySelectorAll<HTMLElement>('[data-word-start]')].map((word) =>
+        Number(getComputedStyle(word).getPropertyValue('--word-progress')),
+      ),
+    );
+  await expect.poll(async () => (await progress()).filter((p) => p === 1).length).toBe(2);
+  const values = await progress();
+  expect(values[0]).toBe(1);
+  expect(values[1]).toBe(1);
+  expect(values[2]).toBeGreaterThanOrEqual(0);
+  expect(values[2]).toBeLessThanOrEqual(1);
+  expect(values[3]).toBe(0);
+  await page.keyboard.press('Escape');
+  await expect(view(page)).toHaveCount(0);
+});
+
 for (const scheme of ['light', 'dark'] as const) {
   test(`${scheme}：手动选词跨视图共享，六档同步，退出恢复预览且不重读`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
