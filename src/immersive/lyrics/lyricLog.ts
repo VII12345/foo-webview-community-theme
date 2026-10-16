@@ -67,6 +67,8 @@ export interface LyricCardLines {
   subKind: 'translation' | 'next' | 'none';
   /** 主行的逐字时间；卡片按它做逐字高亮。 */
   mainWords: readonly LyricWord[];
+  /** 副行是下一句时它自己的逐字时间；副行是译文或空时为空。 */
+  subWords: readonly LyricWord[];
 }
 
 export interface LyricLog {
@@ -123,11 +125,11 @@ export const lyricCardAtom: Atom<LyricCardLines | null> = atom((get) => {
   const { current, next } = get(lyricRowsAtom);
   if (!current) return null;
   if (current.translation && get(showTranslationAtom)) {
-    return { main: current.text, sub: current.translation, subKind: 'translation', mainWords: current.words };
+    return { main: current.text, sub: current.translation, subKind: 'translation', mainWords: current.words, subWords: [] };
   }
   if (next?.text)
-    return { main: current.text, sub: next.text, subKind: 'next', mainWords: current.words };
-  return { main: current.text, sub: '', subKind: 'none', mainWords: current.words };
+    return { main: current.text, sub: next.text, subKind: 'next', mainWords: current.words, subWords: next.words };
+  return { main: current.text, sub: '', subKind: 'none', mainWords: current.words, subWords: [] };
 });
 
 function project(result: LyricsState): Loaded {

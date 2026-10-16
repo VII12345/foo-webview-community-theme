@@ -133,7 +133,7 @@ export function LyricCard() {
               style={{ fontSize: `${fit.sub}px`, fontFamily: lyricsFontFamily(display.fontFamily) }}
               data-field="lyric-sub"
             >
-              {synced.sub}
+              <WordSyncedText words={synced.subWords} text={synced.sub} />
             </div>
           ) : null}
           <span className={`${styles.text} ${styles.source}`} data-field="lyrics-source">
