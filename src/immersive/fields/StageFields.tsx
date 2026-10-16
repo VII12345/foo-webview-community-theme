@@ -17,6 +17,8 @@ const TITLE_SCROLL: TitleScrollOptions = {
 export interface StageFieldsProps {
   /** 仪表第一行左格里的声场件，格子 332 × 155、左上角在舞台 (760, 296)。 */
   readonly stereo: ReactNode;
+  /** 是否画出横线以下的仪表第一行；歌词场景只留 From / 标题 / By / Quality。 */
+  readonly showMeter?: boolean;
 }
 
 /**
@@ -28,7 +30,7 @@ export interface StageFieldsProps {
  * 标题字号从 76 起，放不下每次降 3、最小 62，仍放不下就循环滚动与擦除（`useTitleScroll`）。
  * From 行与 By 行标了 `data-decor-guard`，生成式网格不在标题块周围放装饰。
  */
-export function StageFields({ stereo }: StageFieldsProps) {
+export function StageFields({ stereo, showMeter = true }: StageFieldsProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const extras = useAtomValueRawSync(trackExtrasAtom);
   const title = track?.title || MISSING;
@@ -73,7 +75,7 @@ export function StageFields({ stereo }: StageFieldsProps) {
           </div>
         </>
       )}
-      <StageMeterRow stereo={stereo} />
+      {showMeter && <StageMeterRow stereo={stereo} />}
     </div>
   );
 }

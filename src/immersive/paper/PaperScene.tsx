@@ -32,7 +32,7 @@ import { useSceneSize } from './useSceneSize.ts';
  * 内容层原点，三段弧随档位挪；舞台上格子、护区与弧跟着缩放，记号按网页版像素换算。
  */
 export interface PaperSceneProps {
-  readonly variant?: 'paper' | 'focus';
+  readonly variant?: 'paper' | 'focus' | 'lyrics';
 }
 
 export function PaperScene({ variant = 'paper' }: PaperSceneProps) {

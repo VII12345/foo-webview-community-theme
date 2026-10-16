@@ -4,7 +4,7 @@ import { PLAYING_TRACK } from '../fixtures/playerPage.ts';
 
 // 正在播放全屏页的进出与舞台上的字：盖住整窗、曲目字段写出来，Esc 与胶囊都是后退。
 
-test('歌词视图保留原图纸并在右栏显示动画歌词', async ({ page }) => {
+test('歌词视图去掉白框与框内元素，只留歌词占原白框范围', async ({ page }) => {
   const { view, errors } = await openImmersive(page, {
     onHost(host) {
       host.answer('lyrics.get', {
@@ -20,12 +20,49 @@ test('歌词视图保留原图纸并在右栏显示动画歌词', async ({ page 
   await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
   await page.getByRole('menuitemradio', { name: '歌词视图', exact: true }).click();
   await expect(view.locator('[data-tier][data-scene="lyrics"]')).toBeVisible();
+  // 白框外的场景元素保留。
   await expect(view.locator('[data-paper-content]')).toHaveCount(1);
   await expect(view.locator('[data-dial-cover]')).toBeVisible();
+  await expect(view.locator('[data-field="title"]')).toBeVisible();
+  await expect(view.locator('[data-field="artist"]')).toBeVisible();
+  // 白框与框内信息全部去掉。
   await expect(view.locator('[data-pad]')).toHaveCount(0);
+  await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="genre"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="duration"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="loudness"]')).toBeHidden();
+  // 歌词在，且占着原白框的位置（不是屏幕中央、也不是底部条）。
+  const player = view.locator('.amll-lyric-player');
+  await expect(player).toBeVisible();
+  await expect(player).toContainText('沉浸歌词第一句');
+  await expect(player).toContainText('沉浸歌词第二句');
+  expect(errors).toStrictEqual([]);
+});
+
+test('歌词视图在紧凑档不铺满右栏、不盖住标题', async ({ page }) => {
+  const { view, errors } = await openImmersive(page, {
+    width: 1000,
+    state: { track: { ...PLAYING_TRACK } },
+    onHost(host) {
+      host.answer('lyrics.get', {
+        success: true,
+        available: true,
+        source: 'embedded',
+        path: '',
+        lyrics: '[00:40]紧凑档歌词一句\n[00:45]紧凑档歌词二句',
+        synced: true,
+      });
+    },
+  });
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '歌词视图', exact: true }).click();
+  await expect(view.locator('[data-paper-content]')).toHaveCount(1);
+  await expect(view.locator('[data-field="title"]')).toBeVisible();
   await expect(view.locator('.amll-lyric-player')).toBeVisible();
-  await expect(view.locator('.amll-lyric-player')).toContainText('沉浸歌词第一句');
-  await expect(view.locator('.amll-lyric-player')).toContainText('沉浸歌词第二句');
+  // 播放器顶部不能高过标题底部——紧凑档里它是右栏下半，不盖标题。
+  const title = await view.locator('[data-field="title"]').boundingBox();
+  const player = await view.locator('.amll-lyric-player').boundingBox();
+  expect(title && player && player.y >= title.y + title.height - 1).toBe(true);
   expect(errors).toStrictEqual([]);
 });
 test('右上角可以切换聚焦视图，隐藏频谱并保持原图纸视图可恢复', async ({ page }) => {

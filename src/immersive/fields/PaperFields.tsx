@@ -34,6 +34,8 @@ export interface PaperFieldsProps {
   /** 从 `placement.y` 到版心底边的高度，歌词一块吃掉剩下的部分。 */
   readonly height: number;
   readonly slots: PaperFieldSlots;
+  /** 歌词场景：只留 From / 标题 / By / Quality，横线以下的仪表、频谱、波形、文件信息、脚注全不出。 */
+  readonly lyricsOnly?: boolean;
 }
 
 /**
@@ -48,7 +50,7 @@ export interface PaperFieldsProps {
  * 长标题先降字号（48 → 36），仍放不下就循环滚动与擦除（`useTitleScroll`），减弱动效下留省略号。
  * From 行与 By 行标了 `data-decor-guard`，各外扩 36、正好在标题中间接上：生成式网格不在标题块周围放装饰。
  */
-export function PaperFields({ placement, height, slots }: PaperFieldsProps) {
+export function PaperFields({ placement, height, slots, lyricsOnly = false }: PaperFieldsProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const title = track?.title || MISSING;
   const quality = qualityLine(track?.bitrate, track?.sampleRate);
@@ -99,10 +101,14 @@ export function PaperFields({ placement, height, slots }: PaperFieldsProps) {
         )}
       </div>
       <hr className={styles.rule} />
-      {mode !== 'narrow' && <PaperMetaRow compact={mode === 'compact'} stereo={slots.stereo} />}
-      {slots.spectrum !== null && <div className={styles.spectrum}>{slots.spectrum}</div>}
-      <div className={styles.waveform}>{slots.waveform}</div>
-      {mode !== 'narrow' && (
+      {!lyricsOnly && mode !== 'narrow' && (
+        <PaperMetaRow compact={mode === 'compact'} stereo={slots.stereo} />
+      )}
+      {!lyricsOnly && slots.spectrum !== null && (
+        <div className={styles.spectrum}>{slots.spectrum}</div>
+      )}
+      {!lyricsOnly && <div className={styles.waveform}>{slots.waveform}</div>}
+      {!lyricsOnly && mode !== 'narrow' && (
         <>
           <div className={styles['row-file']}>
             <div className={styles.gauges}>{slots.gauges}</div>
@@ -111,7 +117,9 @@ export function PaperFields({ placement, height, slots }: PaperFieldsProps) {
           <p className={styles.footnote}>{FOOTNOTE}</p>
         </>
       )}
-      <div className={styles.lyrics}>{slots.lyrics}</div>
+      <div className={styles.lyrics} data-lyrics-slot>
+        {slots.lyrics}
+      </div>
     </div>
   );
 }

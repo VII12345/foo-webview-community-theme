@@ -114,12 +114,13 @@
   top: 580px;
 }
 
+/* 歌词场景：播放器占满原右栏垫纸的范围（STAGE_PAD x688 y270 w1124 h686），内缩 26 与垫纸的内边距相当。 */
 .stage[data-scene='lyrics'] > :global([data-immersive-lyrics-player]) {
   position: absolute;
-  left: 760px;
-  top: 964px;
-  width: 1020px;
-  height: 114px;
+  left: 714px;
+  top: 296px;
+  width: 1072px;
+  height: 634px;
 }
 
 .file-info {

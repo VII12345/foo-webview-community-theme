@@ -238,6 +238,11 @@
   white-space: nowrap;
 }
 
+/* 歌词区自己成一个定位上下文：immersive 歌词播放器的根是 absolute inset:0，
+   没有这一层它会以整个右栏（.fields）为包含块、铺满全部字段。 */
 .lyrics {
+  position: relative;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
