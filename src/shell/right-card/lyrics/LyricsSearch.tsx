@@ -49,9 +49,31 @@ export function LyricsSearch({
   const controls = useViewControlStyles();
   const service = useService(lyricsKey);
   const result = useAtomValueRawSync(service.choices);
+  const local = useAtomValueRawSync(service.local);
   const currentLyrics = useAtomValueRawSync(service.state);
   const subject = useAtomValueRawSync(service.subject);
   const canRemember = useAtomValueRawSync(service.canRemember);
+  const candidateGroups = Array.from(
+    result.candidates.reduce((groups, candidate) => {
+      const values = groups.get(candidate.source) ?? [];
+      values.push(candidate);
+      groups.set(candidate.source, values);
+      return groups;
+    }, new Map<LyricsCandidate['source'], LyricsCandidate[]>()),
+  );
+  const localReady = local.status === 'ready' ? local : null;
+  const localChosen =
+    localReady !== null && currentLyrics.status === 'ready' && currentLyrics.source === localReady.source;
+  const localKind = localReady
+    ? isWordLevel(localReady.content)
+      ? 'word'
+      : localReady.content.kind === 'synced'
+        ? 'line'
+        : 'plain'
+    : null;
+  const localTranslated =
+    localReady?.content.kind === 'synced' &&
+    localReady.content.lines.some((line) => line.translatedLyric.trim());
   const [keywords, setKeywords] = useState(
     result.keywords || [title, artist].filter(Boolean).join(' '),
   );
@@ -175,7 +197,66 @@ export function LyricsSearch({
         {result.status === 'ready' && !result.failed.length && !result.candidates.length && (
           <p role="status">{t('lyrics.onlineMissing')}</p>
         )}
-        {result.candidates.map((candidate) => {
+        {localReady && (
+          <section
+            className={styles.group}
+            data-lyrics-source-group={localReady.source}
+            data-lyrics-local-group
+          >
+            <h2>{t(`lyrics.source.${localReady.source}`)}</h2>
+            <article className={styles.local} data-lyrics-local-candidate>
+              <ReadingSurface />
+              <div className={styles.heading}>
+                <strong>{localReady.sourcePath || t(`lyrics.source.${localReady.source}`)}</strong>
+                {localChosen && <span className={styles.chosen}>{t('lyrics.selected')}</span>}
+              </div>
+              <div className={styles.footer}>
+                <div className={styles.metadata}>
+                  <span className={styles.field}>
+                    <Info16Regular aria-label={t('lyrics.sourceLabel')} />
+                    <span>{t(`lyrics.source.${localReady.source}`)}</span>
+                  </span>
+                  <span className={styles.field}>
+                    <SoundWaveCircle16Regular aria-label={t('lyrics.format')} />
+                    <span>{t(`lyrics.${localKind}`)}</span>
+                  </span>
+                  {localTranslated && (
+                    <span className={styles.field}>
+                      <Translate16Regular aria-hidden />
+                      <span>{t('lyrics.hasTranslation')}</span>
+                    </span>
+                  )}
+                </div>
+                <div className={styles.use}>
+                  <Button
+                    size="small"
+                    appearance="primary"
+                    data-lyrics-focus="use:local"
+                    disabled={!!using}
+                    onClick={() => {
+                      setUsing('local');
+                      void service.chooseLocal(true, subject).then((used) => {
+                        if (!mounted.current) return;
+                        setUsing('');
+                        if (used) onUsed();
+                      });
+                    }}
+                  >
+                    {using === 'local'
+                      ? t('lyrics.loading')
+                      : canRemember
+                        ? t(localChosen ? 'lyrics.selected' : 'lyrics.use')
+                        : t('lyrics.useTemporarily')}
+                  </Button>
+                </div>
+              </div>
+            </article>
+          </section>
+        )}
+        {candidateGroups.map(([source, candidates]) => (
+          <section key={source} className={styles.group} data-lyrics-source-group={source}>
+            <h2>{t(`lyrics.source.${source}`)}</h2>
+            {candidates.map((candidate) => {
           const id = lyricsCandidateId(candidate);
           const chosen =
             currentLyrics.status === 'ready' &&
@@ -275,13 +356,19 @@ export function LyricsSearch({
                       });
                     }}
                   >
-                    {using === id ? t('lyrics.loading') : canRemember ? t(chosen ? 'lyrics.selected' : 'lyrics.use') : t('lyrics.useTemporarily')}
+                    {using === id
+                      ? t('lyrics.loading')
+                      : canRemember
+                        ? t(chosen ? 'lyrics.selected' : 'lyrics.use')
+                        : t('lyrics.useTemporarily')}
                   </Button>
                 </div>
               </div>
             </article>
-          );
-        })}
+            );
+            })}
+          </section>
+        ))}
       </div>
       <div className={styles.actions} role="status">
         {t('lyrics.results', { count: result.candidates.length })}

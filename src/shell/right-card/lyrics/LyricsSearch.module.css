@@ -23,8 +23,39 @@
   min-height: 0;
 }
 
+.group {
+  display: grid;
+  gap: var(--spacingVerticalXS);
+}
+
+.group > h2 {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  margin: var(--spacingVerticalS) var(--spacingHorizontalM) 0;
+  padding: var(--spacingVerticalXS) var(--spacingHorizontalS);
+  color: var(--colorNeutralForeground2);
+  background: var(--colorNeutralBackground1);
+  font-size: var(--fontSizeBase200);
+  font-weight: var(--fontWeightSemibold);
+  line-height: var(--lineHeightBase200);
+}
+
 .results p {
   padding: 0 var(--spacingHorizontalM);
+}
+
+.local {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacingVerticalXS);
+  padding: var(--spacingVerticalM) var(--spacingHorizontalM);
+  margin: 0 var(--spacingHorizontalM) var(--spacingVerticalS);
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+  border-radius: var(--radius-card);
+  overflow-wrap: anywhere;
 }
 
 .candidate {

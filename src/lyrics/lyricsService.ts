@@ -1,7 +1,7 @@
 import { atom, type Atom } from 'jotai/vanilla';
 import type { Store } from '../kit/store.ts';
 import { serviceKey } from '../kit/serviceKey.ts';
-import type { LocalLyricsService, LyricsTrack } from './lyricsLocal.ts';
+import type { LocalLyricsService, LocalLyricsState, LyricsTrack } from './lyricsLocal.ts';
 import { LYRICS_PRIORITY, type LyricsPrefs, type LyricsPrefsService } from './lyricsPrefs.ts';
 import { isWordLevel } from './lyricsText.ts';
 import type { LyricsCoverAccess } from './lyricsCandidateCovers.ts';
@@ -49,6 +49,7 @@ export interface LyricsDeps {
 
 export interface LyricsService {
   readonly state: Atom<LyricsState>;
+  readonly local: Atom<LocalLyricsState>;
   readonly choices: Atom<LyricsChoiceState>;
   readonly covers: LyricsCoverAccess;
   search(keywords: string, force?: boolean): Promise<void>;
@@ -64,6 +65,7 @@ export interface LyricsService {
     subject?: string,
   ): Promise<import('./lyricsText.ts').LyricsContent | null>;
   choose(candidate: LyricsCandidate, makeDefault?: boolean, subject?: string): Promise<boolean>;
+  chooseLocal(makeDefault?: boolean, subject?: string): Promise<boolean>;
   restoreAutomatic(): Promise<boolean>;
   setOffset(seconds: number): Promise<boolean>;
   seekTime(seconds: number): number;
@@ -248,6 +250,7 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
 
   return {
     state: atom((get) => get(state)),
+    local: deps.local.state,
     choices: session.choices,
     covers: session.covers,
     preview: session.preview,
@@ -282,6 +285,26 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
       if (makeDefault && target.archiveKey && deps.archive) {
         void deps.archive.select(target.archiveKey, target.key, {
           ...chosen,
+          key: target.archiveKey,
+        });
+      }
+      return true;
+    },
+    async chooseLocal(makeDefault = false, expected = store.get(subject)) {
+      const target = store.get(deps.track);
+      const local = store.get(deps.local.state);
+      if (
+        !target ||
+        expected !== store.get(subject) ||
+        local.status !== 'ready' ||
+        local.key !== target.key
+      )
+        return false;
+      chosen = local;
+      follow();
+      if (makeDefault && target.archiveKey && deps.archive) {
+        void deps.archive.select(target.archiveKey, target.key, {
+          ...local,
           key: target.archiveKey,
         });
       }

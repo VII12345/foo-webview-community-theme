@@ -493,6 +493,8 @@ test('搜索入口打开候选选择器，选择在线歌词覆盖当前本地�
   ).toBeVisible();
   await expect(panel(page).getByRole('button', { name: '歌词设置' })).toBeHidden();
   const candidate = search.locator('[data-lyrics-candidate]');
+  await expect(search.locator('[data-lyrics-local-group]')).toContainText('内嵌歌词');
+  await expect(search.locator('[data-lyrics-source-group="lrclib"]')).toContainText('LRCLIB');
   await expect(candidate).toHaveCount(1);
   await expect(candidate).toContainText('LRCLIB');
   const lrclib = env.host
