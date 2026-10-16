@@ -274,19 +274,19 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
       const content = await session.previewCandidate(candidate, expected);
       if (!content || disposed || mine !== selection || expected !== store.get(subject))
         return false;
-      // 本地文件把选中的这份写进标签；写成功后不再用内存 chos，重读文件即恢复。非本地退回存档。
-      if (makeDefault && target.local) {
-        const saved = await deps.local.saveEmbedded(content);
+      // 记住这份选择：本地文件尽量写进标签（别的播放器也能看到），同时**始终**写主题存档兜底——
+      // 写标签可能因为只读/权限/宿主事件缺失而不生效，存档在 config 里、切歌与重启都能恢复。
+      if (makeDefault) {
+        if (target.local) await deps.local.saveEmbedded(content);
         if (disposed || mine !== selection || expected !== store.get(subject)) return false;
-        if (!saved) return false;
-      } else if (makeDefault && target.archiveKey && deps.archive) {
-        void deps.archive.select(target.archiveKey, target.key, {
-          status: 'ready',
-          key: target.archiveKey,
-          source: candidate.source,
-          content,
-          candidate,
-        });
+        if (target.archiveKey && deps.archive)
+          void deps.archive.select(target.archiveKey, target.key, {
+            status: 'ready',
+            key: target.archiveKey,
+            source: candidate.source,
+            content,
+            candidate,
+          });
       }
       chosen = {
         status: 'ready',
@@ -308,15 +308,14 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
         local.key !== target.key
       )
         return false;
-      if (makeDefault && target.local) {
-        const saved = await deps.local.saveEmbedded(local.content);
+      if (makeDefault) {
+        if (target.local) await deps.local.saveEmbedded(local.content);
         if (disposed || expected !== store.get(subject)) return false;
-        if (!saved) return false;
-      } else if (makeDefault && target.archiveKey && deps.archive) {
-        void deps.archive.select(target.archiveKey, target.key, {
-          ...local,
-          key: target.archiveKey,
-        });
+        if (target.archiveKey && deps.archive)
+          void deps.archive.select(target.archiveKey, target.key, {
+            ...local,
+            key: target.archiveKey,
+          });
       }
       chosen = local;
       follow();

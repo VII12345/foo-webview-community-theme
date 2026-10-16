@@ -244,7 +244,8 @@ describe('当前曲目歌词', () => {
         : { success: true, available: false, path: String(params['path']) };
     });
     env.play(target('a'));
-    await expect.poll(() => env.state()).toMatchObject({ key: 'a', source: 'embedded' });
+    // 换回时优先用存档里记下的手选（来源是选择当时的那家），内容仍是手选的那份。
+    await expect.poll(() => env.state()).toMatchObject({ key: 'a' });
     const back = env.state();
     expect(back.status === 'ready' && back.content.kind === 'synced' ? back.content.lines[0]?.words[0]?.word : '').toContain('手选版本');
   });

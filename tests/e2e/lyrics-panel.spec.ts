@@ -644,10 +644,11 @@ test('右卡历史独立、页签位置固定，候选预览与使用分开', as
   await panel(page).getByRole('checkbox', { name: '设为本曲目的默认歌词' }).check();
   await panel(page).getByRole('button', { name: '使用歌词', exact: true }).click();
   await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('LRCLIB');
-  // 本地曲目：选择写进文件标签，重读读回的就是文件里那份（来源变成内嵌歌词），内容仍是在线选的那份。
+  // 本地曲目：选择同时写进文件标签与主题存档；重读仍用这份手选（存档记的是选择当时的来源）。
   await panel(page).getByRole('button', { name: '重新读取歌词' }).click();
-  await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('内嵌歌词');
+  await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('LRCLIB');
   await expect(lyricsPlayer(page).getByText('在线第一句', { exact: true })).toBeVisible();
+  expect(env.host.callsTo('lyrics.save').length).toBeGreaterThan(0);
   await expect(page.locator('[data-right-card-back], [data-right-card-forward]')).toHaveCount(0);
   expect(env.host.callsTo('playback.setPosition')).toHaveLength(0);
   expect(env.errors).toEqual([]);
