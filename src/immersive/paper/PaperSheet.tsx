@@ -14,7 +14,7 @@ import type { PaperGeometry } from './paperTiers.ts';
 export interface PaperSheetProps {
   /** 这一档的版心尺寸、位置与里面各块的排法（`paperTiers.ts`）。 */
   readonly geometry: PaperGeometry;
-  readonly variant?: 'paper' | 'focus';
+  readonly variant?: 'paper' | 'focus' | 'lyrics';
 }
 
 /**

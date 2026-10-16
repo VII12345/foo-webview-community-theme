@@ -22,7 +22,10 @@ test('歌词视图保留原图纸并在右栏显示动画歌词', async ({ page 
   await expect(view.locator('[data-tier][data-scene="lyrics"]')).toBeVisible();
   await expect(view.locator('[data-paper-content]')).toHaveCount(1);
   await expect(view.locator('[data-dial-cover]')).toBeVisible();
-  await expect(view.locator('[data-pad]')).toHaveCount(0);
+  await expect(view.locator('[data-pad]')).toHaveCount(1);
+  await expect(view.locator('[data-field="title"]')).toHaveCount(0);
+  await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(0);
+  await expect(view.locator('[data-immersive-lyrics-player]')).toBeVisible();
   await expect(view.locator('.amll-lyric-player')).toBeVisible();
   await expect(view.locator('.amll-lyric-player')).toContainText('沉浸歌词第一句');
   await expect(view.locator('.amll-lyric-player')).toContainText('沉浸歌词第二句');

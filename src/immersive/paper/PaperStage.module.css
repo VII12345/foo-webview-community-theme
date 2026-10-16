@@ -117,9 +117,9 @@
 .stage[data-scene='lyrics'] > :global([data-immersive-lyrics-player]) {
   position: absolute;
   left: 760px;
-  top: 964px;
+  top: 296px;
   width: 1020px;
-  height: 114px;
+  height: 660px;
 }
 
 .file-info {

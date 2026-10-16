@@ -19,7 +19,7 @@ export interface PaperStageProps {
   readonly scale: number;
   /** 舞台左上角在场景里的位置，CSS 像素。 */
   readonly origin: { readonly x: number; readonly y: number };
-  readonly variant?: 'paper' | 'focus';
+  readonly variant?: 'paper' | 'focus' | 'lyrics';
 }
 
 /**
@@ -40,24 +40,30 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
   return (
     <StageScaleContext value={scale}>
       <div className={styles.stage} data-scene={variant} style={frame} data-paper-content>
-        <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} showPad={variant !== 'lyrics'} />
+        <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} showPad />
         <StageDial />
-        <StageFields stereo={<StageStereo />} />
-        {variant === 'paper' && (
-          <div className={`${styles.slot} ${styles.spectrum}`} data-field-slot="spectrum">
-            <PaperSpectrum />
-          </div>
+        {variant === 'lyrics' ? (
+          <ImmersiveLyricsPlayer />
+        ) : (
+          <>
+            <StageFields stereo={<StageStereo />} />
+            {variant === 'paper' && (
+              <div className={`${styles.slot} ${styles.spectrum}`} data-field-slot="spectrum">
+                <PaperSpectrum />
+              </div>
+            )}
+            <div className={`${styles.slot} ${styles.waveform}`}>
+              <PaperWaveform />
+            </div>
+            <div className={`${styles.slot} ${styles.gauges}`}>
+              <PaperGauges />
+            </div>
+            <div className={`${styles.slot} ${styles['file-info']}`}>
+              <PaperFileInfo />
+            </div>
+            {variant === 'focus' ? <FocusLyricLog /> : <LyricCard />}
+          </>
         )}
-        <div className={`${styles.slot} ${styles.waveform}`}>
-          <PaperWaveform />
-        </div>
-        <div className={`${styles.slot} ${styles.gauges}`}>
-          <PaperGauges />
-        </div>
-        <div className={`${styles.slot} ${styles['file-info']}`}>
-          <PaperFileInfo />
-        </div>
-        {variant === 'lyrics' ? <ImmersiveLyricsPlayer /> : variant === 'focus' ? <FocusLyricLog /> : <LyricCard />}
       </div>
     </StageScaleContext>
   );
