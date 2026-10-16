@@ -33,8 +33,8 @@ export type FpsCap = (typeof FPS_CAPS)[number];
  * 沉浸视图的场景。目前只有图纸一档，山脊图是它的背景层，不是另一个场景；加场景时在 `ImmersiveScene`
  * 与 `IMMERSIVE_SCENES` 里加值，存档照用。
  */
-export type ImmersiveScene = 'paper' | 'focus' | 'lyrics';
-export const IMMERSIVE_SCENES = ['paper', 'focus', 'lyrics'] as const;
+export type ImmersiveScene = 'paper' | 'focus' | 'lyrics' | 'card';
+export const IMMERSIVE_SCENES = ['paper', 'focus', 'lyrics', 'card'] as const;
 export const DEFAULT_SCENE: ImmersiveScene = 'paper';
 
 export const IMMERSIVE_PREF_KEYS = {

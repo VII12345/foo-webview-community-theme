@@ -8,6 +8,14 @@ import { translateAtom } from '../../i18n/locale.ts';
 import { hostFullscreenAtom, type ImmersiveShell } from './immersiveShell.ts';
 import styles from './ImmersiveControls.module.css';
 
+/** 场景菜单里每一项的文案键。 */
+const SCENE_LABELS: Record<ImmersiveScene, 'immersive.viewPaper' | 'immersive.viewFocus' | 'immersive.viewLyrics' | 'immersive.viewCard'> = {
+  paper: 'immersive.viewPaper',
+  focus: 'immersive.viewFocus',
+  lyrics: 'immersive.viewLyrics',
+  card: 'immersive.viewCard',
+};
+
 // 右上角三颗键的焦点环：Fluent 那圈走 keyborg 的 `data-fui-focus-visible`，菜单关闭把焦点还回触发键时会被
 // 判成键盘聚焦，于是鼠标点完也留一圈黑框。这里关掉它，改用浏览器自己的 `:focus-visible`——只有真的用键盘
 // 聚焦时才亮，鼠标点击不留框。
@@ -74,13 +82,7 @@ export function ImmersiveControls({ shell, shown, onFocusWithin }: ImmersiveCont
                   value={value}
                   onClick={() => chooseImmersiveScene(store, value)}
                 >
-                  {t(
-                    value === 'paper'
-                      ? 'immersive.viewPaper'
-                      : value === 'focus'
-                        ? 'immersive.viewFocus'
-                        : 'immersive.viewLyrics',
-                  )}
+                  {t(SCENE_LABELS[value])}
                 </MenuItemRadio>
               ))}
             </MenuList>

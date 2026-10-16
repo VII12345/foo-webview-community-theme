@@ -15,6 +15,7 @@ import { reducedMotionAtom } from '../../motion/reducedMotion.ts';
 import { controlsVisibleAtom, type ImmersiveShell } from './immersiveShell.ts';
 import { attachImmersiveRoot } from './keyFocus.ts';
 import { PaperScene } from '../paper/PaperScene.tsx';
+import { CardScene } from '../card/CardScene.tsx';
 import { immersiveSceneAtom } from './immersivePrefs.ts';
 import { PerfOverlay } from '../perf/PerfOverlay.tsx';
 import { ImmersiveControls } from './ImmersiveControls.tsx';
@@ -104,8 +105,10 @@ export function ImmersiveView({ shell, current }: ImmersiveViewProps) {
           <PaperScene />
         ) : scene === 'focus' ? (
           <PaperScene variant="focus" />
-        ) : (
+        ) : scene === 'lyrics' ? (
           <PaperScene variant="lyrics" />
+        ) : (
+          <CardScene />
         )}
         <div className={styles.drag} aria-hidden />
         <ImmersiveControls shell={shell} shown={shown} onFocusWithin={setControlsFocused} />

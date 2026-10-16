@@ -103,6 +103,29 @@ test('右上角可以切换聚焦视图，隐藏频谱并保持原图纸视图�
   await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(1);
   expect(errors).toStrictEqual([]);
 });
+test('卡片场景：切过去后左区是播放卡，含封面、星级、进度条与播放控制；原三视图仍在', async ({
+  page,
+}) => {
+  const { view, errors } = await openImmersive(page);
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '卡片视图', exact: true }).click();
+  const card = view.locator('[data-card-scene]');
+  await expect(card).toBeVisible();
+  // 封面、曲名、星级、进度条、播放控制都在。
+  await expect(card.locator('[data-shape="round"]')).toHaveCount(1);
+  await expect(card.getByText(PLAYING_TRACK.title)).toBeVisible();
+  await expect(card.locator('[data-now-playing-rating]')).toBeVisible();
+  await expect(card.getByRole('slider', { name: '播放进度' })).toBeVisible();
+  await expect(card.getByRole('group', { name: '播放控制' })).toBeVisible();
+  // 卡片场景不带罗盘的转动层与四角括号。
+  await expect(view.locator('canvas[data-orbit]')).toHaveCount(0);
+  // 原三视图仍可切回。
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '图纸舞台', exact: true }).click();
+  await expect(view.locator('[data-tier][data-scene="paper"]')).toBeVisible();
+  expect(errors).toStrictEqual([]);
+});
+
 test('走到正在播放：整窗盖住，舞台写出曲名与艺术家，焦点收进这一层', async ({ page }) => {
   const { view, errors } = await openImmersive(page);
   await expect(view.locator('[data-field="title"]')).toHaveText(PLAYING_TRACK.title);
