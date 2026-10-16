@@ -109,6 +109,9 @@ export function startLyricsIntegration(
   const stopActive = store.sub(active, () => {
     if (store.get(active)) void clock.resync();
   });
+  const stopImmersiveActive = store.sub(immersiveActive, () => {
+    if (store.get(immersiveActive)) void clock.resync();
+  });
   return {
     service,
     prefs,
@@ -117,6 +120,7 @@ export function startLyricsIntegration(
     archive,
     clock,
     active,
+    immersiveActive,
     track,
     async seek(key: string, seconds: number) {
       if (
@@ -133,6 +137,7 @@ export function startLyricsIntegration(
       disposed = true;
       document.removeEventListener('visibilitychange', updateVisibility);
       stopActive();
+      stopImmersiveActive();
       stopSubject();
       stopSubjects.forEach((stop) => stop());
       immersive.dispose();

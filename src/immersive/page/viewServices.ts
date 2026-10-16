@@ -13,6 +13,10 @@ import type { TerrainHistoryService } from '../terrain/terrainHistory.ts';
  */
 export interface ViewServices {
   readonly active: Atom<boolean>;
+  readonly lyrics: {
+    readonly clock: import('foo-webview-sdk/bridge').PlaybackClock;
+    readonly seek: (key: string, seconds: number) => Promise<void>;
+  } | null;
   /** 完整窗口可显示；退出后的最后画面也要在隐藏时立即释放。 */
   readonly visible: Atom<boolean>;
   readonly playback: Pick<PlaybackService, 'playOrPause' | 'previous' | 'next' | 'seek'>;

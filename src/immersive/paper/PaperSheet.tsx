@@ -3,6 +3,7 @@ import { PaperFields } from '../fields/PaperFields.tsx';
 import { PaperGauges } from '../gauges/PaperGauges.tsx';
 import { LyricLog } from '../lyrics/LyricLog.tsx';
 import { FocusLyricLog } from '../lyrics/FocusLyricLog.tsx';
+import { ImmersiveLyricsPlayer } from '../lyrics/ImmersiveLyricsPlayer.tsx';
 import { PaperSpectrum } from '../spectrum/PaperSpectrum.tsx';
 import { PaperStereo } from '../stereo/PaperStereo.tsx';
 import { PaperWaveform } from '../waveform/PaperWaveform.tsx';
@@ -30,7 +31,7 @@ export function PaperSheet({ geometry, variant = 'paper' }: PaperSheetProps) {
       data-paper-content
       data-scene={variant}
     >
-      <PaperMarks crosses={geometry.crosses} pad={geometry.pad} />
+      <PaperMarks crosses={geometry.crosses} pad={geometry.pad} showPad={variant !== 'lyrics'} />
       <PaperDial dial={geometry.dial} column={fields} />
       <PaperFields
         placement={fields}
@@ -40,7 +41,8 @@ export function PaperSheet({ geometry, variant = 'paper' }: PaperSheetProps) {
           spectrum: variant === 'paper' ? <PaperSpectrum /> : null,
           waveform: <PaperWaveform />,
           gauges: <PaperGauges />,
-          lyrics: variant === 'focus' ? <FocusLyricLog /> : <LyricLog />,
+          lyrics:
+            variant === 'lyrics' ? <ImmersiveLyricsPlayer /> : variant === 'focus' ? <FocusLyricLog /> : <LyricLog />,
         }}
       />
     </div>

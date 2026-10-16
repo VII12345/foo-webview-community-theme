@@ -10,7 +10,7 @@
 }
 
 .view[data-scene='lyrics'] {
-  background: transparent;
+  background: var(--colorNeutralBackground2);
 }
 
 .view[data-idle] {

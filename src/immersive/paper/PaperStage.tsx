@@ -5,6 +5,7 @@ import { StageFields } from '../fields/StageFields.tsx';
 import { PaperGauges } from '../gauges/PaperGauges.tsx';
 import { LyricCard } from '../lyrics/LyricCard.tsx';
 import { FocusLyricLog } from '../lyrics/FocusLyricLog.tsx';
+import { ImmersiveLyricsPlayer } from '../lyrics/ImmersiveLyricsPlayer.tsx';
 import { PaperSpectrum } from '../spectrum/PaperSpectrum.tsx';
 import { StageStereo } from '../stereo/StageStereo.tsx';
 import { PaperWaveform } from '../waveform/PaperWaveform.tsx';
@@ -39,7 +40,7 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
   return (
     <StageScaleContext value={scale}>
       <div className={styles.stage} data-scene={variant} style={frame} data-paper-content>
-        <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} />
+        <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} showPad={variant !== 'lyrics'} />
         <StageDial />
         <StageFields stereo={<StageStereo />} />
         {variant === 'paper' && (
@@ -56,7 +57,7 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
         <div className={`${styles.slot} ${styles['file-info']}`}>
           <PaperFileInfo />
         </div>
-        {variant === 'focus' ? <FocusLyricLog /> : <LyricCard />}
+        {variant === 'lyrics' ? <ImmersiveLyricsPlayer /> : variant === 'focus' ? <FocusLyricLog /> : <LyricCard />}
       </div>
     </StageScaleContext>
   );

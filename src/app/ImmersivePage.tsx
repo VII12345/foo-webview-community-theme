@@ -23,6 +23,7 @@ import { historyAtom } from '../nav/navHistory.ts';
 import { PageEntryContext } from '../nav/usePageSnapshot.ts';
 import { playbackKey } from '../playback/playbackContract.ts';
 import { immersiveIntegrationKey } from './immersiveIntegration.ts';
+import { lyricsIntegrationKey } from './lyricsIntegration.ts';
 
 // 分频画法和完整舞台的拍点共用解码；档位未确定时不提前为舞台启动分析。
 const ANALYSIS_WANTED = atom(
@@ -41,6 +42,7 @@ export function ImmersivePage() {
   const entry = useContext(PageEntryContext);
   const current = useAtomValueRawSync(historyAtom).entry === entry;
   const integration = useService(immersiveIntegrationKey);
+  const lyrics = useService(lyricsIntegrationKey);
   const playback = useService(playbackKey);
   const [running, setRunning] = useState<RunningView | null>(null);
 
@@ -92,6 +94,7 @@ export function ImmersivePage() {
         ...session.resources.view,
         active: session.active,
         visible: integration.visible,
+        lyrics: { clock: lyrics.clock, seek: lyrics.seek },
       },
     });
     return () => {
@@ -112,6 +115,7 @@ export function ImmersivePage() {
           spectrum: null,
           terrain: null,
           stereo: null,
+          lyrics: null,
         }
       }
     />
