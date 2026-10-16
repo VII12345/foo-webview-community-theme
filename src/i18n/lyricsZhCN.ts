@@ -125,4 +125,5 @@ export const lyricsZhCN = {
   'lyrics.candidateMissing': '无可用歌词',
   'lyrics.candidateFailed': '歌词读取失败',
   'lyrics.hasTranslation': '含译文',
+  'lyrics.seekTo': '跳转到 {time}',
 };

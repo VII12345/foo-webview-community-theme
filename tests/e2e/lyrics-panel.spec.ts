@@ -112,17 +112,17 @@ function onlineReplies(env: PlayerPage) {
 }
 
 for (const scheme of ['light', 'dark'] as const) {
-  test(`${scheme}：本地同步歌词、译文、点击和键盘跳转，切回队列仍可用`, async ({ page }) => {
+  test(`${scheme}：本地同步歌词、译文、预览跳转，切回队列仍可用`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
     const env = await openLyrics(page);
     await expect(lyricsPlayer(page)).toBeVisible();
     await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('内嵌歌词');
     await expect(key(page)).toHaveAttribute('aria-pressed', 'true');
     if (scheme === 'light') await expect(lyricsPlayer(page)).toHaveCSS('mix-blend-mode', 'normal');
+    // 点击歌词片不再直接跳转（跳转改由拖动的播放按钮触发）。
     await lyricsPlayer(page).getByText('第一句', { exact: true }).click();
-    await expect
-      .poll(() => env.host.callsTo('playback.setPosition').at(-1))
-      .toEqual({ position: 40 });
+    await page.waitForTimeout(120);
+    expect(env.host.callsTo('playback.setPosition')).toHaveLength(0);
     await panel(page).hover();
     await panel(page).getByRole('tab', { name: '预览', exact: true }).click();
     await expect(panel(page).getByRole('button', { name: '第一句 第一句译文' })).toBeVisible();
@@ -380,6 +380,52 @@ test('Ctrl+滚轮 调歌词字号，写进共享设置；普通滚轮不动字�
   await player.dispatchEvent('wheel', { deltaY: -100 });
   await page.waitForTimeout(120);
   await expect(player).toHaveCSS('font-size', '21px');
+  expect(env.errors).toEqual([]);
+});
+
+test('按住歌词上下拖动出现虚线预览与播放按钮，点它才跳转', async ({ page }) => {
+  const env = await openLyrics(page);
+  const player = lyricsPlayer(page);
+  await expect(player).toBeVisible();
+  const box = await player.boundingBox();
+  if (!box) throw new Error('歌词播放器不可见');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  // 按住往上拖：走到后一句，出现虚线预览与播放按钮。
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y - 160, { steps: 6 });
+  const preview = panel(page).locator('[data-lyric-drag-preview]');
+  await expect(preview).toBeVisible();
+  await page.mouse.up();
+  // 松开后保留，还没跳转。
+  await expect(preview).toBeVisible();
+  expect(env.host.callsTo('playback.setPosition')).toHaveLength(0);
+  // 点播放按钮才跳转。
+  await preview.click();
+  await expect
+    .poll(() => env.host.callsTo('playback.setPosition').length)
+    .toBeGreaterThan(0);
+  await expect(preview).toHaveCount(0);
+  expect(env.errors).toEqual([]);
+});
+
+test('拖动预览松开不点播放按钮，约 3 秒后自动消失', async ({ page }) => {
+  const env = await openLyrics(page);
+  const player = lyricsPlayer(page);
+  const box = await player.boundingBox();
+  if (!box) throw new Error('歌词播放器不可见');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y - 60, { steps: 4 });
+  await page.mouse.up();
+  const preview = panel(page).locator('[data-lyric-drag-preview]');
+  await expect(preview).toBeVisible();
+  expect(env.host.callsTo('playback.setPosition')).toHaveLength(0);
+  await expect(preview).toHaveCount(0, { timeout: 5000 });
+  expect(env.host.callsTo('playback.setPosition')).toHaveLength(0);
   expect(env.errors).toEqual([]);
 });
 

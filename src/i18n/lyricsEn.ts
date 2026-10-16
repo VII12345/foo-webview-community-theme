@@ -125,4 +125,5 @@ export const lyricsEn = {
   'lyrics.candidateMissing': 'No lyrics available',
   'lyrics.candidateFailed': 'Lyrics could not be loaded',
   'lyrics.hasTranslation': 'With translation',
+  'lyrics.seekTo': 'Seek to {time}',
 };
