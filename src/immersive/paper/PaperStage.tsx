@@ -43,7 +43,7 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
         <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} showPad />
         <StageDial />
         {variant === 'lyrics' ? (
-          <ImmersiveLyricsPlayer />
+            <ImmersiveLyricsPlayer mode="lyrics" />
         ) : (
           <>
             <StageFields stereo={<StageStereo />} />
@@ -61,7 +61,11 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
             <div className={`${styles.slot} ${styles['file-info']}`}>
               <PaperFileInfo />
             </div>
-            {variant === 'focus' ? <FocusLyricLog /> : <LyricCard />}
+            {variant === 'focus' ? (
+              <ImmersiveLyricsPlayer mode="focus" fallback={<FocusLyricLog />} />
+            ) : (
+              <ImmersiveLyricsPlayer mode="card" fallback={<LyricCard />} />
+            )}
           </>
         )}
       </div>

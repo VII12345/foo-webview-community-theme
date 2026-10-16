@@ -114,6 +114,14 @@
   top: 580px;
 }
 
+.stage[data-scene='focus'] > :global([data-immersive-lyrics-player]) {
+  position: absolute;
+  left: 760px;
+  top: 704px;
+  width: 1020px;
+  height: 252px;
+}
+
 .stage[data-scene='lyrics'] > :global([data-immersive-lyrics-player]) {
   position: absolute;
   left: 760px;

@@ -42,7 +42,13 @@ export function PaperSheet({ geometry, variant = 'paper' }: PaperSheetProps) {
           waveform: <PaperWaveform />,
           gauges: <PaperGauges />,
           lyrics:
-            variant === 'lyrics' ? <ImmersiveLyricsPlayer /> : variant === 'focus' ? <FocusLyricLog /> : <LyricLog />,
+            variant === 'lyrics' ? (
+              <ImmersiveLyricsPlayer mode="lyrics" />
+            ) : variant === 'focus' ? (
+              <ImmersiveLyricsPlayer mode="focus" fallback={<FocusLyricLog />} />
+            ) : (
+              <ImmersiveLyricsPlayer mode="rows" fallback={<LyricLog />} />
+            ),
         }}
       />
     </div>
