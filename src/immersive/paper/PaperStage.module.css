@@ -114,13 +114,12 @@
   top: 580px;
 }
 
-.stage[data-scene='lyrics'] .focus-lyrics,
 .stage[data-scene='lyrics'] > :global([data-immersive-lyrics-player]) {
   position: absolute;
   left: 760px;
-  top: 296px;
+  top: 964px;
   width: 1020px;
-  height: 660px;
+  height: 114px;
 }
 
 .file-info {
