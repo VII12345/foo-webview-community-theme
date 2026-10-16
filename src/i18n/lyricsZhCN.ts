@@ -23,6 +23,7 @@ export const lyricsZhCN = {
   'lyrics.replayLine': '重播当前句',
   'lyrics.sourceLabel': '来源',
   'lyrics.format': '歌词格式',
+  'lyrics.duration': '时长',
   'lyrics.lineCount': '行数',
   'lyrics.filePath': '歌词文件',
 

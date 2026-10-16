@@ -23,6 +23,7 @@ export const lyricsEn = {
   'lyrics.replayLine': 'Replay current line',
   'lyrics.sourceLabel': 'Source',
   'lyrics.format': 'Lyrics format',
+  'lyrics.duration': 'Duration',
   'lyrics.lineCount': 'Lines',
   'lyrics.filePath': 'Lyrics file',
 

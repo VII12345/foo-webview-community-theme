@@ -5,6 +5,7 @@ import {
   AlbumRegular,
   MicRegular,
   ChevronRight16Regular,
+  Clock16Regular,
   Dismiss16Regular,
   Globe16Regular,
   Info16Regular,
@@ -27,6 +28,15 @@ import { LyricsCandidateCover } from './LyricsCandidateCover.tsx';
 import styles from './LyricsSearch.module.css';
 
 const SNAPSHOT = createSnapshotSlot<{ keywords: string; scroll: number; focus: string }>();
+
+/** 候选时长：`m:ss`，超过一小时写 `h:mm:ss`。 */
+function formatDuration(milliseconds: number): string {
+  const whole = Math.max(0, Math.round(milliseconds / 1000));
+  const minutes = Math.floor(whole / 60);
+  const hours = Math.floor(minutes / 60);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return hours > 0 ? `${hours}:${pad(minutes % 60)}:${pad(whole % 60)}` : `${minutes}:${pad(whole % 60)}`;
+}
 
 export function LyricsSearch({
   title,
@@ -321,6 +331,12 @@ export function LyricsSearch({
                     <Globe16Regular aria-label={t('lyrics.sourceLabel')} />
                     <span>{t(`lyrics.source.${candidate.source}`)}</span>
                   </span>
+                  {candidate.durationMs > 0 && (
+                    <span className={styles.field}>
+                      <Clock16Regular aria-label={t('lyrics.duration')} />
+                      <span data-lyrics-candidate-duration>{formatDuration(candidate.durationMs)}</span>
+                    </span>
+                  )}
                   {candidate.content ? (
                     <span className={styles.field}>
                       <SoundWaveCircle16Regular aria-label={t('lyrics.format')} />
