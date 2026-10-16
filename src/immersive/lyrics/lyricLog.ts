@@ -27,6 +27,25 @@ export interface LyricRows {
   next: LyricLine | null;
 }
 
+export interface LyricWindowLine {
+  readonly time: number;
+  readonly end: number;
+  readonly text: string;
+  readonly translation: string;
+  readonly current: boolean;
+}
+
+export const lyricWindowAtom: Atom<readonly LyricWindowLine[]> = atom((get) => {
+  const { state, lines } = get(loadedAtom);
+  if (state !== 'synced' || lines.length === 0) return [];
+  const at = get(indexAtom);
+  const start = Math.max(0, Math.min(Math.max(0, lines.length - 7), at - 3));
+  return lines.slice(start, start + 7).map((line, index) => ({
+    ...line,
+    current: start + index === at,
+  }));
+});
+
 /** 歌词卡的两行：主行是当前行；副行有译文放译文，没有放下一句，都没有就空、卡按一行排。 */
 export interface LyricCardLines {
   main: string;

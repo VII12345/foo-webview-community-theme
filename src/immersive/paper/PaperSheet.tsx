@@ -2,6 +2,7 @@ import { PaperDial } from '../dial/PaperDial.tsx';
 import { PaperFields } from '../fields/PaperFields.tsx';
 import { PaperGauges } from '../gauges/PaperGauges.tsx';
 import { LyricLog } from '../lyrics/LyricLog.tsx';
+import { FocusLyricLog } from '../lyrics/FocusLyricLog.tsx';
 import { PaperSpectrum } from '../spectrum/PaperSpectrum.tsx';
 import { PaperStereo } from '../stereo/PaperStereo.tsx';
 import { PaperWaveform } from '../waveform/PaperWaveform.tsx';
@@ -39,7 +40,7 @@ export function PaperSheet({ geometry, variant = 'paper' }: PaperSheetProps) {
           spectrum: variant === 'paper' ? <PaperSpectrum /> : null,
           waveform: <PaperWaveform />,
           gauges: <PaperGauges />,
-          lyrics: <LyricLog />,
+          lyrics: variant === 'focus' ? <FocusLyricLog /> : <LyricLog />,
         }}
       />
     </div>

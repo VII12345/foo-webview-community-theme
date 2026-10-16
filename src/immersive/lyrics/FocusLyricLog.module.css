@@ -1,0 +1,38 @@
+.root {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  padding: 8px 16px;
+  overflow: hidden;
+  color: var(--colorNeutralForeground2);
+  font-size: 18px;
+}
+
+.line,
+.current {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.current {
+  color: var(--paper-hot);
+  font-size: 26px;
+  font-weight: var(--fontWeightSemibold);
+}
+
+.time {
+  color: var(--colorNeutralForeground3);
+  font-family: var(--fontFamilyMonospace);
+  font-size: 14px;
+}
+
+.translation {
+  grid-column: 2;
+  color: var(--colorNeutralForeground3);
+  font-size: 16px;
+  font-weight: var(--fontWeightRegular);
+}

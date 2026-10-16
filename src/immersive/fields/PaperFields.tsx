@@ -100,7 +100,7 @@ export function PaperFields({ placement, height, slots }: PaperFieldsProps) {
       </div>
       <hr className={styles.rule} />
       {mode !== 'narrow' && <PaperMetaRow compact={mode === 'compact'} stereo={slots.stereo} />}
-      <div className={styles.spectrum}>{slots.spectrum}</div>
+      {slots.spectrum !== null && <div className={styles.spectrum}>{slots.spectrum}</div>}
       <div className={styles.waveform}>{slots.waveform}</div>
       {mode !== 'narrow' && (
         <>

@@ -4,6 +4,7 @@ import { PaperFileInfo } from '../fields/PaperFileInfo.tsx';
 import { StageFields } from '../fields/StageFields.tsx';
 import { PaperGauges } from '../gauges/PaperGauges.tsx';
 import { LyricCard } from '../lyrics/LyricCard.tsx';
+import { FocusLyricLog } from '../lyrics/FocusLyricLog.tsx';
 import { PaperSpectrum } from '../spectrum/PaperSpectrum.tsx';
 import { StageStereo } from '../stereo/StageStereo.tsx';
 import { PaperWaveform } from '../waveform/PaperWaveform.tsx';
@@ -55,7 +56,7 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
         <div className={`${styles.slot} ${styles['file-info']}`}>
           <PaperFileInfo />
         </div>
-        <LyricCard />
+        {variant === 'focus' ? <FocusLyricLog /> : <LyricCard />}
       </div>
     </StageScaleContext>
   );
