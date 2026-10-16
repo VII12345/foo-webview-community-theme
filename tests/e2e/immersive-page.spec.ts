@@ -65,6 +65,31 @@ test('歌词视图在紧凑档不铺满右栏、不盖住标题', async ({ page 
   expect(title && player && player.y >= title.y + title.height - 1).toBe(true);
   expect(errors).toStrictEqual([]);
 });
+test('右上角切换键鼠标点过不留焦点框，键盘聚焦才显示', async ({ page }) => {
+  const { view, errors } = await openImmersive(page);
+  const trigger = view.getByRole('button', { name: '沉浸视图', exact: true });
+  await trigger.click();
+  await page.getByRole('menuitemradio', { name: '聚焦视图', exact: true }).click();
+  // 鼠标走完一圈后焦点回到触发键上，但不该有焦点框：outline-style 与 Fluent 的 ::after 环都不出现。
+  const mouseRing = await trigger.evaluate((node) => ({
+    outline: getComputedStyle(node).outlineStyle,
+    after: getComputedStyle(node, '::after').display,
+    keyVisible: node.matches(':focus-visible'),
+  }));
+  expect(mouseRing.keyVisible).toBe(false);
+  expect(mouseRing.outline).toBe('none');
+  expect(mouseRing.after).toBe('none');
+  // 键盘聚焦时仍要能看到轴点。
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  const keyRing = await trigger.evaluate((node) => ({
+    outline: getComputedStyle(node).outlineStyle,
+    keyVisible: node.matches(':focus-visible'),
+  }));
+  expect(keyRing.keyVisible).toBe(true);
+  expect(keyRing.outline).not.toBe('none');
+  expect(errors).toStrictEqual([]);
+});
 test('右上角可以切换聚焦视图，隐藏频谱并保持原图纸视图可恢复', async ({ page }) => {
   const { view, errors } = await openImmersive(page);
   await expect(view.locator('[data-tier][data-scene="paper"]')).toBeVisible();

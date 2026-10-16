@@ -1,4 +1,4 @@
-import { Button, MenuItemRadio, MenuList, MenuPopover, MenuTrigger, Tooltip } from '@fluentui/react-components';
+import { Button, MenuItemRadio, MenuList, MenuPopover, MenuTrigger, Tooltip, makeStyles, mergeClasses, tokens } from '@fluentui/react-components';
 import { FullScreenMaximize20Regular, FullScreenMinimize20Regular, Grid20Regular } from '@fluentui/react-icons';
 import { useAtomValueRawSync, useStore } from 'jotai/react';
 import { immersiveSceneAtom, chooseImmersiveScene, IMMERSIVE_SCENES, type ImmersiveScene } from './immersivePrefs.ts';
@@ -7,6 +7,21 @@ import { Menu } from '../../motion/Surfaces.tsx';
 import { translateAtom } from '../../i18n/locale.ts';
 import { hostFullscreenAtom, type ImmersiveShell } from './immersiveShell.ts';
 import styles from './ImmersiveControls.module.css';
+
+// 右上角三颗键的焦点环：Fluent 那圈走 keyborg 的 `data-fui-focus-visible`，菜单关闭把焦点还回触发键时会被
+// 判成键盘聚焦，于是鼠标点完也留一圈黑框。这里关掉它，改用浏览器自己的 `:focus-visible`——只有真的用键盘
+// 聚焦时才亮，鼠标点击不留框。
+const useStyles = makeStyles({
+  key: {
+    '&::after': { display: 'none' },
+    ':focus-visible': {
+      outlineStyle: 'solid',
+      outlineWidth: tokens.strokeWidthThick,
+      outlineColor: tokens.colorStrokeFocus2,
+      outlineOffset: '2px',
+    },
+  },
+});
 
 export interface ImmersiveControlsProps {
   readonly shell: Pick<ImmersiveShell, 'toggleFullscreen' | 'leave'> | null;
@@ -23,6 +38,7 @@ export interface ImmersiveControlsProps {
 export function ImmersiveControls({ shell, shown, onFocusWithin }: ImmersiveControlsProps) {
   const t = useAtomValueRawSync(translateAtom);
   const store = useStore();
+  const classes = useStyles();
   const scene = useAtomValueRawSync(immersiveSceneAtom);
   const fullscreen = useAtomValueRawSync(hostFullscreenAtom);
   const fullscreenLabel = fullscreen ? t('immersive.exitFullscreen') : t('immersive.fullscreen');
@@ -46,7 +62,7 @@ export function ImmersiveControls({ shell, shown, onFocusWithin }: ImmersiveCont
         <Menu checkedValues={{ scene: [scene] }}>
           <MenuTrigger disableButtonEnhancement>
             <Tooltip content={t('immersive.view')} relationship="label">
-              <Button appearance="outline" size="small" shape="circular" icon={<Grid20Regular />} aria-label={t('immersive.view')} />
+              <Button className={classes.key} appearance="outline" size="small" shape="circular" icon={<Grid20Regular />} aria-label={t('immersive.view')} />
             </Tooltip>
           </MenuTrigger>
           <MenuPopover>
@@ -73,6 +89,7 @@ export function ImmersiveControls({ shell, shown, onFocusWithin }: ImmersiveCont
         {fullscreen !== null && (
           <Tooltip content={fullscreenLabel} relationship="label">
             <Button
+              className={classes.key}
               appearance="outline"
               size="small"
               shape="circular"
@@ -85,6 +102,7 @@ export function ImmersiveControls({ shell, shown, onFocusWithin }: ImmersiveCont
         )}
         <Tooltip content={t('immersive.exit')} relationship="label">
           <Button
+            className={classes.key}
             appearance="outline"
             size="small"
             shape="circular"
