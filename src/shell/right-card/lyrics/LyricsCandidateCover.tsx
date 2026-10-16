@@ -24,8 +24,11 @@ export function LyricsCandidateCover({
   const root = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [failed, setFailed] = useState('');
-  const { source, ref, coverUrl } = candidate;
-  const target = useMemo(() => ({ source, ref, coverUrl }), [source, ref, coverUrl]);
+  const { source, ref, coverUrl, title, artists } = candidate;
+  const target = useMemo(
+    () => ({ source, ref, coverUrl, title, artists }),
+    [source, ref, coverUrl, title, artists],
+  );
   const key = lyricsCoverKey(target);
   const image = useMemo(() => atom((get) => get(covers.state).get(key) ?? ''), [covers, key]);
   const url = useAtomValueRawSync(image);

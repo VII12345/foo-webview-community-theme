@@ -2,9 +2,9 @@ import { atom, type Atom } from 'jotai/vanilla';
 import { settle } from '../host/hostCall.ts';
 import type { Store } from '../kit/store.ts';
 import type { LyricsHttpHost } from './online/lyricsHttp.ts';
-import type { LyricsCandidate } from './online/lyricsSource.ts';
+import type { LyricsCoverTarget } from './online/lyricsSource.ts';
 
-export type LyricsCoverTarget = Pick<LyricsCandidate, 'source' | 'ref' | 'coverUrl'>;
+export type { LyricsCoverTarget } from './online/lyricsSource.ts';
 export const lyricsCoverKey = (target: LyricsCoverTarget) =>
   JSON.stringify([target.source, target.ref, target.coverUrl ?? '']);
 
@@ -70,8 +70,7 @@ export function startLyricsCandidateCovers(
   }
   async function download(entry: CoverEntry): Promise<Blob | null> {
     const { target, controller } = entry;
-    const address = target.coverUrl || (await resolve(target, controller.signal));
-    if (!address || controller.signal.aborted) return null;
+    const address = target.coverUrl || (await resolve(target, controller.signal));    if (!address || controller.signal.aborted) return null;
     let url: URL;
     try {
       url = new URL(address);

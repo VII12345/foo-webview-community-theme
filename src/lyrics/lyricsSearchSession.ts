@@ -69,7 +69,7 @@ export function startLyricsSearchSession(
   const covers = startLyricsCandidateCovers(store, deps.host, async (target, signal) => {
     const all = await loadSources();
     if (signal.aborted || !online()) return '';
-    return all.find((source) => source.id === target.source)?.cover?.(target.ref, signal) ?? '';
+    return all.find((source) => source.id === target.source)?.cover?.(target, signal) ?? '';
   });
   function cancelReads() {
     requestScope.abort();

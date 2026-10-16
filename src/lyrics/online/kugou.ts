@@ -16,6 +16,8 @@ import type { LyricsCandidate, LyricsQuery, LyricsSource } from './lyricsSource.
 
 const SEARCH_URL = 'https://lyrics.kugou.com/search';
 const DOWNLOAD_URL = 'https://lyrics.kugou.com/download';
+/** 歌词接口不给封面，靠歌搜索接口的 `Image` 字段补；`{size}` 是尺寸占位符。 */
+const SONG_SEARCH_URL = 'https://songsearch.kugou.com/song_search_v2';
 
 /** KRC 的固定密钥：解开 base64、去掉 4 字节的 `krc1` 头之后，逐字节按它循环异或，再 zlib 解压。 */
 const KRC_KEY = [
@@ -142,6 +144,22 @@ export function createKugouSource(host: LyricsHttpHost): LyricsSource {
       const data = lyricsJson(answer);
       if (answer?.status !== 200 || asNumber(field(data, 'status')) !== 200) return 'failed';
       return asList(field(data, 'candidates')).flatMap((item) => candidateOf(item) ?? []);
+    },
+    /**
+     * 歌词接口不返回封面，改用歌搜索接口：按「曲名 艺人」搜，取首条的 `Image`（形如
+     * `http://imge.kugou.com/stdmusic/{size}/….jpg`），把尺寸占位符换成 400。无匹配或失败答空串。
+     */
+    async cover(candidate, signal) {
+      const keyword = [candidate.title, candidate.artists[0]].filter(Boolean).join(' ');
+      if (!keyword) return '';
+      const params = new URLSearchParams({ keyword, page: '1', pagesize: '1' });
+      const answer = await lyricsGet(host, `${SONG_SEARCH_URL}?${params.toString()}`, undefined, signal);
+      const data = lyricsJson(answer);
+      if (answer?.status !== 200) return '';
+      const first = asList(field(field(data, 'data'), 'lists'))[0];
+      const image = asText(field(first, 'Image'));
+      // 歌搜索给的封面地址是 http，且带尺寸占位符；换成 400 并升到 https，交给上层下载。
+      return image ? image.replace('{size}', '400').replace(/^http:/, 'https:') : '';
     },
     async fetch(candidate: LyricsCandidate, signal?: AbortSignal) {
       const [id = '', key = ''] = candidate.ref.split(':');

@@ -39,11 +39,17 @@ export interface LyricsCandidate {
 /** 取词的结果：`missing` 是来源明确没有这首的词（含纯音乐），`failed` 是请求或解析失败，可以稍后再试。 */
 export type LyricsFetchResult = LyricsContent | 'missing' | 'failed';
 
+/** 补查封面要的那几项：来源身份、来源给的封面地址，以及按曲名/艺人再搜一次时要用的标题与艺人。 */
+export type LyricsCoverTarget = Pick<
+  LyricsCandidate,
+  'source' | 'ref' | 'coverUrl' | 'title' | 'artists'
+>;
+
 export interface LyricsSource {
   readonly id: LyricsSourceId;
   /** 请求失败答 `failed`；搜到零条答空数组。 */
   search(query: LyricsQuery, signal?: AbortSignal): Promise<readonly LyricsCandidate[] | 'failed'>;
   fetch(candidate: LyricsCandidate, signal?: AbortSignal): Promise<LyricsFetchResult>;
-  /** 根据本来源的候选身份补查封面；没有封面时返回空串。 */
-  cover?(ref: string, signal?: AbortSignal): Promise<string>;
+  /** 根据候选补查封面；封面地址直接给在候选里时不调用。没有封面时返回空串。 */
+  cover?(candidate: LyricsCoverTarget, signal?: AbortSignal): Promise<string>;
 }

@@ -5,6 +5,7 @@ import { installLyricsHttp, json } from '../../../fixtures/lyricsHttp.ts';
 
 const SEARCH = 'https://lyrics.kugou.com/search';
 const DOWNLOAD = 'https://lyrics.kugou.com/download';
+const SONG_SEARCH = 'https://songsearch.kugou.com/song_search_v2';
 
 const KEY = [
   0x40, 0x47, 0x61, 0x77, 0x5e, 0x32, 0x74, 0x47, 0x51, 0x36, 0x31, 0x2d, 0xce, 0xd2, 0x6e, 0x69,
@@ -119,5 +120,23 @@ describe('酷狗来源', () => {
     expect(await createKugouSource(denied.host).fetch(candidate)).toBe('failed');
     const garbled = installLyricsHttp({ [DOWNLOAD]: json({ status: 200, content: 'a3JjMQ==' }) });
     expect(await createKugouSource(garbled.host).fetch(candidate)).toBe('failed');
+  });
+
+  it('封面走歌搜索的 Image 字段：尺寸占位符换 400、升到 https；无匹配答空串', async () => {
+    const http = installLyricsHttp({
+      [SONG_SEARCH]: json({
+        data: {
+          lists: [
+            { Image: 'http://imge.kugou.com/stdmusic/{size}/20181219/20181219183350812690.jpg' },
+          ],
+        },
+      }),
+    });
+    expect(await createKugouSource(http.host).cover(candidate)).toBe(
+      'https://imge.kugou.com/stdmusic/400/20181219/20181219183350812690.jpg',
+    );
+    expect(http.requests()[0]?.url.searchParams.get('keyword')).toBe('江南 林俊杰');
+    const empty = installLyricsHttp({ [SONG_SEARCH]: json({ data: { lists: [] } }) });
+    expect(await createKugouSource(empty.host).cover(candidate)).toBe('');
   });
 });

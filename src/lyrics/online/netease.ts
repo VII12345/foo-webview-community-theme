@@ -84,7 +84,8 @@ export function createNeteaseSource(host: LyricsHttpHost): LyricsSource {
         (item) => candidateOf(item) ?? [],
       );
     },
-    async cover(ref, signal) {
+    async cover(candidate, signal) {
+      const ref = candidate.ref;
       if (!/^\d+$/.test(ref)) return '';
       const params = new URLSearchParams({ ids: `[${ref}]` });
       const answer = await lyricsGet(host, `${DETAIL_URL}?${params.toString()}`, HEADERS, signal);
