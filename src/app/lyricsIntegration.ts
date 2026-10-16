@@ -16,9 +16,9 @@ import { trackKeyOf } from '../playback/playbackContract.ts';
 import { playbackCanSeekAtom, playbackConnectedAtom } from '../playback/playerAtoms.ts';
 import type { AppServices } from './services.ts';
 
-const artistNames = (values: readonly string[] | undefined, fallback: string) =>
-  (values?.length ? values : [fallback])
-    .flatMap((value) => value.split(', '))
+const artistNames = (values: readonly string[] | undefined, fallback: string | undefined) =>
+  (values?.length ? values : [fallback ?? ''])
+    .flatMap((value) => (value ?? '').split(', '))
     .map((value) => value.trim())
     .filter(Boolean);
 

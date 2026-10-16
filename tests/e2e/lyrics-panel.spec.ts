@@ -558,12 +558,18 @@ test('搜索入口打开候选选择器，选择在线歌词覆盖当前本地�
   // 本地曲目：选择写进文件的内嵌歌词标签，写的是这份带时间轴的词。
   const save = env.host.callsTo('lyrics.save').at(-1);
   expect(String(save?.['path'])).toContain('01 Feather.flac');
-  expect(String(save?.['tagName'])).toBe('SYNCED LYRICS');
+  expect(String(save?.['tagName'])).toBe('LYRICS');
   await expect.poll(() => [...written.values()].join('\n')).toContain('在线第一句');
+  // 切到别的曲目再切回来：回读文件标签，仍是手选的这份。
+  const original = env.state.track;
+  env.state.track = makeTrack({ title: 'Other', artist: '别人', duration: 200, path: 'E:/Music/other.flac' });
+  await env.host.emit('playback:trackChanged', env.state.track);
+  env.state.track = original;
+  await env.host.emit('playback:trackChanged', env.state.track);
+  await expect(lyricsPlayer(page).getByText('在线第一句', { exact: true })).toBeVisible();
   await expect(panel(page).getByRole('button', { name: '搜索歌词', exact: true })).toBeVisible();
   expect(env.errors).toEqual([]);
 });
-
 test('单框搜索处理中文组词、清空和失败，窄窗返回保留预览外壳', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
   const env = await openLyrics(page, LOCAL, 720);

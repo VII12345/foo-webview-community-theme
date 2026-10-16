@@ -1,6 +1,8 @@
 import type { Track } from 'foo-webview-sdk';
 
-const normalize = (value: string) => value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
+// 宿主给的标签字段可能缺项（为空时是 undefined），归一前先兜成空串。
+const normalize = (value: string | undefined) =>
+  (value ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
 
 function hash(value: string): string {
   let result = 0xcbf29ce484222325n;
@@ -17,11 +19,11 @@ export function lyricsArchiveKey(track: Pick<Track,
 > | null): string | null {
   if (!track) return null;
   const title = normalize(track.title);
-  const artists = (track.artists.length ? track.artists : [track.artist])
+  const artists = (track.artists?.length ? track.artists : [track.artist])
     .map(normalize)
     .filter(Boolean);
   if (!title || !artists.length || track.duration <= 0) return null;
-  const albumArtists = (track.albumArtists.length ? track.albumArtists : [track.albumArtist])
+  const albumArtists = (track.albumArtists?.length ? track.albumArtists : [track.albumArtist])
     .map(normalize)
     .filter(Boolean);
   const identity = JSON.stringify([

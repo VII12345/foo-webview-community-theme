@@ -33,7 +33,11 @@ export function serializeLyricsContent(content: LyricsContent): string {
   return rows.join('\n');
 }
 
-/** 有时间轴写进 SYNCED LYRICS 标签，纯文本写进 LYRICS 标签。 */
-export function lyricsTagName(content: LyricsContent): 'SYNCED LYRICS' | 'LYRICS' {
-  return content.kind === 'synced' ? 'SYNCED LYRICS' : 'LYRICS';
+/**
+ * 写进哪个标签。宿主读内嵌歌词时按 `LYRICS`、`UNSYNCED LYRICS`、`UNSYNCEDLYRICS`、`SYNCEDLYRICS`、
+ * `SYNCED LYRICS` 的顺序探测、第一个非空的胜出，所以选择必须写进排在最前的 `LYRICS`，否则会被文件里
+ * 原有的歌词标签盖住、读回来还是旧词。
+ */
+export function lyricsTagName(_content: LyricsContent): 'LYRICS' {
+  return 'LYRICS';
 }
