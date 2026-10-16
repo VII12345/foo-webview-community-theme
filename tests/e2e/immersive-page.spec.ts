@@ -4,6 +4,31 @@ import { PLAYING_TRACK } from '../fixtures/playerPage.ts';
 
 // 正在播放全屏页的进出与舞台上的字：盖住整窗、曲目字段写出来，Esc 与胶囊都是后退。
 
+test('可以切换到透明歌词视图，只显示当前歌词并可切回图纸', async ({ page }) => {
+  const { view, errors } = await openImmersive(page, {
+    onHost(host) {
+      host.answer('lyrics.get', {
+        success: true,
+        available: true,
+        source: 'embedded',
+        path: '',
+        lyrics: '[00:40]沉浸歌词第一句\n[00:45]沉浸歌词第二句',
+        synced: true,
+      });
+    },
+  });
+  await expect(view.locator('[data-field="lyric-main"]')).toHaveText('沉浸歌词第一句');
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '歌词视图', exact: true }).click();
+  await expect(view.locator('[data-scene="lyrics"]')).toBeVisible();
+  await expect(view.locator('[data-field="lyric-main"]')).toHaveText('沉浸歌词第一句');
+  await expect(view.locator('[data-paper-content]')).toHaveCount(0);
+  await expect(view).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '图纸舞台', exact: true }).click();
+  await expect(view.locator('[data-tier][data-scene="paper"]')).toBeVisible();
+  expect(errors).toStrictEqual([]);
+});
 test('右上角可以切换聚焦视图，隐藏频谱并保持原图纸视图可恢复', async ({ page }) => {
   const { view, errors } = await openImmersive(page);
   await expect(view.locator('[data-tier][data-scene="paper"]')).toBeVisible();

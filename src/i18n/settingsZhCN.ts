@@ -110,6 +110,7 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
   'settings.immersiveView': '沉浸视图',
   'settings.immersiveViewPaper': '图纸舞台',
   'settings.immersiveViewFocus': '聚焦视图',
+  'settings.immersiveViewLyrics': '歌词视图',
   'settings.backdropSystem': '由系统绘制',
   'settings.playerBar': '播放栏位置',
   'settings.playerBarBottom': '窗口底部',

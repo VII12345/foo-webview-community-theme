@@ -58,7 +58,13 @@ export function ImmersiveControls({ shell, shown, onFocusWithin }: ImmersiveCont
                   value={value}
                   onClick={() => chooseImmersiveScene(store, value)}
                 >
-                  {t(value === 'paper' ? 'immersive.viewPaper' : 'immersive.viewFocus')}
+                  {t(
+                    value === 'paper'
+                      ? 'immersive.viewPaper'
+                      : value === 'focus'
+                        ? 'immersive.viewFocus'
+                        : 'immersive.viewLyrics',
+                  )}
                 </MenuItemRadio>
               ))}
             </MenuList>

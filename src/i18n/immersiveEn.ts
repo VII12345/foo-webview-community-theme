@@ -18,4 +18,5 @@ export const immersiveEn = {
   'immersive.view': 'Immersive view',
   'immersive.viewPaper': 'Paper stage',
   'immersive.viewFocus': 'Focus view',
+  'immersive.viewLyrics': 'Lyrics view',
 };

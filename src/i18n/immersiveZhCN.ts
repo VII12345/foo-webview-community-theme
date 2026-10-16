@@ -20,4 +20,5 @@ export const immersiveZhCN: Record<keyof typeof immersiveEn, string> = {
   'immersive.view': '沉浸视图',
   'immersive.viewPaper': '图纸舞台',
   'immersive.viewFocus': '聚焦视图',
+  'immersive.viewLyrics': '歌词视图',
 };

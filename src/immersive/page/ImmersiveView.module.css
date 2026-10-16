@@ -9,6 +9,10 @@
   outline: none;
 }
 
+.view[data-scene='lyrics'] {
+  background: transparent;
+}
+
 .view[data-idle] {
   cursor: none;
 }
