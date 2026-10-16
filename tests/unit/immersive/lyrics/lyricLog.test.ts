@@ -105,12 +105,15 @@ describe('沉浸歌词投影', () => {
     expect(env.card()).toMatchObject({ main: 'three', sub: '', subKind: 'none' });
   });
 
-  test('间奏空行保留；纯文本只给行数', async () => {
+  test('间奏期间停在上一条真实歌词、不插空行；纯文本只给行数', async () => {
     const env = await setup(ready('[00:01]one\n[00:05]\n[00:09]three'));
     env.seek(2);
-    expect(env.card()).toMatchObject({ main: 'one', sub: '', subKind: 'none' });
+    // 没有空行可放，副行直接写下一条真实歌词。
+    expect(env.card()).toMatchObject({ main: 'one', sub: 'three', subKind: 'next' });
+    // 间奏空隙里没有空行，当前行仍是上一条「one」。
     env.seek(5);
-    expect(env.rows().current?.text).toBe('');
+    expect(env.rows().current?.text).toBe('one');
+    expect(env.rows().current?.words.length).toBeGreaterThan(0);
     env.publish(ready('纯文本\n两行'));
     expect(env.log()).toEqual({ state: 'plain', source: 'embedded', lineCount: 2 });
     expect(env.card()).toBeNull();
@@ -200,11 +203,12 @@ describe('沉浸歌词投影', () => {
     expect((env.rows().current?.words[0]?.end ?? 0) >= 9).toBe(true);
   });
 
-  test('间奏空行没有逐字数据', async () => {
+  test('投影里没有空行条目，间奏停在真实行', async () => {
     const env = await setup(ready('[00:01]one\n[00:05]\n[00:09]three'));
     env.seek(5);
-    expect(env.rows().current?.text).toBe('');
-    expect(env.rows().current?.words).toEqual([]);
+    // 三行窗口里没有 text 为空的行。
+    expect(env.window().every((line) => line.text !== '')).toBe(true);
+    expect(env.rows().current?.text).toBe('one');
     expect(env.window().length).toBeGreaterThan(0);
   });
 

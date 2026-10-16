@@ -165,18 +165,13 @@ function project(result: LyricsState): Loaded {
       };
     })
     .sort((a, b) => a.time - b.time);
-  // 解析器把间奏空行记在上一句的结束时间，日志将这段空隙还原为独立的一行。
-  const lines = sorted.flatMap((line, index) => {
-    const next = sorted[index + 1];
-    return next && line.end > line.time && line.end < next.time
-      ? [line, { time: line.end, end: next.time, text: '', translation: '', words: [] }]
-      : [line];
-  });
+  // 不再把间奏空隙还原成空行：卡片与日志都直接排真实歌词行，行与行之间不留空白；
+  // 间奏期间当前行停在上一句，而不是切成一条只剩时间码的空行。
   return {
     state: 'synced',
     source,
     lineCount: 0,
-    lines,
+    lines: sorted,
   };
 }
 
