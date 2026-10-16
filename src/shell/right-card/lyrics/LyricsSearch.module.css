@@ -33,12 +33,44 @@
   z-index: 1;
   top: 0;
   margin: var(--spacingVerticalS) var(--spacingHorizontalM) 0;
-  padding: var(--spacingVerticalXS) var(--spacingHorizontalS);
   color: var(--colorNeutralForeground2);
   background: var(--colorNeutralBackground1);
   font-size: var(--fontSizeBase200);
   font-weight: var(--fontWeightSemibold);
   line-height: var(--lineHeightBase200);
+}
+
+/* 词源分组标题做成折叠键：整行可点，箭头指展开方向，右边写这组有几条。 */
+.group-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingHorizontalXS);
+  width: 100%;
+  padding: var(--spacingVerticalXS) var(--spacingHorizontalS);
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.group-toggle:hover {
+  color: var(--colorNeutralForeground1);
+}
+
+.group-chevron {
+  flex: none;
+  transition: transform var(--motion-faster) var(--curveLinear);
+}
+
+.group-chevron[data-collapsed] {
+  transform: rotate(-90deg);
+}
+
+.group-count {
+  color: var(--colorNeutralForeground3);
+  font-weight: var(--fontWeightRegular);
 }
 
 .results p {

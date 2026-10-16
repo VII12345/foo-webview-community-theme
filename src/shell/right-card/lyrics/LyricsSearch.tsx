@@ -4,6 +4,7 @@ import { Button, Input, Spinner, Tooltip } from '@fluentui/react-components';
 import {
   AlbumRegular,
   MicRegular,
+  ChevronDown16Regular,
   ChevronRight16Regular,
   Clock16Regular,
   Dismiss16Regular,
@@ -71,6 +72,15 @@ export function LyricsSearch({
       return groups;
     }, new Map<LyricsCandidate['source'], LyricsCandidate[]>()),
   );
+  // 每个词源那一组可折叠；默认展开，状态只在本页存活，不进偏好。
+  const [collapsed, setCollapsed] = useState<ReadonlySet<LyricsCandidate['source']>>(new Set());
+  const toggleGroup = (source: LyricsCandidate['source']) =>
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(source)) next.delete(source);
+      else next.add(source);
+      return next;
+    });
   const localReady = local.status === 'ready' ? local : null;
   const localChosen =
     localReady !== null && currentLyrics.status === 'ready' && currentLyrics.source === localReady.source;
@@ -263,10 +273,28 @@ export function LyricsSearch({
             </article>
           </section>
         )}
-        {candidateGroups.map(([source, candidates]) => (
+        {candidateGroups.map(([source, candidates]) => {
+          const isCollapsed = collapsed.has(source);
+          return (
           <section key={source} className={styles.group} data-lyrics-source-group={source}>
-            <h2>{t(`lyrics.source.${source}`)}</h2>
-            {candidates.map((candidate) => {
+            <h2>
+              <button
+                type="button"
+                className={styles['group-toggle']}
+                aria-expanded={!isCollapsed}
+                data-lyrics-group-toggle={source}
+                onClick={() => toggleGroup(source)}
+              >
+                <ChevronDown16Regular
+                  className={styles['group-chevron']}
+                  data-collapsed={isCollapsed || undefined}
+                  aria-hidden
+                />
+                <span>{t(`lyrics.source.${source}`)}</span>
+                <span className={styles['group-count']}>{candidates.length}</span>
+              </button>
+            </h2>
+            {!isCollapsed && candidates.map((candidate) => {
           const id = lyricsCandidateId(candidate);
           const chosen =
             currentLyrics.status === 'ready' &&
@@ -384,7 +412,8 @@ export function LyricsSearch({
             );
             })}
           </section>
-        ))}
+          );
+        })}
       </div>
       <div className={styles.actions} role="status">
         {t('lyrics.results', { count: result.candidates.length })}
