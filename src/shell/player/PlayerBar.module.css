@@ -66,6 +66,21 @@
   line-height: var(--lineHeightBase200);
 }
 
+/* 恢复栏的提示：没有原列表行、原行已换曲等；一行小字，截断交给外层。 */
+.notice {
+  color: var(--text-secondary);
+  font-size: var(--fontSizeBase200);
+  line-height: var(--lineHeightBase200);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 恢复栏没有进度线：整条仍占原来的高度，主行落在原位。 */
+.root[data-recovery] {
+  grid-template-rows: 16px 56px;
+}
+
 .controls {
   display: flex;
   justify-content: center;

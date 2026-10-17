@@ -29,6 +29,7 @@ import { SeekLyricsPopover } from './SeekLyrics.tsx';
 import { useVolumeControl } from './volume/useVolumeControl.ts';
 import { VolumeSlider } from './volume/VolumeSlider.tsx';
 import { useViewControlStyles } from '../../theme/controlStyles.ts';
+import { recoveryNoticeKey, recoveryTrack, recoveryViewAtom } from './recoveryTrack.ts';
 
 // 键 36 见方、图标 20，与控制组的键一样大。
 const useStyles = makeStyles({
@@ -105,29 +106,38 @@ export function PlayerBar() {
   const videoEntry = useContext(VideoEntryContext);
   const t = useAtomValueRawSync(translateAtom);
   const live = useAtomValueRawSync(currentTrackAtom);
+  const recovery = useAtomValueRawSync(recoveryViewAtom);
   const { tier } = useAtomValueRawSync(sidebarViewAtom);
   const { sender, scale } = useVolumeControl();
   const text = useRef<HTMLDivElement>(null);
   const track = useTextSwap(live, [text], true);
   const menu = useNowPlayingMenu(track);
   const wide = tier === 'wide';
+  // 没有当前曲目、但有上次播放的记录：整条换成恢复栏，曲名与艺人写记录，进度线不画，控制组照旧
+  // 能按播放键（播放键由恢复服务接手）。当前曲目在时恢复记录不抢正常播放栏。
+  const restore = !track && recovery ? recoveryTrack(recovery.record) : null;
+  const shown = track ?? restore;
+  const notice = restore && recovery ? recoveryNoticeKey(recovery) : null;
   return (
     <section
       ref={handOffPlayerFocus}
       className={styles.root}
       aria-label={t('player.bar')}
       data-player-bar
+      data-recovery={restore ? '' : undefined}
       data-tier={tier}
     >
-      <div className={styles.progress}>
-        <SeekBar
-          interactive
-          thickness={4}
-          thumb
-          clock
-          preview={(target) => <SeekLyricsPopover target={target} />}
-        />
-      </div>
+      {!restore && (
+        <div className={styles.progress}>
+          <SeekBar
+            interactive
+            thickness={4}
+            thumb
+            clock
+            preview={(target) => <SeekLyricsPopover target={target} />}
+          />
+        </div>
+      )}
       <div className={styles.main}>
         <div
           className={styles.now}
@@ -140,12 +150,17 @@ export function PlayerBar() {
             <div className={styles.titleRow}>
               <TruncatedText
                 className={styles.title}
-                data-idle={!track || undefined}
-                text={track ? displayTitle(track) : t('player.idle')}
+                data-idle={!shown || undefined}
+                text={shown ? displayTitle(shown) : t('player.idle')}
               />
               {tier !== 'hidden' && <NowPlayingRating size="small" track={track} />}
             </div>
-            <TrackByline className={styles.byline} track={track} />
+            <TrackByline className={styles.byline} track={shown} />
+            {notice && (
+              <span className={styles.notice} role="status">
+                {t(notice)}
+              </span>
+            )}
           </div>
         </div>
         <div className={styles.controls}>

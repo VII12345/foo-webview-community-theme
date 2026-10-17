@@ -13,6 +13,7 @@ import { sidebarFormOf, sidebarViewAtom } from '../nav/sidebar/sidebarView.ts';
 import { useSidebarMotion } from './sidebar/useSidebarMotion.ts';
 import { reducedMotionAtom } from '../motion/reducedMotion.ts';
 import { hasCurrentTrackAtom } from '../playback/playerAtoms.ts';
+import { recoveryViewAtom } from './player/recoveryTrack.ts';
 import { PlayerBar } from './player/PlayerBar.tsx';
 import { playerBarStyleAtom, playerShellOf } from '../theme/playerBarStyle.ts';
 import { PlayerCapsule } from './player/PlayerCapsule.tsx';
@@ -57,7 +58,10 @@ export function MainWindow() {
   const reduced = useAtomValueRawSync(reducedMotionAtom);
   const shell = playerShellOf(useAtomValueRawSync(playerBarStyleAtom), tier === 'wide');
   const hasTrack = useAtomValueRawSync(hasCurrentTrackAtom);
-  const capsule = shell.capsule && hasTrack;
+  // 没有当前曲目、但有上次播放的记录时，恢复栏按用户选的形态常驻。
+  const recovery = useAtomValueRawSync(recoveryViewAtom) !== null;
+  const withPlayer = hasTrack || recovery;
+  const capsule = shell.capsule && withPlayer;
   const rightCard = useService(rightCardKey);
   const body = useRef<HTMLDivElement>(null);
   const pane = useRef<HTMLDivElement>(null);
@@ -73,7 +77,7 @@ export function MainWindow() {
   };
 
   return (
-    <div className={styles.root} data-bottom-player={(shell.bottom && hasTrack) || undefined}>
+    <div className={styles.root} data-bottom-player={(shell.bottom && withPlayer) || undefined}>
       <TitleBar />
       <div
         ref={body}
@@ -118,7 +122,7 @@ export function MainWindow() {
           </RightCardDock>
         </main>
       </div>
-      {shell.bottom && hasTrack && <PlayerBar />}
+      {shell.bottom && withPlayer && <PlayerBar />}
     </div>
   );
 }

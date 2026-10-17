@@ -57,6 +57,8 @@ export function startPlayback(store: Store, host: PlaybackFace = fb): PlaybackSe
   let waiter: ReturnType<typeof waitForHost> | undefined;
   let volumeWriting: Promise<void> | null = null;
   let pendingVolume: { db: number; refresh: boolean } | null = null;
+  // 播放键的拦截方（恢复上次播放）：按一次算一次，不接管时不发宿主的播放 / 暂停命令。
+  let playInterceptor: (() => boolean) | null = null;
   // 宿主最近报的曲目原样，与电台报的这一首（`streamTrack.ts`）。
   let tagged: Track | null = null;
   let stream: StreamTrack | null = null;
@@ -307,7 +309,11 @@ export function startPlayback(store: Store, host: PlaybackFace = fb): PlaybackSe
 
   return {
     ready: start(),
-    playOrPause: () => command(() => host.player.toggle(), refreshTransport),
+    playOrPause: () =>
+      playInterceptor?.() ? Promise.resolve() : command(() => host.player.toggle(), refreshTransport),
+    setPlayInterceptor(intercept) {
+      playInterceptor = intercept;
+    },
     stop: () => command(() => host.player.stop(), refreshTransport),
     next: () => command(() => host.player.next(), refreshTransport),
     previous: () => command(() => host.player.prev(), refreshTransport),

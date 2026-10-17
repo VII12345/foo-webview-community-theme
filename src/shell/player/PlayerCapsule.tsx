@@ -21,6 +21,7 @@ import { TrackByline } from './TrackByline.tsx';
 import { TruncatedText } from './TruncatedText.tsx';
 import { useTextSwap } from './now-playing/useTextSwap.ts';
 import { useViewControlStyles } from '../../theme/controlStyles.ts';
+import { recoveryNoticeKey, recoveryTrack, recoveryViewAtom } from './recoveryTrack.ts';
 
 const useStyles = makeStyles({
   more: {
@@ -91,6 +92,7 @@ export function PlayerCapsule({ visible }: PlayerCapsuleProps) {
   const videoEntry = useContext(VideoEntryContext);
   const t = useAtomValueRawSync(translateAtom);
   const live = useAtomValueRawSync(currentTrackAtom);
+  const recovery = useAtomValueRawSync(recoveryViewAtom);
   const { tier } = useAtomValueRawSync(sidebarViewAtom);
   const compact = tier === 'hidden';
   const classes = useStyles();
@@ -98,6 +100,10 @@ export function PlayerCapsule({ visible }: PlayerCapsuleProps) {
   const text = useRef<HTMLDivElement>(null);
   const track = useTextSwap(live, [text], scrub !== 'on');
   const menu = useNowPlayingMenu(track);
+  // 没有当前曲目、但有恢复记录时，胶囊写上次那一首，进度线不画；当前曲目在时照常显示。
+  const restore = !track && recovery ? recoveryTrack(recovery.record) : null;
+  const shown = track ?? restore;
+  const notice = restore && recovery ? recoveryNoticeKey(recovery) : null;
   if (!present) return null;
   return (
     <div
@@ -106,6 +112,7 @@ export function PlayerCapsule({ visible }: PlayerCapsuleProps) {
       role="group"
       aria-label={t('player.nowPlaying')}
       data-player-capsule
+      data-recovery={restore ? '' : undefined}
       data-visible={visible || undefined}
       data-tier={tier}
       data-rating-host
@@ -118,12 +125,17 @@ export function PlayerCapsule({ visible }: PlayerCapsuleProps) {
           <TruncatedText
             scroll
             className={styles.title}
-            data-idle={!track || undefined}
-            text={track ? displayTitle(track) : t('player.idle')}
+            data-idle={!shown || undefined}
+            text={shown ? displayTitle(shown) : t('player.idle')}
           />
-          {!compact && <NowPlayingRating size="compact" track={track} />}
+          {!compact && <NowPlayingRating size="compact" track={live} />}
         </div>
-        <TrackByline scroll className={styles.byline} track={track} />
+        <TrackByline scroll className={styles.byline} track={shown} />
+        {notice && (
+          <span className={styles.notice} role="status">
+            {t(notice)}
+          </span>
+        )}
       </div>
       <div className={`${styles.controls} ${styles.soft}`}>
         <PlaybackControls compact={compact} />
@@ -146,7 +158,7 @@ export function PlayerCapsule({ visible }: PlayerCapsuleProps) {
           />
         </Tooltip>
       </div>
-      <ScrubSeek form="capsule" onScrubChange={setScrub} />
+      {!restore && <ScrubSeek form="capsule" onScrubChange={setScrub} />}
       <NowPlayingMenu at={visible ? menu.at : null} onClose={menu.close} />
     </div>
   );

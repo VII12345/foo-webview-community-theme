@@ -51,6 +51,11 @@ import {
   type PlaybackSourceService,
   playbackSourceKey,
 } from '../playback/playbackSource.ts';
+import {
+  playbackRecoveryKey,
+  startPlaybackRecovery,
+  type PlaybackRecoveryService,
+} from '../playback/playbackRecovery.ts';
 import { loadPlayerBarStyle } from '../theme/playerBarStyle.ts';
 import { startQueueCount, queueCountKey } from '../playback/queueCount.ts';
 import { loadVolumeScale } from '../playback/volumeScale.ts';
@@ -148,6 +153,8 @@ export interface AppServices {
   readonly albumList: AlbumListServices;
   /** 正在播的从哪来：主题起播时记下，宿主那边换了表时跟着改，跨重启保留。 */
   readonly playbackSource: PlaybackSourceService;
+  /** 上次播放的曲目、原列表行与进度；启动后点播放从这里恢复。 */
+  readonly playbackRecovery: PlaybackRecoveryService;
   /** 专辑详情页：进页前取曲目，正在看的几张跟着库变更重取。 */
   readonly albumDetail: AlbumDetailService;
   /** 歌曲页：筛选、宿主排好的顺序与按查询填表的起播。 */
@@ -256,6 +263,11 @@ export function startServices(dataWriter: BrowserDataWriter, prefs: PagePrefStor
     playbackSourceKey,
     startPlaybackSource(store, undefined, configWriter),
   );
+  const playbackRecovery = scope.add(
+    playbackRecoveryKey,
+    startPlaybackRecovery(store, { playback: playbackAtom, writer: configWriter }),
+  );
+  playback.setPlayInterceptor(() => playbackRecovery.interceptPlay());
   const trackActions = scope.add(trackActionsKey, startTrackActions(store, playbackSource));
   const albums = scope.add(
     albumsKey,
@@ -426,6 +438,7 @@ export function startServices(dataWriter: BrowserDataWriter, prefs: PagePrefStor
     history,
     commands,
     playback,
+    playbackRecovery,
     trackActions,
     albums,
     playlistPlaces,

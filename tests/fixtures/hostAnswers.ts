@@ -301,6 +301,7 @@ export function defaultAnswers(config: Map<string, ConfigValue>): AnswerTable {
       previous: OK,
       playOrPause: { success: true, isPlaying: true },
       setVolume: OK,
+      mute: OK,
       volumeUp: OK,
       volumeDown: OK,
       toggleMute: { success: true, muted: true },

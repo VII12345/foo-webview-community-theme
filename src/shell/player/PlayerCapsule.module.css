@@ -95,6 +95,16 @@
   line-height: 16px;
 }
 
+/* 恢复栏的提示：不画进度线时写在原来的第二行下面，小一号，截断交给外层。 */
+.notice {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fontSizeBase100);
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 只为认出焦点在不在里面，不参与版式。 */
 .slot {
   display: contents;

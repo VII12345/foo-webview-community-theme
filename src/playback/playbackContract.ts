@@ -62,6 +62,11 @@ export interface PlaybackService {
   /** 连上宿主后的订阅与初读都发出时兑现，不会拒绝。 */
   readonly ready: Promise<void>;
   playOrPause(): Promise<void>;
+  /**
+   * 播放键的拦截：返回真表示这次按键已经由拦截方接手（恢复上次播放等），不再发宿主的播放 / 暂停命令。
+   * 只做同步判断，耗时的恢复动作由拦截方自己发起。
+   */
+  setPlayInterceptor(intercept: (() => boolean) | null): void;
   stop(): Promise<void>;
   next(): Promise<void>;
   previous(): Promise<void>;

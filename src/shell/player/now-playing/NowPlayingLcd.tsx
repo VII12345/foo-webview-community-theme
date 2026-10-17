@@ -17,6 +17,7 @@ import { formatBadge } from '../../../track/trackFormat.ts';
 import { TrackByline } from '../TrackByline.tsx';
 import { TruncatedText } from '../TruncatedText.tsx';
 import { useTextSwap } from './useTextSwap.ts';
+import { recoveryNoticeKey, recoveryTrack, recoveryViewAtom } from '../recoveryTrack.ts';
 
 const useStyles = makeStyles({
   more: {
@@ -40,17 +41,21 @@ const COVER = 52;
 export function NowPlayingLcd() {
   const t = useAtomValueRawSync(translateAtom);
   const live = useAtomValueRawSync(currentTrackAtom);
+  const recovery = useAtomValueRawSync(recoveryViewAtom);
   const { format: liveFormat } = useAtomValueRawSync(nowPlayingAtom);
   const classes = useStyles();
   const [scrub, setScrub] = useState<ScrubState | undefined>(undefined);
   const titleRow = useRef<HTMLDivElement>(null);
   const subRow = useRef<HTMLDivElement>(null);
+  // 没有当前曲目、但有恢复记录时，正在播放条写上次那一首；当前曲目在时照常显示。
+  const restore = !live && recovery ? recoveryTrack(recovery.record) : null;
   // 格式标记与曲名同一行，退场期间也照上一首的写。
   const { track, format } = useTextSwap(
-    { track: live, format: liveFormat },
+    { track: live ?? restore, format: live ? liveFormat : 'failed' },
     [titleRow, subRow],
     scrub !== 'on',
   );
+  const notice = recovery ? recoveryNoticeKey(recovery) : null;
   const badge = track ? formatBadge(track, format) : null;
   const menu = useNowPlayingMenu(track);
   return (
@@ -82,9 +87,15 @@ export function NowPlayingLcd() {
         </div>
         <div ref={subRow} className={`${styles.subRow} ${styles.soft}`}>
           <TrackByline scroll className={styles.byline} track={track} />
-          <NowPlayingRating size="compact" track={track} />
+          <NowPlayingRating size="compact" track={live} />
         </div>
-        <ScrubSeek form="lcd" onScrubChange={setScrub} />
+        {notice ? (
+          <span className={styles.notice} role="status">
+            {t(notice)}
+          </span>
+        ) : (
+          <ScrubSeek form="lcd" onScrubChange={setScrub} />
+        )}
       </div>
       <span className={`${styles.more} ${styles.soft}`}>
         <Tooltip content={t('player.more')} relationship="label">

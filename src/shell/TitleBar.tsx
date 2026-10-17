@@ -13,6 +13,7 @@ import { PlaybackControls } from './player/PlaybackControls.tsx';
 import { playerBarStyleAtom, playerShellOf } from '../theme/playerBarStyle.ts';
 import { handOffPlayerFocus } from './player/playerFocus.ts';
 import { hasCurrentTrackAtom } from '../playback/playerAtoms.ts';
+import { recoveryViewAtom } from './player/recoveryTrack.ts';
 import { CaptionButtons } from './CaptionButtons.tsx';
 import { HostStatus } from './HostStatus.tsx';
 import { InfoCenterButton } from './info-center/InfoCenterButton.tsx';
@@ -58,6 +59,8 @@ export function TitleBar() {
   const shell = playerShellOf(useAtomValueRawSync(playerBarStyleAtom), wide);
   const withPlayer = shell.inTitlebar;
   const hasTrack = useAtomValueRawSync(hasCurrentTrackAtom);
+  // 恢复栏也占用标题栏的正在播放条：没有当前曲目时显示上次播放的那首。
+  const recovery = useAtomValueRawSync(recoveryViewAtom) !== null;
   const navTools = !shell.navRow;
   const windowShell = useService(windowShellKey);
   const classes = useStyles();
@@ -103,7 +106,7 @@ export function TitleBar() {
         )}
       </div>
       {withPlayer ? (
-        <div className={styles.center}>{hasTrack && <NowPlayingLcd />}</div>
+        <div className={styles.center}>{(hasTrack || recovery) && <NowPlayingLcd />}</div>
       ) : (
         <div className={styles.status}>
           <HostStatus />

@@ -64,6 +64,20 @@
   line-height: 16px;
 }
 
+/* 恢复栏的提示占原来进度线的位置：一行小字，不画进度。 */
+.notice {
+  position: absolute;
+  right: var(--spacingHorizontalM);
+  bottom: 0;
+  left: var(--spacingHorizontalM);
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fontSizeBase100);
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .more {
   display: flex;
 }
