@@ -354,7 +354,12 @@ export function LyricsPlayer({
           style={previewTop !== null ? { top: `${previewTop}px` } : undefined}
           aria-label={t('lyrics.seekTo', { time: formatLyricTime(preview) })}
           onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => onSeek(preview)}
+          onClick={() => {
+            // 真跳了，预览与虚线立刻收掉，不用再等那 3 秒。
+            const target = preview;
+            endPreview();
+            onSeek(target);
+          }}
         >
           <span className={styles['preview-time']} data-lyric-preview-time>
             {formatLyricTime(preview)}
