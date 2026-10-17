@@ -26,6 +26,8 @@ export interface LyricsReady {
   readonly source: 'file' | 'embedded' | LyricsSourceId;
   readonly content: LyricsContent;
   readonly sourcePath?: string;
+  /** 内嵌歌词实际读到的标签名。 */
+  readonly tagName?: string;
   readonly candidate?: LyricsCandidate;
   readonly match?: MatchResult;
 }
@@ -115,12 +117,14 @@ export function readSavedLyrics(text: string): LyricsReady | null {
     } else return null;
     const knownSource = LYRICS_SOURCE_IDS.find((id) => id === source);
     const sourcePath = field(raw, 'sourcePath');
+    const tagName = field(raw, 'tagName');
     return {
       status: 'ready',
       key,
       source: knownSource ?? (source === 'file' ? 'file' : 'embedded'),
       content,
       ...(typeof sourcePath === 'string' ? { sourcePath } : {}),
+      ...(typeof tagName === 'string' ? { tagName } : {}),
     };
   } catch {
     return null;

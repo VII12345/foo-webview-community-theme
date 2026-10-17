@@ -1189,3 +1189,24 @@ test('含空格字体名与字号保存，预览按比例跟随', async ({ page 
   );
   expect(env.errors).toEqual([]);
 });
+
+test('歌词搜索页写明实际读取的标签与写入目标', async ({ page }) => {
+  const env = await openLyrics(page);
+  env.host.answer('metadata.read', {
+    success: true,
+    path: '',
+    tags: { 'UNSYNCED LYRICS': '本地一句', LYRICS: '' },
+    info: { duration: 0, bitrate: 0, sampleRate: 0, channels: 0, codec: '' },
+  });
+  await panel(page).hover();
+  await panel(page).getByRole('button', { name: '重新读取歌词' }).click();
+  await expect(panel(page).locator('[data-lyrics-status]')).toHaveAttribute(
+    'data-lyrics-status',
+    'ready',
+  );
+  await panel(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
+  const search = panel(page).locator('[data-lyrics-search]');
+  await expect(search).toContainText('读取标签：UNSYNCED LYRICS');
+  await expect(search).toContainText('保存到 LYRICS');
+  expect(env.errors).toEqual([]);
+});

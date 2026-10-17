@@ -143,3 +143,37 @@ describe('startLocalLyrics', () => {
     expect(env.host.callsTo('lyrics.get')).toHaveLength(2);
   });
 });
+
+describe('内嵌歌词的标签来源', () => {
+  it('按宿主探测顺序取第一个非空标签，空标签跳过', async () => {
+    const env = setup();
+    env.host.answer('metadata.read', {
+      success: true,
+      path: 'E:/Music/a.flac',
+      tags: {
+        LYRICS: '',
+        'UNSYNCED LYRICS': '未同步',
+        SYNCEDLYRICS: '[00:01]同步',
+      },
+      info: { duration: 0, bitrate: 0, sampleRate: 0, channels: 0, codec: '' },
+    });
+    env.play(track('a.flac'));
+    await flush();
+    const state = env.state();
+    expect(state.status === 'ready' && state.tagName).toBe('UNSYNCED LYRICS');
+  });
+
+  it('LYRICS 非空时它就是实际读取的标签', async () => {
+    const env = setup();
+    env.host.answer('metadata.read', {
+      success: true,
+      path: 'E:/Music/a.flac',
+      tags: { LYRICS: '[00:01]主标签', SYNCEDLYRICS: '[00:01]另一份' },
+      info: { duration: 0, bitrate: 0, sampleRate: 0, channels: 0, codec: '' },
+    });
+    env.play(track('a.flac'));
+    await flush();
+    const state = env.state();
+    expect(state.status === 'ready' && state.tagName).toBe('LYRICS');
+  });
+});

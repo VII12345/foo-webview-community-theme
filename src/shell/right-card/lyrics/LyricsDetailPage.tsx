@@ -232,6 +232,18 @@ export function LyricsDetailPage({
         <dl>
           <dt>{t('lyrics.sourceLabel')}</dt>
           <dd>{t(`lyrics.source.${ready.source}`)}</dd>
+          {ready.source === 'embedded' && ready.tagName && (
+            <>
+              <dt>{t('lyrics.readTag')}</dt>
+              <dd>{ready.tagName}</dd>
+            </>
+          )}
+          {(ready.source === 'embedded' || ready.source === 'file') && (
+            <>
+              <dt>{t('lyrics.writeTag')}</dt>
+              <dd>{t('lyrics.writeTagTarget', { tag: 'LYRICS' })}</dd>
+            </>
+          )}
           <dt>{t('lyrics.format')}</dt>
           <dd>{t(`lyrics.${kind}`)}</dd>
           <dt>{t('lyrics.lineCount')}</dt>

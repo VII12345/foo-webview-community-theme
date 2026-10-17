@@ -364,6 +364,18 @@ export function LyricsSearch({
                     <Info16Regular aria-label={t('lyrics.sourceLabel')} />
                     <span>{t(`lyrics.source.${localReady.source}`)}</span>
                   </span>
+                  {localReady.source === 'embedded' && localReady.tagName && (
+                    <span className={styles.field}>
+                      <Info16Regular aria-hidden />
+                      <span>{t('lyrics.readTag', { tag: localReady.tagName })}</span>
+                    </span>
+                  )}
+                  {(localReady.source === 'embedded' || localReady.source === 'file') && (
+                    <span className={styles.field}>
+                      <Info16Regular aria-hidden />
+                      <span>{t('lyrics.writeTagTarget', { tag: 'LYRICS' })}</span>
+                    </span>
+                  )}
                   <span className={styles.field}>
                     <SoundWaveCircle16Regular aria-label={t('lyrics.format')} />
                     <span>{t(`lyrics.${localKind}`)}</span>

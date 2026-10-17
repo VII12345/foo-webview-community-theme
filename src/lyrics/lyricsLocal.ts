@@ -29,12 +29,15 @@ export type LocalLyricsState =
       readonly source: 'embedded' | 'file';
       /** 来自音频旁的文件时是它的完整路径。 */
       readonly sourcePath?: string;
+      /** 内嵌歌词实际读到的标签名，按宿主探测顺序第一个非空的。 */
+      readonly tagName?: string;
       readonly content: LyricsContent;
     };
 
 export interface LocalLyricsDeps {
   readonly host: {
     readonly lyrics: Pick<typeof fb.lyrics, 'get' | 'save'>;
+    readonly metadata: Pick<typeof fb.metadata, 'read'>;
     /** 订 `metadata:writeComplete`，等标签真的落盘再算写成。 */
     on(
       event: 'metadata:writeComplete',
@@ -44,6 +47,15 @@ export interface LocalLyricsDeps {
   readonly track: Atom<LyricsTrack | null>;
   readonly connected: Atom<boolean>;
 }
+
+/** 宿主读内嵌歌词时的标签探测顺序（`lyrics.get` 文档）。 */
+export const KNOWN_LYRICS_TAGS = [
+  'LYRICS',
+  'UNSYNCED LYRICS',
+  'UNSYNCEDLYRICS',
+  'SYNCEDLYRICS',
+  'SYNCED LYRICS',
+] as const;
 
 export interface LocalLyricsService {
   readonly state: Atom<LocalLyricsState>;
@@ -85,13 +97,34 @@ export function startLocalLyrics(store: Store, deps: LocalLyricsDeps): LocalLyri
       store.set(state, { status: 'missing', key: track.key });
       return;
     }
+    // 宿主只答「来自内嵌标签」，不答具体哪一个；另读一次元数据，按宿主探测顺序找出实际标签。
+    const tagName = found.source === 'embedded' ? await embeddedTagName(track) : undefined;
+    if (id !== generation) return;
     store.set(state, {
       status: 'ready',
       key: track.key,
       source: found.source,
       ...(found.sourcePath ? { sourcePath: found.sourcePath } : {}),
+      ...(tagName ? { tagName } : {}),
       content,
     });
+  }
+
+  /** 内嵌歌词实际使用的那一个标签；读不到或都不是已知标签时答 undefined。 */
+  async function embeddedTagName(track: LyricsTrack): Promise<string | undefined> {
+    const answer = await settle(() => deps.host.metadata.read(track.handle));
+    if (!answer || answer.success === false) return undefined;
+    for (const known of KNOWN_LYRICS_TAGS) {
+      const entry = Object.entries(answer.tags).find(
+        ([name]) => name.toUpperCase() === known,
+      );
+      const value = entry?.[1];
+      const filled = Array.isArray(value)
+        ? value.some((item) => typeof item === 'string' && item.trim() !== '')
+        : typeof value === 'string' && value.trim() !== '';
+      if (filled) return entry?.[0] ?? known;
+    }
+    return undefined;
   }
 
   function follow(): void {
