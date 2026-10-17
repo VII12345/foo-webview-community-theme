@@ -191,13 +191,25 @@ test('卡片两档的播放键组：顺序在上一首左、音量在下一首�
     ),
   );
   expect(order).toEqual(['order', '上一首', '暂停', '下一首', 'volume']);
+  const geometry = await transport.evaluate((group) => ({
+    left: group.offsetLeft,
+    width: group.offsetWidth,
+  }));
+  // 五颗键 56×4 + 80 + 4×8 = 336；左缘 312，中心落在封面中线 480。
+  expect(geometry).toEqual({ left: 312, width: 336 });
 
-  // 卡片歌词档共用同一组键。
+  // 卡片歌词档共用同一组键，也按同一中线居中。
   await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
   await page.getByRole('menuitemradio', { name: '卡片歌词', exact: true }).click();
   const lyricsCard = view.getByRole('group', { name: '播放控制' });
   await expect(lyricsCard.locator('[data-player-key="order"]')).toBeVisible();
   await expect(lyricsCard.locator('[data-player-key="volume"]')).toBeVisible();
+  expect(
+    await lyricsCard.evaluate((group) => ({
+      left: group.offsetLeft,
+      width: group.offsetWidth,
+    })),
+  ).toEqual({ left: 312, width: 336 });
 
   for (const label of ['聚焦视图', '图纸舞台']) {
     await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
