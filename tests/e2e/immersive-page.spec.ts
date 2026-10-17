@@ -188,7 +188,7 @@ test('卡片视图在紧凑档也按 full 舞台排、整体缩小，不退回�
   expect(errors).toStrictEqual([]);
 });
 
-test('歌词一律排在右半靠左三分之一处，左对齐', async ({ page }) => {
+test('歌词一律排在右半靠左五分之一处，左对齐', async ({ page }) => {
   const { view, errors } = await openImmersive(page, {
     onHost(host) {
       host.answer('lyrics.get', {
@@ -221,8 +221,8 @@ test('歌词一律排在右半靠左三分之一处，左对齐', async ({ page 
         rowInset: rowRect ? Math.round(rowRect.left - rect.left) : null,
       };
     });
-    // 舞台左缘 1280（右半靠左三分之一处），右缘不超过舞台。
-    expect(box.left).toBe(1280);
+    // 舞台左缘 1152（右半 960–1920 靠左五分之一处），右缘不超过舞台。
+    expect(box.left).toBe(1152);
     expect(box.right).toBeLessThanOrEqual(1920);
     expect(box.rowInset).toBeLessThan(4);
   }
