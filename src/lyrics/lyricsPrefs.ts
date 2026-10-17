@@ -14,6 +14,25 @@ export const LYRICS_PRIORITY = ['local', 'word', 'line', 'plain'] as const;
 export type LyricsPriority = (typeof LYRICS_PRIORITY)[number];
 export const WORD_FIRST: readonly LyricsPriority[] = ['word', 'local', 'line', 'plain'];
 
+/**
+ * 头一批就有的来源。存档里 `sources` 记的是「勾了哪些来源」，所以后来新加的来源不会自动出现在老存档里——
+ * 用户看不到、也搜不到（QQ 音乐就是这样漏掉的）。读档后把**基线之外**的新来源补进去：老存档里从没出现过
+ * 它们，谈不上「用户关掉了」。基线之内的来源不补，用户手动关掉的那些照旧关着。
+ */
+const LYRICS_SOURCE_BASELINE: readonly LyricsSourceId[] = ['lrclib', 'netease', 'kugou', 'ttmlDb', 'lrcmux'];
+
+/**
+ * 老存档里没见过的来源：只补这些，且只在用户确实留着来源列表时才补。
+ * 空列表是用户一条条关掉的结果（「一个来源都不要」），不是老存档，不补。
+ */
+export function missingNewSources(sources: readonly LyricsSourceId[]): LyricsSourceId[] {
+  if (sources.length === 0) return [];
+  const known = new Set<LyricsSourceId>(sources);
+  return LYRICS_SOURCE_IDS.filter(
+    (id) => !known.has(id) && !LYRICS_SOURCE_BASELINE.includes(id),
+  );
+}
+
 export function parseLyricsPriority(raw: unknown): LyricsPriority[] | undefined {
   if (!Array.isArray(raw) || raw.length !== LYRICS_PRIORITY.length) return undefined;
   const order = raw.flatMap((value: unknown) => LYRICS_PRIORITY.filter((known) => known === value));
@@ -84,6 +103,15 @@ export function startLyricsPrefs(
   writer?: Pick<ConfigWriter, 'set'>,
 ): LyricsPrefsService {
   const prefs = startConfigPrefs(store, [ONLINE_PREF, PRIORITY_PREF], host, writer);
+  // 读档结束时把老存档没见过的来源补进去并写回：界面与搜索都看得到，下次读档也不必再补。
+  void prefs.ready.then(() => {
+    const current = store.get(ONLINE_PREF.atom);
+    const sources = current.sources;
+    if (!sources) return;
+    const added = missingNewSources(sources);
+    if (added.length === 0) return;
+    void prefs.set(ONLINE_PREF, { ...current, sources: [...sources, ...added] });
+  });
   return {
     pref: atom((get) => ({ ...get(ONLINE_PREF.atom), order: get(PRIORITY_PREF.atom) })),
     ready: prefs.ready,

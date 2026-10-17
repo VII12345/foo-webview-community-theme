@@ -6,6 +6,7 @@ import { hostFailure } from '../fixtures/hostAnswers.ts';
 test.use({ screenshot: 'off' });
 
 const LOCAL = '[00:01]前奏\n[00:40]第一句\n[00:40]第一句译文\n[00:45]第二句\n[00:50]尾句';
+const LYRICS_SOURCES_KEY = 'defaultTheme.online.lyrics';
 const panel = (page: Page) => page.locator('[data-lyrics-panel]');
 const key = (page: Page) => page.locator('[data-right-card-key="lyrics"]');
 const lyricsPlayer = (page: Page) => panel(page).locator('.amll-lyric-player');
@@ -16,8 +17,13 @@ const clockSeconds = (text: string): number => {
   return (minutes ?? 0) * 60 + (seconds ?? 0);
 };
 
-async function openLyrics(page: Page, text: string | null = LOCAL, width = 1280) {
-  const env = await openPlayer(page, { width });
+async function openLyrics(
+  page: Page,
+  text: string | null = LOCAL,
+  width = 1280,
+  config?: Record<string, unknown>,
+) {
+  const env = await openPlayer(page, { width, config });
   env.host.answer(
     'lyrics.get',
     text === null
@@ -495,6 +501,23 @@ test('Alt+滚轮 调播放行位置，写进共享设置；三处歌词界面同
       }
     ).custom?.alignPosition,
   ).toBeCloseTo(0.33, 5);
+  expect(env.errors).toEqual([]);
+});
+
+test('老存档自动补上 QQ 音乐来源，设置里可见且写回', async ({ page }) => {
+  // 这份存档早于 QQ 音乐：列表里没有 qq，读档后应当补上并写回。
+  const env = await openLyrics(page, LOCAL, 1280, {
+    [LYRICS_SOURCES_KEY]: { version: 1, enabled: true, sources: ['lrclib', 'kugou'] },
+  });
+  await openLyricsSettings(page);
+  const settings = page.locator('[data-lyrics-settings]');
+  await settings.getByRole('button', { name: '在线歌词', exact: true }).click();
+  const qq = settings.getByRole('switch', { name: 'QQ 音乐', exact: true });
+  await expect(qq).toBeVisible();
+  await expect(qq).toBeChecked();
+  await expect
+    .poll(() => env.host.config.get(LYRICS_SOURCES_KEY))
+    .toMatchObject({ sources: ['lrclib', 'kugou', 'qq'] });
   expect(env.errors).toEqual([]);
 });
 

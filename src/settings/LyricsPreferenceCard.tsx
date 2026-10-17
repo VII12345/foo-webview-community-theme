@@ -43,7 +43,7 @@ export function LyricsPreferenceCard() {
   const sources =
     pref.sources ??
     (locale.startsWith('zh')
-      ? (['netease', 'kugou', 'ttmlDb', 'lrclib', 'lrcmux'] as const)
+      ? (['netease', 'kugou', 'qq', 'ttmlDb', 'lrclib', 'lrcmux'] as const)
       : LYRICS_SOURCE_IDS);
   const allSources = [
     ...sources,

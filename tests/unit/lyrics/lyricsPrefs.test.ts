@@ -48,11 +48,44 @@ describe('歌词联网偏好', () => {
     const env = setup({ version: 1, enabled: false, sources: ['kugou', 'lrclib', 'kugou'] });
     await env.service.ready;
     await env.service.setEnabled(true, 'en');
-    expect(env.pref().sources).toStrictEqual(['kugou', 'lrclib']);
+    expect(env.pref().sources).toStrictEqual(['kugou', 'lrclib', 'qq']);
     const empty = setup({ version: 1, enabled: false, sources: [] });
     await empty.service.ready;
     await empty.service.setEnabled(true, 'zh-CN');
     expect(empty.pref().sources).toStrictEqual([]);
+  });
+
+  it('老存档补上后来新增的来源并写回，用户关掉的基线来源不重新打开', async () => {
+    // 这份存档早于 QQ 音乐：里面没有 qq，也没有 ttmlDb（用户手动关掉的）。
+    const env = setup({ version: 1, enabled: true, sources: ['kugou', 'lrclib'] });
+    await env.service.ready;
+    await env.service.persistence.settled();
+    expect(env.pref().sources).toStrictEqual(['kugou', 'lrclib', 'qq']);
+    // 补上的列表要写回 config，下次读档不必再补。
+    await expect
+      .poll(() => env.host.config.get(LYRICS_PREFS_KEY))
+      .toStrictEqual({ version: 1, enabled: true, sources: ['kugou', 'lrclib', 'qq'] });
+  });
+
+  it('已经见过全部来源的存档不会被改写', async () => {
+    const saved = { version: 1, enabled: true, sources: ['lrclib', 'qq'] };
+    const env = setup(saved);
+    await env.service.ready;
+    await env.service.persistence.settled();
+    expect(env.pref().sources).toStrictEqual(['lrclib', 'qq']);
+    expect(env.host.config.get(LYRICS_PREFS_KEY)).toStrictEqual(saved);
+  });
+
+  it('尚未选择来源时（null）不补来源', async () => {
+    const env = setup({ version: 1, enabled: false, sources: null });
+    await env.service.ready;
+    await env.service.persistence.settled();
+    expect(env.pref().sources).toBeNull();
+    expect(env.host.config.get(LYRICS_PREFS_KEY)).toStrictEqual({
+      version: 1,
+      enabled: false,
+      sources: null,
+    });
   });
 
   it.each([
