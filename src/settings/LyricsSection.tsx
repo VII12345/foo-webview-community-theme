@@ -36,6 +36,8 @@ const useStyles = makeStyles({
 
 interface NumberSettingProps {
   readonly label: string;
+  /** 说明行：只写状态或解释，不写读写结果。 */
+  readonly description?: string;
   readonly value: number;
   readonly min: number;
   readonly max: number;
@@ -75,9 +77,9 @@ function NumberControl({
   );
 }
 
-function NumberSetting({ label, ...control }: NumberSettingProps) {
+function NumberSetting({ label, description, ...control }: NumberSettingProps) {
   return (
-    <SettingsRow title={label} field disabled={control.disabled}>
+    <SettingsRow title={label} description={description} field disabled={control.disabled}>
       {(ids) => <NumberControl {...control} {...ids} />}
     </SettingsRow>
   );
@@ -229,6 +231,7 @@ export function LyricsSection({
         >
           <NumberSetting
             label={t('lyrics.alignPosition')}
+            description={t('lyrics.positionHint')}
             value={Math.round(motion.alignPosition * 100)}
             min={0}
             max={100}

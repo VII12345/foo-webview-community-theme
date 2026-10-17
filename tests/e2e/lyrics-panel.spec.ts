@@ -10,6 +10,12 @@ const panel = (page: Page) => page.locator('[data-lyrics-panel]');
 const key = (page: Page) => page.locator('[data-right-card-key="lyrics"]');
 const lyricsPlayer = (page: Page) => panel(page).locator('.amll-lyric-player');
 
+/** 预览上的 `mm:ss` 换回秒。 */
+const clockSeconds = (text: string): number => {
+  const [minutes, seconds] = text.trim().split(':').map(Number);
+  return (minutes ?? 0) * 60 + (seconds ?? 0);
+};
+
 async function openLyrics(page: Page, text: string | null = LOCAL, width = 1280) {
   const env = await openPlayer(page, { width });
   env.host.answer(
@@ -33,6 +39,12 @@ async function openLyrics(page: Page, text: string | null = LOCAL, width = 1280)
     'data-lyrics-status',
     text ? 'ready' : 'missing',
   );
+  // 状态变 ready 之后 AMLL 还要排一轮版才把行挂上；拖动预览要量行的位置，等它挂出来。
+  if (text) {
+    await expect(
+      panel(page).locator('[class*="lyricLineWrapper"]:not([class*="bottomLineWrapper"])').first(),
+    ).toBeVisible();
+  }
   return env;
 }
 
@@ -383,6 +395,109 @@ test('Ctrl+滚轮 调歌词字号，写进共享设置；普通滚轮不动字�
   expect(env.errors).toEqual([]);
 });
 
+test('拖动预览的虚线落在要播放的那一行上，播放按钮同位置', async ({ page }) => {
+  const env = await openLyrics(page);
+  const player = lyricsPlayer(page);
+  await expect(player).toBeVisible();
+  const box = await player.boundingBox();
+  if (!box) throw new Error('歌词播放器不可见');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  // 播放位置 42 s 落在「第二句」，拖到上一句（「第一句」）。
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 40, { steps: 4 });
+  const preview = panel(page).locator('[data-lyric-drag-preview]');
+  await expect(preview).toBeVisible();
+  await page.mouse.up();
+  await expect(preview).toBeVisible();
+  // 虚线的中心 Y 要与被选中的那一行的中心 Y 一致：差几像素是过渡中的抖，不是错位。
+  // 预览上写着目标时间，按它从 fixture 的歌词里查出目标行的正文，再在渲染出来的行里找它。
+  const time = await preview.locator('[data-lyric-preview-time]').innerText();
+  const marked = LOCAL.split('\n')
+    .map((line) => /^\[(\d+):(\d+)\](.*)$/.exec(line))
+    .filter((match) => match !== null)
+    .map((match) => ({
+      seconds: Number(match[1]) * 60 + Number(match[2]),
+      text: match[3] ?? '',
+    }))
+    .filter((entry) => entry.seconds <= clockSeconds(time))
+    .at(-1);
+  if (!marked) throw new Error(`预览时间在歌词里找不到对应行：${time}`);
+  // 拖动的重排还在进行时目标行可能还没挂上，轮询到量得出来为止。
+  await expect
+    .poll(
+      () =>
+        preview.evaluate((element, wanted) => {
+          const host = element.parentElement;
+          if (!host) return Number.POSITIVE_INFINITY;
+          const rows = [...host.querySelectorAll<HTMLElement>('[class*="lyricLineWrapper"]')].filter(
+            (row) => !row.className.includes('bottomLineWrapper'),
+          );
+          const target = rows.find((row) =>
+            (row.textContent ?? '').replace(/\s+/g, '').includes(wanted),
+          );
+          if (!target) return Number.POSITIVE_INFINITY;
+          const row = target.getBoundingClientRect();
+          const line = element.getBoundingClientRect();
+          return Math.abs(row.top + row.height / 2 - (line.top + line.height / 2));
+        }, marked.text.replace(/\s+/g, '')),
+      { message: '虚线要压在目标行的中线上' },
+    )
+    .toBeLessThan(6);
+  expect(env.errors).toEqual([]);
+});
+
+test('Alt+滚轮 调播放行位置，写进共享设置；三处歌词界面同步', async ({ page }) => {
+  const env = await openLyrics(page);
+  const player = lyricsPlayer(page);
+  await expect(player).toBeVisible();
+  const rowTop = () =>
+    player
+      .locator('[class*="lyricLineWrapper"]:not([class*="bottomLineWrapper"])')
+      .first()
+      .evaluate((element) => element.getBoundingClientRect().top);
+  const before = await rowTop();
+  // Alt+上滚把播放行往下挪，与往上拖歌词同一个视觉方向（往下拖 = 往前看）。
+  const wheel = (direction: 'up' | 'down') =>
+    player.dispatchEvent('wheel', {
+      deltaY: direction === 'up' ? -100 : 100,
+      altKey: true,
+    });
+  await wheel('up');
+  await expect
+    .poll(() => env.host.config.get('defaultTheme.lyrics.motion'))
+    .toMatchObject({ preset: 'custom' });
+  const moved = (await env.host.config.get('defaultTheme.lyrics.motion')) as {
+    custom?: { alignPosition?: number };
+  };
+  expect(moved.custom?.alignPosition).toBeCloseTo(0.34, 5);
+  // 播放行真的跟着挪了。
+  await expect.poll(rowTop).not.toBe(before);
+  // 再往上滚一档，位置继续减。
+  await wheel('up');
+  await expect
+    .poll(() =>
+      (
+        env.host.config.get('defaultTheme.lyrics.motion') as {
+          custom?: { alignPosition?: number };
+        }
+      ).custom?.alignPosition,
+    )
+    .toBeCloseTo(0.33, 5);
+  // 普通滚轮与 Ctrl+滚轮都不改位置（Ctrl 那组改的是字号）。
+  await player.dispatchEvent('wheel', { deltaY: -100 });
+  await player.dispatchEvent('wheel', { deltaY: -100, ctrlKey: true });
+  expect(
+    (
+      env.host.config.get('defaultTheme.lyrics.motion') as {
+        custom?: { alignPosition?: number };
+      }
+    ).custom?.alignPosition,
+  ).toBeCloseTo(0.33, 5);
+  expect(env.errors).toEqual([]);
+});
+
 test('按住歌词上下拖动出现虚线预览与播放按钮，点它才跳转', async ({ page }) => {
   const env = await openLyrics(page);
   const player = lyricsPlayer(page);
@@ -505,14 +620,14 @@ for (const colorScheme of ['light', 'dark'] as const) {
     const settings = page.locator('[data-lyrics-settings]');
     const font = settings.getByRole('spinbutton', { name: '字号 (px)' });
     await expect(font).toBeVisible();
-    for (const name of ['动效预设', '当前行位置', '缩放弹簧', '非弹簧过渡', '歌词整理', '渲染']) {
+    for (const name of ['动效预设', '播放行位置', '缩放弹簧', '非弹簧过渡', '歌词整理', '渲染']) {
       await expect(settings.getByRole('button', { name, exact: true })).toHaveAttribute(
         'aria-expanded',
         'false',
       );
     }
     await settings.getByRole('button', { name: '动效预设', exact: true }).click();
-    await settings.getByRole('button', { name: '当前行位置', exact: true }).click();
+    await settings.getByRole('button', { name: '播放行位置', exact: true }).click();
     const control = settings.getByRole('switch', { name: '远处歌词模糊', exact: true });
     const label = settings.getByText('远处歌词模糊', { exact: true });
     for (const width of [1280, 900, 390]) {
@@ -526,7 +641,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       expect(right).not.toBeNull();
       if (!left || !right) throw new Error('歌词开关没有布局');
       expect(right.x).toBeGreaterThan(left.x + left.width);
-      for (const number of [font, settings.getByRole('spinbutton', { name: '对齐位置 (%)' })]) {
+      for (const number of [font, settings.getByRole('spinbutton', { name: '播放行位置 (%)' })]) {
         const box = await number.boundingBox();
         expect(box).not.toBeNull();
         expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);

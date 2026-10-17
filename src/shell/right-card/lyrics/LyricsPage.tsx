@@ -13,6 +13,7 @@ import { localeAtom, translateAtom } from '../../../i18n/locale.ts';
 import { useService } from '../../../kit/useService.ts';
 import { LyricsPlayer } from '../../../lyrics/LyricsPlayer.tsx';
 import { useLyricFontZoom } from '../../../lyrics/useLyricFontZoom.ts';
+import { useLyricAlignNudge } from '../../../lyrics/useLyricAlignNudge.ts';
 import type { LyricsClockFace } from '../../../lyrics/lyricsDriver.ts';
 import { lyricsKey, type LyricsState } from '../../../lyrics/lyricsService.ts';
 import { lyricsPrefsKey } from '../../../lyrics/lyricsPrefs.ts';
@@ -86,6 +87,7 @@ export function LyricsPage(props: LyricsPageProps) {
   const effects = useAtomValueRawSync(motion.motion);
   const display = useAtomValueRawSync(displayService.display);
   const zoom = useLyricFontZoom();
+  const nudge = useLyricAlignNudge();
   const { card } = useRightCard();
   const { place, entry } = useAtomValueRawSync(card.navigation);
   const searching = place.id === 'lyricsSearch';
@@ -293,6 +295,7 @@ export function LyricsPage(props: LyricsPageProps) {
                   offset={offset}
                   onSeek={canSeek ? (seconds) => onSeek(ready.key, seconds) : undefined}
                   onZoom={zoom}
+                  onAlignNudge={nudge}
                 />
               </div>
               <div className={styles['screen-reader-text']}>

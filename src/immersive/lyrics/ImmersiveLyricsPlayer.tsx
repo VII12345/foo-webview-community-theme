@@ -5,6 +5,7 @@ import { lyricsDisplayKey } from '../../lyrics/lyricsDisplay.ts';
 import { lyricsMotionKey } from '../../lyrics/lyricsMotion.ts';
 import { playbackCanSeekAtom } from '../../playback/playerAtoms.ts';
 import { LyricsPlayer } from '../../lyrics/LyricsPlayer.tsx';
+import { useLyricAlignNudge } from '../../lyrics/useLyricAlignNudge.ts';
 import { useLyricFontZoom } from '../../lyrics/useLyricFontZoom.ts';
 import { useViewServices } from '../page/viewServices.ts';
 import styles from './ImmersiveLyricsPlayer.module.css';
@@ -18,6 +19,7 @@ export function ImmersiveLyricsPlayer() {
   const offset = useAtomValueRawSync(lyrics.offset);
   const canSeek = useAtomValueRawSync(playbackCanSeekAtom);
   const zoom = useLyricFontZoom();
+  const nudge = useLyricAlignNudge();
   if (!services.lyrics || state.status !== 'ready' || state.content.kind !== 'synced') return null;
   return (
     <div className={styles.root} data-immersive-lyrics-player>
@@ -31,6 +33,7 @@ export function ImmersiveLyricsPlayer() {
         offset={offset}
         onSeek={canSeek ? (seconds) => void services.lyrics?.seek(state.key, seconds) : undefined}
         onZoom={zoom}
+        onAlignNudge={nudge}
       />
     </div>
   );

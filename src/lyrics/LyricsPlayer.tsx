@@ -31,6 +31,8 @@ export interface LyricsPlayerProps {
   readonly onSeek?: (seconds: number) => void;
   /** Ctrl+滚轮 调字号：上滚 +1、下滚 -1。给了才接管 Ctrl+滚轮，普通滚轮照旧交给 AMLL 滚动。 */
   readonly onZoom?: (direction: 1 | -1) => void;
+  /** Alt+滚轮 调「播放行位置」：上滚下移播放行、下滚上移。与字号分开一组修饰键，互不干扰。 */
+  readonly onAlignNudge?: (direction: 1 | -1) => void;
 }
 
 const curve = ([x1, y1, x2, y2]: LyricsMotion['transitionCurve']) =>
@@ -50,6 +52,7 @@ export function LyricsPlayer({
   offset = 0,
   onSeek,
   onZoom,
+  onAlignNudge,
 }: LyricsPlayerProps) {
   const t = useAtomValueRawSync(translateAtom);
   const host = useRef<HTMLDivElement>(null);
@@ -61,6 +64,8 @@ export function LyricsPlayer({
   seek.current = onSeek;
   const zoom = useRef(onZoom);
   zoom.current = onZoom;
+  const nudge = useRef(onAlignNudge);
+  nudge.current = onAlignNudge;
   const activeRef = useRef(active);
   activeRef.current = active;
   const offsetRef = useRef(offset);
@@ -69,23 +74,35 @@ export function LyricsPlayer({
   linesRef.current = lines;
   // 拖动预览选中的秒数；null 表示没在预览。渲染虚线与播放按钮。
   const [preview, setPreview] = useState<number | null>(null);
+  // 虚线覆盖层的中心 Y（相对容器）；量不到时用 null，样式回退到容器中线。
+  const [previewTop, setPreviewTop] = useState<number | null>(null);
   const drag = useRef<{ startY: number; baseIndex: number; lineHeight: number } | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Ctrl+滚轮 调字号：在**捕获阶段**抢先拦下，免得 AMLL 自己也把这次滚轮当成竖向滚动。
-  // 普通滚轮原样放行，交给 AMLL 滚动歌词。
+  // Ctrl+滚轮 调字号、Alt+滚轮 调播放行位置：都在**捕获阶段**抢先拦下，免得 AMLL 自己也把这次滚轮当成竖向滚动。
+  // 普通滚轮原样放行，交给 AMLL 滚动歌词。Alt 优先判：Ctrl+Alt 同时按着时算调字号。
   useEffect(() => {
     const element = host.current;
-    if (!element || !onZoom) return undefined;
+    if (!element || (!onZoom && !onAlignNudge)) return undefined;
     const onWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey || event.deltaY === 0) return;
+      if (event.deltaY === 0) return;
+      const up = event.deltaY < 0;
+      if (event.ctrlKey) {
+        if (!onZoom) return;
+        event.preventDefault();
+        event.stopPropagation();
+        zoom.current?.(up ? 1 : -1);
+        return;
+      }
+      if (!event.altKey || !onAlignNudge) return;
       event.preventDefault();
       event.stopPropagation();
-      zoom.current?.(event.deltaY < 0 ? 1 : -1);
+      // Alt+上滚把播放行往下挪，视觉上跟拖歌词同一个方向（往上拖 = 往后看）。
+      nudge.current?.(up ? -1 : 1);
     };
     element.addEventListener('wheel', onWheel, { passive: false, capture: true });
     return () => element.removeEventListener('wheel', onWheel, { capture: true });
-  }, [onZoom]);
+  }, [onZoom, onAlignNudge]);
 
   /** `seconds`（曲目时间）落在第几行：时间不晚于它的最后一行；首行之前是 0，末行之后封顶。 */
   const indexAt = (seconds: number): number => {
@@ -104,11 +121,43 @@ export function LyricsPlayer({
     hideTimer.current = undefined;
     drag.current = null;
     setPreview(null);
+    setPreviewTop(null);
     const created = player;
     if (!created) return;
     created.setCurrentTime((clock.position() - offsetRef.current) * 1000, true);
     driver.current?.setActive(activeRef.current);
   }, [player, clock]);
+
+  /**
+   * 量当前被选中那一行在容器里的中心 Y（CSS 像素），供虚线覆盖层定位。AMLL 只渲染可视范围的行，
+   * 行外层是 `[class*="lyricLineWrapper"]`，但**底部填充行**（`bottomLineWrapper`）也带这个类，
+   * 且行上没有时间属性。这里按 DOM 顺序取「第 n 个非底部行」——AMLL 按歌词顺序渲染，与 `lines` 一致。
+   * 量不到（还没渲染）答 null。
+   */
+  const measurePreviewTop = (seconds: number): number | null => {
+    const element = host.current;
+    if (!element) return null;
+    const index = indexAt(seconds);
+    const rows = [...element.querySelectorAll<HTMLElement>('[class*="lyricLineWrapper"]')].filter(
+      (row) => !row.className.includes('bottomLineWrapper'),
+    );
+    if (rows.length === 0) return null;
+    // 可见行的第一个不一定对应 lines[0]（滚动后 AMLL 只挂着可视范围内的行）。
+    // 用文本匹配最稳：按预览秒取那一行的纯文本，在可见行里找包含它的那一个。
+    const targetLine = linesRef.current[index];
+    const targetText = (targetLine?.words ?? []).map((word) => word.word).join('').trim();
+    let best: HTMLElement | null = null;
+    if (targetText) {
+      best =
+        rows.find((row) => (row.textContent ?? '').replace(/\s+/g, '').includes(targetText.replace(/\s+/g, ''))) ??
+        null;
+    }
+    best ??= rows[Math.min(index, rows.length - 1)] ?? null;
+    if (!best) return null;
+    const rowBox = best.getBoundingClientRect();
+    const hostBox = element.getBoundingClientRect();
+    return rowBox.top - hostBox.top + rowBox.height / 2;
+  };
 
   // 拖动预览：按住上下拖，把目标行的时间用 `setCurrentTime` 预览出来（不改播放进度）；松手留 3 秒。
   useEffect(() => {
@@ -117,6 +166,15 @@ export function LyricsPlayer({
     const secondsAt = (index: number) =>
       (linesRef.current[Math.min(Math.max(index, 0), linesRef.current.length - 1)]?.startTime ?? 0) /
       1000;
+    /** 真实行距：取相邻两个已渲染行盒子的中心差；只剩一行时用它的高度。 */
+    const rowSpacing = (): number => {
+      const rows = [...element.querySelectorAll<HTMLElement>('[class*="lyricLineWrapper"]')];
+      const first = rows[0]?.getBoundingClientRect();
+      const second = rows[1]?.getBoundingClientRect();
+      if (first && second) return Math.max(12, second.top - first.top);
+      if (first) return Math.max(12, first.height);
+      return 48;
+    };
     const onDown = (event: PointerEvent) => {
       if (event.button !== 0 || linesRef.current.length === 0) return;
       // 点在预览覆盖层的播放按钮上时交给按钮，不进拖动。
@@ -124,12 +182,10 @@ export function LyricsPlayer({
         return;
       clearTimeout(hideTimer.current);
       hideTimer.current = undefined;
-      const wrapper = element.querySelector<HTMLElement>('[class*="lyricLineWrapper"]');
-      const lineHeight = wrapper ? Math.max(24, wrapper.getBoundingClientRect().height) : 48;
       drag.current = {
         startY: event.clientY,
         baseIndex: indexAt(clock.position() - offsetRef.current),
-        lineHeight,
+        lineHeight: rowSpacing(),
       };
       // 拖动期间停掉驱动的逐帧推送，免得它把高亮拉回当前播放位置。
       driver.current?.setActive(false);
@@ -145,6 +201,7 @@ export function LyricsPlayer({
       if (created) {
         created.setCurrentTime((seconds - offsetRef.current) * 1000, true);
         created.update(16);
+        setPreviewTop(measurePreviewTop(seconds));
       }
     };
     const onUp = (event: PointerEvent) => {
@@ -168,6 +225,18 @@ export function LyricsPlayer({
   }, [player, clock, onSeek, endPreview]);
 
   useEffect(() => () => clearTimeout(hideTimer.current), []);
+
+  // 预览期间每帧跟着目标行量一次：拖动的重排与松开后弹簧还在动，虚线才一直压在那一行上。
+  useEffect(() => {
+    if (preview === null) return undefined;
+    let handle = 0;
+    const follow = () => {
+      setPreviewTop(measurePreviewTop(preview));
+      handle = requestAnimationFrame(follow);
+    };
+    handle = requestAnimationFrame(follow);
+    return () => cancelAnimationFrame(handle);
+  }, [preview]);
 
   useLayoutEffect(() => {
     const parent = host.current;
@@ -286,11 +355,14 @@ export function LyricsPlayer({
           type="button"
           className={styles.preview}
           data-lyric-drag-preview
+          style={previewTop !== null ? { top: `${previewTop}px` } : undefined}
           aria-label={t('lyrics.seekTo', { time: formatLyricTime(preview) })}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => onSeek(preview)}
         >
-          <span className={styles['preview-time']}>{formatLyricTime(preview)}</span>
+          <span className={styles['preview-time']} data-lyric-preview-time>
+            {formatLyricTime(preview)}
+          </span>
           <span className={styles['preview-play']} aria-hidden>
             <Play16Filled />
           </span>
