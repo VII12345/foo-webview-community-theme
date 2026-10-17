@@ -3,6 +3,12 @@ import {
   Accordion,
   AccordionItem,
   Button,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
   Input,
   RatingDisplay,
   Tooltip,
@@ -10,11 +16,14 @@ import {
   tokens,
 } from '@fluentui/react-components';
 import {
+  Add16Regular,
   ArrowLeft16Regular,
   ArrowSync16Regular,
   ChevronDown16Regular,
   ChevronUp16Regular,
   Copy16Regular,
+  Delete16Regular,
+  Edit16Regular,
   FolderOpen16Regular,
   MoreHorizontal16Regular,
   MusicNote2Regular,
@@ -43,7 +52,8 @@ import {
   type InfoSection,
   type TrackInfoState,
 } from './trackInfoModel.ts';
-import { infoSectionNotice, trackInfoRows } from './trackInfoRows.ts';
+import { infoSectionNotice, trackInfoRows, type InfoRow } from './trackInfoRows.ts';
+import { TagEditor, type TagDraft } from './TagEditor.tsx';
 import styles from './TrackInfoPanel.module.css';
 import { useViewControlStyles } from '../../theme/controlStyles.ts';
 
@@ -125,9 +135,28 @@ function TagList({
   const controls = useViewControlStyles();
   const classes = useStyles();
   const [search, setSearch] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<{ name: string; values: string[] } | null>(null);
+  const [deleting, setDeleting] = useState<{ name: string } | null>(null);
   const tags = state.metadata.status === 'ready' ? infoTags(state.metadata.value.tags) : [];
   const filtered = filterInfoTags(tags, search);
   const notice = infoSectionNotice(state, 'tags');
+  const busy = state.saving;
+  const saveEditing = async (drafts: readonly TagDraft[]) => {
+    if (!editing) return false;
+    const draft = drafts[0];
+    if (!draft) return false;
+    const name = draft.name.trim();
+    if (!name) return false;
+    const changes: { name: string; values: readonly string[] | null }[] = [];
+    // 改名时先删旧标签再写新标签；只是大小写不同时宿主按同一个标签处理，不另删。
+    if (name.toUpperCase() !== editing.name.toUpperCase())
+      changes.push({ name: editing.name, values: null });
+    changes.push({ name, values: draft.values });
+    const ok = await service.writeTags(changes);
+    if (ok) setEditing(null);
+    return ok;
+  };
   return (
     <div className={styles.tags}>
       <div className={styles.tools}>
@@ -140,6 +169,19 @@ function TagList({
           value={search}
           onChange={(_, data) => setSearch(data.value)}
         />
+        <Tooltip content={t('trackInfo.addTag')} relationship="label">
+          <Button
+            className={mergeClasses(classes.icon, controls.icon)}
+            appearance="subtle"
+            icon={<Add16Regular />}
+            aria-label={t('trackInfo.addTag')}
+            disabled={!state.track || busy}
+            onClick={() => {
+              setEditing(null);
+              setAdding(true);
+            }}
+          />
+        </Tooltip>
         <Tooltip content={t('trackInfo.copyTags')} relationship="label">
           <Button
             className={mergeClasses(classes.icon, controls.icon)}
@@ -163,6 +205,36 @@ function TagList({
           />
         </Tooltip>
       </div>
+      {adding && (
+        <TagEditor
+          drafts={[{ name: '', values: [''] }]}
+          t={t}
+          busy={busy}
+          onSave={async (drafts) => {
+            const draft = drafts[0];
+            if (!draft) return false;
+            const ok = await service.writeTags([{ name: draft.name, values: draft.values }]);
+            if (ok) setAdding(false);
+            return ok;
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      )}
+      {editing && (
+        <TagEditor
+          drafts={[{ name: editing.name, values: editing.values }]}
+          t={t}
+          busy={busy}
+          allowDelete
+          onSave={saveEditing}
+          onDelete={async () => {
+            const ok = await service.writeTags([{ name: editing.name, values: null }]);
+            if (ok) setEditing(null);
+            return ok;
+          }}
+          onCancel={() => setEditing(null)}
+        />
+      )}
       {!notice && (
         <div className={styles.provenance}>
           <span>{t(state.tagSource === 'file' ? 'trackInfo.fileTags' : 'trackInfo.hostTags')}</span>
@@ -189,11 +261,72 @@ function TagList({
                   </div>
                 ))}
               </dd>
-              <CopyInfoButton text={copyInfoTags([tag])} service={service} t={t} />
+              <span className={styles.actions}>
+                <Tooltip content={t('trackInfo.editTag')} relationship="label">
+                  <Button
+                    className={mergeClasses(classes.icon, controls.icon)}
+                    appearance="subtle"
+                    size="small"
+                    icon={<Edit16Regular />}
+                    aria-label={t('trackInfo.editTag')}
+                    disabled={busy}
+                    onClick={() => {
+                      setAdding(false);
+                      setEditing({ name: tag.name, values: [...tag.values] });
+                    }}
+                  />
+                </Tooltip>
+                <Tooltip content={t('trackInfo.deleteTag')} relationship="label">
+                  <Button
+                    className={mergeClasses(classes.icon, controls.icon)}
+                    appearance="subtle"
+                    size="small"
+                    icon={<Delete16Regular />}
+                    aria-label={t('trackInfo.deleteTag')}
+                    disabled={busy}
+                    onClick={() => setDeleting({ name: tag.name })}
+                  />
+                </Tooltip>
+                <CopyInfoButton text={copyInfoTags([tag])} service={service} t={t} />
+              </span>
             </div>
           ))}
         </dl>
       )}
+      <Dialog
+        open={!!deleting}
+        onOpenChange={(_, data) => {
+          if (!data.open && !busy) setDeleting(null);
+        }}
+      >
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>{t('trackInfo.deleteTag')}</DialogTitle>
+            <DialogContent>
+              {t('trackInfo.deleteTagQuestion', { name: deleting?.name ?? '' })}
+            </DialogContent>
+            <DialogActions>
+              <Button disabled={busy} onClick={() => setDeleting(null)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                appearance="primary"
+                disabled={busy}
+                onClick={() => {
+                  if (!deleting) return;
+                  void service
+                    .writeTags([{ name: deleting.name, values: null }])
+                    .then((ok) => {
+                      if (ok) setDeleting(null);
+                    });
+                }}
+              >
+                {t('trackInfo.deleteTag')}
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </div>
   );
 }
@@ -216,6 +349,7 @@ function InfoSectionContent({
   const rows = trackInfoRows(state, section, t, locale);
   const classes = useStyles();
   const external = useExternalLinks();
+  const [editingRow, setEditingRow] = useState<InfoRow | null>(null);
   if (section === 'tags') return <TagList state={state} service={service} t={t} />;
   if (notice && section !== 'file')
     return (
@@ -232,7 +366,7 @@ function InfoSectionContent({
       )}
       {rows.length > 0 && (
         <dl className={styles.rows}>
-          {rows.map(({ label, values, missing }) => (
+          {rows.map(({ label, values, missing, sources }) => (
             <div className={styles.row} key={label}>
               <dt>{t(label)}</dt>
               <dd>
@@ -249,12 +383,27 @@ function InfoSectionContent({
                   <span className={styles.missing}>{t(missing ?? 'trackInfo.unknown')}</span>
                 )}
               </dd>
-              <CopyInfoButton
-                text={values.join('\n')}
-                service={service}
-                t={t}
-                disabled={values.length === 0}
-              />
+              <span className={styles.actions}>
+                {sources && sources.length > 0 && (
+                  <Tooltip content={t('trackInfo.editTags')} relationship="label">
+                    <Button
+                      className={mergeClasses(classes.icon, controls.icon)}
+                      appearance="subtle"
+                      size="small"
+                      icon={<Edit16Regular />}
+                      aria-label={t('trackInfo.editTags')}
+                      disabled={state.saving}
+                      onClick={() => setEditingRow({ label, values, missing, sources })}
+                    />
+                  </Tooltip>
+                )}
+                <CopyInfoButton
+                  text={values.join('\n')}
+                  service={service}
+                  t={t}
+                  disabled={values.length === 0}
+                />
+              </span>
             </div>
           ))}
         </dl>
@@ -287,6 +436,39 @@ function InfoSectionContent({
           {t('trackInfo.openFolder')}
         </Button>
       )}
+      <Dialog
+        open={!!editingRow}
+        onOpenChange={(_, data) => {
+          if (!data.open && !state.saving) setEditingRow(null);
+        }}
+      >
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>{t('trackInfo.editTags')}</DialogTitle>
+            <DialogContent>
+              {editingRow?.sources && (
+                <TagEditor
+                  drafts={editingRow.sources.map((source) => ({
+                    name: source.name,
+                    values: source.values,
+                    fixedName: true,
+                  }))}
+                  t={t}
+                  busy={state.saving}
+                  onSave={async (drafts) => {
+                    const ok = await service.writeTags(
+                      drafts.map((draft) => ({ name: draft.name, values: draft.values })),
+                    );
+                    if (ok) setEditingRow(null);
+                    return ok;
+                  }}
+                  onCancel={() => setEditingRow(null)}
+                />
+              )}
+            </DialogContent>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </>
   );
 }

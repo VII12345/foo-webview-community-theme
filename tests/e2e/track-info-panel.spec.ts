@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installPageHost, collectPageErrors } from '../fixtures/pageHost.ts';
-import { answerTrackInfo, INFO_TAGS } from '../fixtures/trackInfoAnswers.ts';
+import { answerTrackInfo, INFO_TAGS, INFO_TRACK } from '../fixtures/trackInfoAnswers.ts';
 import { hostFailure } from '../fixtures/hostAnswers.ts';
 
 async function open(page: Page) {
@@ -235,3 +235,82 @@ for (const colorScheme of ['light', 'dark'] as const) {
     });
   }
 }
+
+test('全部标签与摘要可编辑：改多值、加标签、删标签，摘要沿用同一个标签', async ({ page }) => {
+  const host = await open(page);
+  let tags: Record<string, string | string[]> = { ...INFO_TAGS };
+  const writes: Record<string, unknown>[] = [];
+  const info = { duration: 175, bitrate: 900, sampleRate: 44100, channels: 2, codec: 'FLAC' };
+  host.answer('metadata.write', (params) => {
+    const incoming = params['tags'] as Record<string, unknown>;
+    writes.push(incoming);
+    for (const [name, value] of Object.entries(incoming)) {
+      const key = name.toUpperCase();
+      if (value === null) delete tags[key];
+      else tags[key] = value as string | string[];
+    }
+    queueMicrotask(() =>
+      host.emit('metadata:writeComplete', {
+        operation: 'write',
+        path: INFO_TRACK.handle,
+        subsong: 0,
+        code: 0,
+        success: true,
+        status: 'success',
+      }),
+    );
+    return {
+      success: true,
+      path: INFO_TRACK.handle,
+      handlePath: INFO_TRACK.handle,
+      subsong: 0,
+      dispatched: true,
+      tagsApplied: incoming,
+      tagsSet: 1,
+    };
+  });
+  host.answer('metadata.read', () => ({ success: true, path: INFO_TRACK.handle, tags, info }));
+  host.answer('metadata.readRaw', () => ({
+    success: true,
+    path: INFO_TRACK.handle,
+    source: 'file',
+    tags,
+    info,
+  }));
+
+  await page.getByRole('button', { name: '全部标签', exact: true }).click();
+  const genre = page.locator('dl > div').filter({ has: page.getByText('GENRE', { exact: true }) });
+  await genre.hover();
+  await genre.getByRole('button', { name: '编辑标签' }).click();
+  const editor = page.locator('[data-tag-editor]');
+  await editor.getByLabel('标签值').first().fill('Rock');
+  await editor.getByRole('button', { name: '保存' }).click();
+  await expect.poll(() => writes.at(-1)).toMatchObject({ GENRE: ['Rock', 'Jazz'] });
+  await expect(editor).toHaveCount(0);
+  await expect(genre).toContainText('Rock');
+
+  await page.getByRole('button', { name: '添加标签' }).click();
+  await page.getByLabel('标签名').fill('MOOD');
+  await page.getByLabel('标签值').fill('Chill');
+  await page.getByRole('button', { name: '保存' }).click();
+  await expect.poll(() => writes.at(-1)).toMatchObject({ MOOD: ['Chill'] });
+  await expect(page.getByText('MOOD', { exact: true })).toBeVisible();
+
+  const mood = page.locator('dl > div').filter({ has: page.getByText('MOOD', { exact: true }) });
+  await mood.hover();
+  await mood.getByRole('button', { name: '删除标签' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '删除标签' }).click();
+  await expect.poll(() => writes.at(-1)).toMatchObject({ MOOD: null });
+  await expect(page.getByText('MOOD', { exact: true })).toHaveCount(0);
+
+  const titleRow = page
+    .locator('dl > div')
+    .filter({ has: page.getByText('标题', { exact: true }) })
+    .first();
+  await titleRow.getByRole('button', { name: '编辑这些标签' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('标签值').fill('New Feather');
+  await dialog.getByRole('button', { name: '保存' }).click();
+  await expect.poll(() => writes.at(-1)).toMatchObject({ TITLE: ['New Feather'] });
+  await expect(page.getByText('New Feather', { exact: true }).first()).toBeVisible();
+});

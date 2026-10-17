@@ -1,7 +1,6 @@
 import type { MessageKey } from '../../i18n/en.ts';
 import type { Translate } from '../../i18n/translate.ts';
 import {
-  findInfoTag,
   infoTags,
   INFO_SECTIONS,
   type InfoSection,
@@ -13,6 +12,8 @@ export interface InfoRow {
   readonly label: MessageKey;
   readonly values: readonly string[];
   readonly missing?: MessageKey;
+  /** 摘要行的可见值来自哪些标签；同义标签各自一项，编辑时不合并。 */
+  readonly sources?: readonly { readonly name: string; readonly values: readonly string[] }[];
 }
 
 type TagField = readonly [MessageKey, ...string[]];
@@ -43,11 +44,17 @@ const CREDITS: readonly TagField[] = [
 ];
 
 function taggedRows(tags: readonly InfoTag[], fields: readonly TagField[]): InfoRow[] {
-  return fields.map(([label, ...names]) => ({
-    label,
-    values: findInfoTag(tags, names),
-    missing: 'trackInfo.notTagged',
-  }));
+  return fields.map(([label, ...names]) => {
+    const matched = tags.filter((tag) => names.includes(tag.name.toUpperCase()));
+    return {
+      label,
+      values: matched.flatMap((tag) => tag.values),
+      missing: 'trackInfo.notTagged',
+      ...(matched.length
+        ? { sources: matched.map((tag) => ({ name: tag.name, values: tag.values })) }
+        : {}),
+    };
+  });
 }
 
 function row(label: MessageKey, value: string | undefined): InfoRow {

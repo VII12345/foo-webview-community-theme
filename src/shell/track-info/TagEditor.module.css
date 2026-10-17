@@ -1,0 +1,47 @@
+.root {
+  display: grid;
+  gap: var(--spacingVerticalXS);
+  padding: var(--spacingVerticalXS) var(--spacingHorizontalS);
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground2);
+}
+
+.draft {
+  display: grid;
+  gap: var(--spacingVerticalXXS);
+}
+
+.name {
+  width: 100%;
+}
+
+.values {
+  display: grid;
+  gap: var(--spacingVerticalXXS);
+  padding-inline-start: var(--spacingHorizontalS);
+}
+
+.value {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingHorizontalXXS);
+  min-width: 0;
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.failed {
+  margin: 0;
+  color: var(--colorPaletteRedForeground1);
+  font-size: var(--fontSizeBase200);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingHorizontalXS);
+}

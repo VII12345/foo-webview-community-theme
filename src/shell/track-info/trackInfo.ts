@@ -2,10 +2,13 @@ import type { Track } from 'foo-webview-sdk';
 import { fb } from 'foo-webview-sdk/bridge';
 import { atom, type Atom } from 'jotai/vanilla';
 import { hostCommand, settle } from '../../host/hostCall.ts';
+import { normalizeHostPath } from '../../host/hostPath.ts';
+import { trackPathOf } from '../../host/libraryContract.ts';
 import { hasPlaycountComponent } from '../../host/playcountComponent.ts';
 import { waitForHost } from '../../host/waitForHost.ts';
 import type { Translate } from '../../i18n/translate.ts';
 import type { Store } from '../../kit/store.ts';
+import { createTagWrites } from '../../track/tagWrites.ts';
 import { copyInfoFields } from './trackInfoRows.ts';
 import {
   copyInfoTags,
@@ -41,6 +44,12 @@ export type TrackInfoHost = Pick<
   | 'ready'
 >;
 
+/** 一次标签改动：`null` 删除这个标签，数组按顺序整份替换它的值。 */
+export interface TagChange {
+  readonly name: string;
+  readonly values: readonly string[] | null;
+}
+
 export interface TrackInfoService {
   readonly state: Atom<TrackInfoState>;
   readonly sections: Atom<readonly InfoSection[]>;
@@ -51,6 +60,8 @@ export interface TrackInfoService {
   copyTags(): Promise<boolean>;
   copyAll(t: Translate, locale: string): Promise<boolean>;
   openFolder(): Promise<boolean>;
+  /** 写标签；派发后等完成事件并重读确认。流媒体与没有当前曲目时答 false。 */
+  writeTags(changes: readonly TagChange[]): Promise<boolean>;
   dispose(): void;
 }
 
@@ -84,6 +95,7 @@ export function startTrackInfo(
   let timer: ReturnType<typeof setTimeout> | undefined;
   let components: Promise<Awaited<ReturnType<typeof host.config.getComponents>> | null> | undefined;
   const offs: (() => void)[] = [];
+  const writes = createTagWrites(15_000);
 
   const valid = (id: number) => !disposed && active && id === generation;
   function update(id: number, patch: Partial<TrackInfoState>) {
@@ -248,6 +260,7 @@ export function startTrackInfo(
           invalidate();
       }),
       host.on('metadata:writeComplete', (event) => {
+        writes.deliver(event);
         if (
           event.success &&
           track &&
@@ -299,11 +312,62 @@ export function startTrackInfo(
       update(id, { action: success ? 'idle' : 'openFailed' });
       return success;
     },
+    async writeTags(changes) {
+      const target = track;
+      if (disposed || !active || !connected || !target) return false;
+      if (infoMediaKind(target) === 'stream') return false;
+      // 空串不是合法值：当作删掉这一项；整份空了就删除标签。
+      const normalized = changes.flatMap((change) => {
+        const name = change.name.trim();
+        if (!name) return [];
+        const values = change.values?.filter((value) => value !== '') ?? null;
+        return [{ name: name.toUpperCase(), values: values && values.length ? values : null }];
+      });
+      if (!normalized.length) return false;
+      const path = trackPathOf(target);
+      const tags: Record<string, string[] | null> = {};
+      for (const change of normalized) tags[change.name] = change.values ? [...change.values] : null;
+      store.set(state, (current) => ({ ...current, saving: true, saveFailed: false }));
+      const wait = writes.expect(normalizeHostPath(path), target.subsong, async () => {
+        const read = await settle(() =>
+          host.metadata.readRaw(path, { cueIndex: target.subsong }),
+        );
+        if (!read || read.success === false) return null;
+        return normalized.every((change) => {
+          const actual = Object.entries(read.tags).find(
+            ([name]) => name.toUpperCase() === change.name,
+          )?.[1];
+          if (change.values === null)
+            return actual === undefined || (Array.isArray(actual) && actual.length === 0);
+          const list = Array.isArray(actual) ? actual : typeof actual === 'string' ? [actual] : [];
+          return (
+            list.length === change.values.length &&
+            list.every((value, index) => value === change.values?.[index])
+          );
+        });
+      });
+      const answer = await settle(() =>
+        host.metadata.write(path, tags, { cueIndex: target.subsong }),
+      );
+      let ok = false;
+      if (!answer || answer.success === false) wait.cancel();
+      else if (answer.dispatched !== true) ok = true;
+      else ok = (await wait.done) === true;
+      if (!disposed) {
+        store.set(state, (current) => ({ ...current, saving: false, saveFailed: !ok }));
+        if (ok) {
+          clearTimeout(timer);
+          void load(false);
+        }
+      }
+      return ok && !disposed;
+    },
     dispose() {
       disposed = true;
       generation += 1;
       waiter.cancel();
       clearTimeout(timer);
+      writes.dispose();
       for (const off of offs.splice(0)) off();
     },
   };

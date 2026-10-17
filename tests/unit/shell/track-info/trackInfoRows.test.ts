@@ -56,3 +56,26 @@ test('无损位深未知和有损不适用分开，源文件大小不当作分�
     trackInfoRows(state, 'file', t, 'en').some((row) => row.label === 'trackInfo.sourceSize'),
   ).toBe(true);
 });
+
+test('摘要行保留每个同义标签自己的值，编辑时不合并别名', () => {
+  const state = {
+    ...emptyTrackInfo(makeTrack()),
+    metadata: {
+      status: 'ready' as const,
+      value: {
+        success: true as const,
+        path: '',
+        tags: { 'ALBUM ARTIST': 'A', ALBUMARTIST: ['B', 'C'] },
+        info: { duration: 0, bitrate: 0, sampleRate: 0, channels: 0, codec: '' },
+      },
+    },
+  };
+  const row = trackInfoRows(state, 'metadata', t, 'en').find(
+    (item) => item.label === 'trackInfo.albumArtist',
+  );
+  expect(row?.values).toEqual(['A', 'B', 'C']);
+  expect(row?.sources).toEqual([
+    { name: 'ALBUM ARTIST', values: ['A'] },
+    { name: 'ALBUMARTIST', values: ['B', 'C'] },
+  ]);
+});

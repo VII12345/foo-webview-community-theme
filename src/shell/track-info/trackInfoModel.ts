@@ -44,6 +44,10 @@ export interface TrackInfoState {
   readonly rating: InfoRead<InfoRating>;
   readonly tagSource: 'host' | 'file';
   readonly action: 'idle' | 'copying' | 'copied' | 'copyFailed' | 'openFailed';
+  /** 标签写入正在进行。 */
+  readonly saving: boolean;
+  /** 最近一次标签写入失败；下一次写入或刷新时清掉。 */
+  readonly saveFailed: boolean;
 }
 
 export function emptyTrackInfo(track: Track | null): TrackInfoState {
@@ -57,6 +61,8 @@ export function emptyTrackInfo(track: Track | null): TrackInfoState {
     rating: { status: 'idle' },
     tagSource: 'host',
     action: 'idle',
+    saving: false,
+    saveFailed: false,
   };
 }
 

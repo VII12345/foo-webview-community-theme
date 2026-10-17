@@ -143,6 +143,13 @@
   pointer-events: none;
 }
 
+/* 行尾的一组键（编辑、删除、复制）占一个格。 */
+.actions {
+  display: flex;
+  gap: 0;
+  align-items: center;
+}
+
 .row:hover .copy,
 .tag-row:hover .copy,
 .row:focus-within .copy,
