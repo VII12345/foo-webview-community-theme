@@ -15,7 +15,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--spacingHorizontalS);
+  gap: 12px;
 }
 
 .text {
@@ -27,8 +27,9 @@
   overflow: hidden;
   color: var(--paper-ink);
   font-family: var(--fontFamilyBase);
-  font-size: 24px;
+  font-size: 30px;
   font-weight: var(--fontWeightSemibold);
+  line-height: 36px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -37,7 +38,8 @@
   overflow: hidden;
   color: var(--colorNeutralForeground3);
   font-family: var(--fontFamilyBase);
-  font-size: 16px;
+  font-size: 20px;
+  line-height: 24px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -46,15 +48,25 @@
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--spacingHorizontalS);
+  gap: 12px;
 }
 
-/* 进度条：与封面同宽，线在正中。 */
+/* 进度条：与封面同宽，线在正中。卡片里的时间与滑块比播放栏大一档。 */
 .seek {
   position: absolute;
   left: 250px;
   top: 766px;
   width: 460px;
+}
+
+.seek [data-seek-clock] {
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.seek [data-seek-thumb] {
+  width: 16px;
+  height: 16px;
 }
 
 /* 传输键五颗：56×4 + 80 + 4×8 = 336 宽；左缘 312 时中心落在 480，与封面中线对齐。

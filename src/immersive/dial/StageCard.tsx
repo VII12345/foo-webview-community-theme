@@ -1,5 +1,5 @@
-import { Button, Tooltip, makeStyles, mergeClasses, tokens } from '@fluentui/react-components';
-import { MoreHorizontal20Regular } from '@fluentui/react-icons';
+import { Button, Tooltip, makeStyles, tokens } from '@fluentui/react-components';
+import { MoreHorizontal24Regular } from '@fluentui/react-icons';
 import { useAtomValueRawSync } from 'jotai/react';
 import type { CSSProperties } from 'react';
 import { translateAtom } from '../../i18n/locale.ts';
@@ -61,12 +61,13 @@ export function StageCard({ title }: StageCardProps) {
           </div>
         )}
         <div className={styles.actions}>
-          <NowPlayingRating size="small" track={track} />
+          <NowPlayingRating size="card" track={track} />
           <Tooltip content={t('player.more')} relationship="label">
             <Button
               appearance="subtle"
+              size="large"
               className={classes.more}
-              icon={<MoreHorizontal20Regular />}
+              icon={<MoreHorizontal24Regular />}
               aria-label={t('player.more')}
               {...menu.more}
             />
@@ -74,7 +75,7 @@ export function StageCard({ title }: StageCardProps) {
         </div>
       </div>
       <div className={styles.seek} data-card-seek>
-        <SeekBar interactive thickness={4} thumb clock />
+        <SeekBar interactive thickness={6} thumb clock />
       </div>
       <PaperTransport
         className={styles.transport}
@@ -82,7 +83,7 @@ export function StageCard({ title }: StageCardProps) {
         scale={STAGE_CARD_SCALE}
         extras
       />
-      <DialCells style={{ top: 930 }} />
+      <DialCells card style={{ left: 250, top: 930 }} />
       <NowPlayingMenu at={menu.at} onClose={menu.close} />
     </div>
   );

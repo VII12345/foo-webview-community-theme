@@ -42,3 +42,18 @@
 .cell-value.missing {
   color: var(--colorNeutralForeground3);
 }
+
+/* 卡片两档：三格与卡片左区其余文字一起放大，行高跟着长到 48。 */
+.cells[data-card] {
+  height: 48px;
+}
+
+.cells[data-card] .cell-key {
+  top: 18px;
+  font-size: 15px;
+}
+
+.cells[data-card] .cell-value {
+  top: 47px;
+  font-size: 21px;
+}

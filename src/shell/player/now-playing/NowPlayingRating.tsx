@@ -10,14 +10,15 @@ import { useService } from '../../../kit/useService.ts';
 
 const VALUES = Array.from({ length: MAX_RATING }, (_, at) => at + 1);
 
-// Fluent 的 small 档是 12；正在播放条与胶囊里星更小，10。
+// Fluent 的 small 档是 12；正在播放条与胶囊里星更小，10；沉浸卡片左区放大到 18。
 const useStyles = makeStyles({
   compact: { fontSize: '10px', width: '10px', height: '10px' },
+  card: { fontSize: '18px', width: '18px', height: '18px' },
 });
 
 export interface NowPlayingRatingProps {
-  /** `small` 星 12（底部通栏），`compact` 星 10（正在播放条、胶囊）。 */
-  readonly size: 'small' | 'compact';
+  /** `small` 星 12（底部通栏），`compact` 星 10（正在播放条、胶囊），`card` 星 18（沉浸卡片左区）。 */
+  readonly size: 'small' | 'compact' | 'card';
   /** 这一行此刻写的是哪一首：换曲的退场期间还是上一首，星跟着字走。 */
   readonly track: Track | null;
 }
@@ -74,7 +75,13 @@ export function NowPlayingRating({ size, track }: NowPlayingRatingProps) {
           <RatingItem
             key={star}
             value={star}
-            className={size === 'compact' ? classes.compact : undefined}
+            className={
+              size === 'compact'
+                ? classes.compact
+                : size === 'card'
+                  ? classes.card
+                  : undefined
+            }
           />
         ))}
       </Rating>

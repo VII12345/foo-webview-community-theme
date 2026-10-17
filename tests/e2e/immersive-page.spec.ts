@@ -221,6 +221,49 @@ test('卡片两档的播放键组：顺序在上一首左、音量在下一首�
   expect(errors).toStrictEqual([]);
 });
 
+test('卡片左区文字、进度、星级与更多按钮放大，且不压住进度条', async ({ page }) => {
+  const { view, errors } = await openImmersive(page);
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '卡片歌词', exact: true }).click();
+  const title = view.locator('[data-field="cardTitle"]');
+  const artist = view.locator('[data-field="cardArtist"]');
+  const typography = await Promise.all([
+    title.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { size: style.fontSize, line: style.lineHeight };
+    }),
+    artist.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { size: style.fontSize, line: style.lineHeight };
+    }),
+  ]);
+  expect(typography).toEqual([
+    { size: '30px', line: '36px' },
+    { size: '20px', line: '24px' },
+  ]);
+  const seek = view.locator('[data-card-seek]');
+  expect(
+    await seek.locator('[data-seek-fill]').evaluate((fill) => fill.parentElement?.offsetHeight),
+  ).toBe(6);
+  expect(await seek.locator('[data-seek-thumb]').evaluate((node) => node.offsetWidth)).toBe(16);
+  expect(
+    await seek.locator('[data-seek-clock]').first().evaluate((node) => getComputedStyle(node).fontSize),
+  ).toBe('14px');
+  expect(
+    await view.locator('[data-now-playing-rating] span').first().evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { width: style.width, height: style.height };
+    }),
+  ).toEqual({ width: '18px', height: '18px' });
+  const more = view.getByRole('button', { name: '更多', exact: true });
+  expect(await more.evaluate((node) => node.offsetHeight)).toBe(40);
+  expect(await view.locator('[data-decor-guard="24"]').evaluate((node) => node.offsetLeft)).toBe(250);
+  const titleBox = await view.locator('[data-card-text]').boundingBox();
+  const seekBox = await seek.boundingBox();
+  expect(titleBox && seekBox && titleBox.y + titleBox.height <= seekBox.y).toBe(true);
+  expect(errors).toStrictEqual([]);
+});
+
 test('卡片视图在紧凑档也按 full 舞台排、整体缩小，不退回落盘', async ({ page }) => {
   // 用户平时的窗口约 1275 宽，以前落 compact 档、卡片根本不出现。
   const { view, errors } = await openImmersive(page, { width: 1275 });
