@@ -1,4 +1,4 @@
-import { compareTrack } from './lyricsMatch.ts';
+import { compareTrack, isDurationTooShort } from './lyricsMatch.ts';
 import type { LyricsCandidate, LyricsQuery, LyricsSource, LyricsSourceId } from './lyricsSource.ts';
 
 export interface LyricsCandidates {
@@ -6,7 +6,7 @@ export interface LyricsCandidates {
   readonly failed: readonly LyricsSourceId[];
 }
 
-/** 手动搜索保留候选，不用自动取词的门槛淘汰；相同匹配程度按来源顺序排列。 */
+/** 手动搜索保留候选，不用自动取词的匹配门槛淘汰；明显偏短的已知时长版本除外。 */
 export async function findLyricsCandidates(
   query: LyricsQuery,
   sources: readonly LyricsSource[],
@@ -33,7 +33,9 @@ export async function findLyricsCandidates(
     await Promise.all(
       sources.filter((source) => source.id !== 'lrcmux').map((source) => ask(source)),
     )
-  ).flat();
+  )
+    .flat()
+    .filter((candidate) => !isDurationTooShort(query, candidate));
   const normalize = (value: string) =>
     value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
   const currentQuery =
@@ -63,7 +65,7 @@ export async function findLyricsCandidates(
         .filter((source) => source.id === 'lrcmux')
         .map((source) => ask(source, aggregateQuery)),
     );
-    candidates.push(...more.flat());
+    candidates.push(...more.flat().filter((candidate) => !isDurationTooShort(query, candidate)));
   }
   const unique = new Map(
     candidates.map((candidate) => [`${candidate.source}:${candidate.ref}`, candidate]),

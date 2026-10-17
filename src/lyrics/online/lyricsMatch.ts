@@ -222,6 +222,15 @@ export function compareDuration(first: number, second: number): PartLevel | null
   return 'none';
 }
 
+/** 候选比当前曲目短 30 秒或更多时视为另一版本；任一时长未知则保留。 */
+export function isDurationTooShort(query: LyricsQuery, candidate: LyricsCandidate): boolean {
+  return (
+    query.durationMs > 0 &&
+    candidate.durationMs > 0 &&
+    query.durationMs - candidate.durationMs >= 30_000
+  );
+}
+
 /** 要找的那一首的艺人栏按「, 」再拆一次，同原版对本地曲目的处理。 */
 const splitQueryArtists = (names: readonly string[]) => names.flatMap((name) => name.split(', '));
 
@@ -270,6 +279,7 @@ export function rankCandidates(
 ): { readonly candidate: LyricsCandidate; readonly match: MatchResult }[] {
   return candidates
     .map((candidate) => ({ candidate, match: compareTrack(query, candidate) }))
+    .filter((item) => !isDurationTooShort(query, item.candidate))
     .filter((item) => levelRank(item.match.level) <= levelRank(minimum))
     .sort((a, b) => levelRank(a.match.level) - levelRank(b.match.level));
 }

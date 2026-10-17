@@ -131,15 +131,35 @@ function candidateOf(item: unknown): LyricsCandidate | null {
   };
 }
 
+const normalizeKeyword = (value: string) =>
+  value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** 搜索页默认是「曲名 艺人」；酷狗对这首歌的默认查询改用自动取词的写法。 */
+function keywordOf(query: LyricsQuery): { keyword: string; useDuration: boolean } {
+  const manual = query.keywords?.trim();
+  const automatic = [query.artists[0], query.title].filter(Boolean).join(' - ');
+  const defaults = [
+    [query.title, query.artists[0]].filter(Boolean).join(' '),
+    [query.title, ...query.artists].filter(Boolean).join(' '),
+    [query.title, query.artists.join(', ')].filter(Boolean).join(' '),
+    automatic,
+  ];
+  const isDefault =
+    !manual || defaults.some((value) => normalizeKeyword(value) === normalizeKeyword(manual));
+  return {
+    keyword: isDefault ? automatic : (manual ?? ''),
+    useDuration: isDefault && query.durationMs > 0,
+  };
+}
+
 /** 酷狗歌词库：按「艺人 - 曲名」与时长（毫秒）搜，下载 KRC 逐字词。 */
 export function createKugouSource(host: LyricsHttpHost): LyricsSource {
   return {
     id: 'kugou',
     async search(query: LyricsQuery, signal?: AbortSignal) {
-      const keyword = query.keywords ?? [query.artists[0], query.title].filter(Boolean).join(' - ');
+      const { keyword, useDuration } = keywordOf(query);
       const params = new URLSearchParams({ ver: '1', man: 'yes', client: 'pc', keyword });
-      if (!query.keywords && query.durationMs > 0)
-        params.set('duration', String(Math.round(query.durationMs)));
+      if (useDuration) params.set('duration', String(Math.round(query.durationMs)));
       const answer = await lyricsGet(host, `${SEARCH_URL}?${params.toString()}`, undefined, signal);
       const data = lyricsJson(answer);
       if (answer?.status !== 200 || asNumber(field(data, 'status')) !== 200) return 'failed';
@@ -153,7 +173,12 @@ export function createKugouSource(host: LyricsHttpHost): LyricsSource {
       const keyword = [candidate.title, candidate.artists[0]].filter(Boolean).join(' ');
       if (!keyword) return '';
       const params = new URLSearchParams({ keyword, page: '1', pagesize: '1' });
-      const answer = await lyricsGet(host, `${SONG_SEARCH_URL}?${params.toString()}`, undefined, signal);
+      const answer = await lyricsGet(
+        host,
+        `${SONG_SEARCH_URL}?${params.toString()}`,
+        undefined,
+        signal,
+      );
       const data = lyricsJson(answer);
       if (answer?.status !== 200) return '';
       const first = asList(field(field(data, 'data'), 'lists'))[0];
