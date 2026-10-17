@@ -21,6 +21,8 @@ export interface StageFieldsProps {
   readonly showMeter?: boolean;
   /** 是否画出那四行字（From / 标题 / By / Quality）；卡片歌词档右栏已经由卡片写了曲名，为假。 */
   readonly showFields?: boolean;
+  /** 右栏底部那块歌词；不给就不占位（卡片歌词档由右半区自己排歌词）。 */
+  readonly lyrics?: ReactNode;
 }
 
 /**
@@ -32,7 +34,12 @@ export interface StageFieldsProps {
  * 标题字号从 76 起，放不下每次降 3、最小 62，仍放不下就循环滚动与擦除（`useTitleScroll`）。
  * From 行与 By 行标了 `data-decor-guard`，生成式网格不在标题块周围放装饰。
  */
-export function StageFields({ stereo, showMeter = true, showFields = true }: StageFieldsProps) {
+export function StageFields({
+  stereo,
+  showMeter = true,
+  showFields = true,
+  lyrics,
+}: StageFieldsProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const extras = useAtomValueRawSync(trackExtrasAtom);
   const title = track?.title || MISSING;
@@ -82,6 +89,11 @@ export function StageFields({ stereo, showMeter = true, showFields = true }: Sta
         </>
       )}
       {showMeter && <StageMeterRow stereo={stereo} />}
+      {lyrics && (
+        <div className={styles.lyrics} data-stage-lyrics-slot>
+          {lyrics}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-/* 零尺寸的定位锚：各件按舞台坐标绝对定位，与罗盘那一层同位。 */
+/* 零尺寸的定位锚：各件按舞台坐标绝对定位。卡片整块居中在舞台左半（0–960）。 */
 .card {
   position: absolute;
   left: 0;
@@ -6,11 +6,11 @@
 }
 
 /* 封面下的一行：左边是曲名/艺人（只有卡片歌词档才出），右边是星级与更多；卡片视图没有文字那一块，
-   星级自己靠右（`margin-right: auto` 只在有文字时把它推开）。与封面同宽，右缘对齐封面右缘（x 610）。 */
+   星级自己靠右（`margin-right: auto` 只在有文字时把它推开）。与封面同宽。 */
 .meta {
   position: absolute;
-  left: 150px;
-  top: 740px;
+  left: 250px;
+  top: 700px;
   width: 460px;
   display: flex;
   align-items: center;
@@ -52,15 +52,15 @@
 /* 进度条：与封面同宽，线在正中。 */
 .seek {
   position: absolute;
-  left: 150px;
-  top: 806px;
+  left: 250px;
+  top: 766px;
   width: 460px;
 }
 
 /* 传输键一组 240 宽，居中在封面中线上；与罗盘一样压在歌词卡之上。 */
 .transport {
   position: absolute;
-  left: 260px;
-  top: 846px;
+  left: 360px;
+  top: 806px;
   z-index: 2;
 }

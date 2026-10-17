@@ -51,6 +51,13 @@
   --amll-lp-hover-bg-color: var(--state-pressed);
 }
 
+/* AMLL 的行默认靠左（`align-items: flex-start`）。右半区里歌词要水平居中，把行内两只轴都拨到中间；
+   行本身仍是满宽，`alignPosition` 的纵向对齐不受影响。 */
+.root[data-align='center'] :global([class*='_lyricLineWrapper']) {
+  align-items: center;
+  text-align: center;
+}
+
 /* AMLL 的译文紧跟主行，音译是后一条副行；两者共用副行类名。 */
 .root :global([class*='_lyricMainLine'] + [class*='_lyricSubLine']) {
   font-size: var(--lyrics-translation-size, max(0.5em, var(--fontSizeBase100)));

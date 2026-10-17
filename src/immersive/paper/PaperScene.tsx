@@ -8,7 +8,7 @@ import { ALPHA_FAR } from '../terrain/terrain.ts';
 import { TerrainCanvas } from '../terrain/TerrainCanvas.tsx';
 import { TerrainRuler } from '../terrain/TerrainRuler.tsx';
 import { PaperCoverWash } from '../wash/PaperCoverWash.tsx';
-import { paperGeometry } from './paperTiers.ts';
+import { paperGeometry, stageGeometry } from './paperTiers.ts';
 import styles from './PaperScene.module.css';
 import { PaperSheet } from './PaperSheet.tsx';
 import { PaperStage } from './PaperStage.tsx';
@@ -43,7 +43,12 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
   const dark = useAtomValueRawSync(colorSchemeAtom) === 'dark';
   const wash = useAtomValueRawSync(immersiveWashAtom) !== 'off';
   const terrain = useAtomValueRawSync(immersiveTerrainAtom);
-  const geometry = useMemo(() => paperGeometry(width, height), [width, height]);
+  // 卡片两档不分档位：一律按 full 舞台排、整幅等比缩放，小窗口只是缩得更小。
+  const card = variant === 'card' || variant === 'cardLyrics';
+  const geometry = useMemo(
+    () => (card ? stageGeometry(width, height) : paperGeometry(width, height)),
+    [card, width, height],
+  );
   const { tier, origin, scale } = geometry;
   const stage = tier === 'full';
   const guards = useDecorGuards(root, { origin, scale, tier });

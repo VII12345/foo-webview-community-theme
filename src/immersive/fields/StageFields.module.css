@@ -23,10 +23,11 @@
   color: var(--colorNeutralForeground3);
 }
 
-/* 右栏左缘 x 760、From 行顶边 y 82，与 `paperStage.ts` 的 `STAGE_FIELDS` 一致。 */
+/* 右半区（960–1920）：四行字整块收进右半，左右各留 40，与右半的歌词同一个宽度基准。
+   `hot-square` 的顶边仍是 y 82，与 `paperStage.ts` 的 `STAGE_FIELDS.y` 一致。 */
 .hot-square {
   position: absolute;
-  left: 760px;
+  left: 1000px;
   top: 82px;
   width: 8px;
   height: 8px;
@@ -34,9 +35,9 @@
 }
 
 .from {
-  left: 782px;
+  left: 1022px;
   top: 91px;
-  max-width: 934px;
+  max-width: 858px;
   font-size: 16px;
   color: var(--colorNeutralForeground3);
   overflow-x: clip;
@@ -56,7 +57,7 @@
 /* 字盒下面垫 0.3em 给下伸部分：标题要横向滚动与擦除，裁切与遮罩都按这个盒子算。
    76 是起始字号，放不下时 `useTitleScroll` 在行内样式上改写。 */
 .title {
-  left: 760px;
+  left: 1000px;
   top: 184px;
   padding-bottom: 0.3em;
   translate: 0 calc(-100% + 0.3em);
@@ -79,12 +80,12 @@
 }
 
 .by-key {
-  left: 760px;
+  left: 1000px;
   top: 222px;
 }
 
 .artist {
-  left: 760px;
+  left: 1000px;
   top: 254px;
   max-width: 640px;
   font-family: var(--fontFamilyBase);
@@ -93,10 +94,10 @@
   text-overflow: ellipsis;
 }
 
-/* 右缘对齐到 x 1780（右栏右缘）。 */
+/* 右缘对齐到 x 1860（右半的右缘内缩 60）。 */
 .quality-key,
 .quality {
-  right: 140px;
+  right: 60px;
 }
 
 .quality-key {
@@ -106,4 +107,16 @@
 .quality {
   top: 254px;
   font-size: 16px;
+}
+
+/* 右栏底部的歌词：贴垫纸区（STAGE_PAD y 270…956）的下沿，左右内缩 26 与垫纸的内边距相当。
+   只给聚焦视图用——图纸档的歌词卡有自己的舞台坐标（`LyricCard.module.css`）。 */
+.lyrics {
+  position: absolute;
+  left: 760px;
+  top: 700px;
+  width: 906px;
+  height: 230px;
+  overflow: hidden;
+  pointer-events: auto;
 }

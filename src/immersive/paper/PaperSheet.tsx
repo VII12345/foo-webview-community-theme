@@ -23,12 +23,11 @@ export interface PaperSheetProps {
  * 右栏里的声场是版心那一格（`PaperStereo`），歌词是三行日志（`LyricLog`）；频谱、整轨波形与量表与舞台共用同一批件，
  * 几何变量由右栏按版心档给。这一层不在舞台缩放的上下文里，canvas 件按缩放 1 开物理像素。
  *
- * 卡片两档只在 full 档出（`StageCard` 按 1920 × 1080 的舞台坐标写死，版心档放不下）；窗口小到落这几档时
- * 按图纸档排，左区仍是罗盘。`cardLyrics` 的「右栏只留动画歌词」在版心档照旧成立。
+ * 卡片两档不走这里：它们在 `PaperScene` 里固定按 full 舞台几何排（`stageGeometry`），小窗口只是整体缩小。
  */
 export function PaperSheet({ geometry, variant = 'paper' }: PaperSheetProps) {
   const { origin, sheet, fields } = geometry;
-  const lyricsOnly = variant === 'lyrics' || variant === 'cardLyrics';
+  const lyricsOnly = variant === 'lyrics';
   return (
     <div
       className={styles.sheet}

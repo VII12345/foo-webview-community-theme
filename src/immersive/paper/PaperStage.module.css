@@ -102,27 +102,18 @@
   --gauge-scale-baseline: 20px;
 }
 
-.stage[data-scene='focus'] .waveform {
-  top: 457px;
-}
+/* 聚焦视图的右栏底部已由 StageFields 的歌词槽占位，波形与量表不再下移。 */
 
-.stage[data-scene='focus'] .gauges {
-  top: 580px;
-}
-
-.stage[data-scene='focus'] .file-info {
-  top: 580px;
-}
-
-/* 歌词场景：播放器占满原右栏垫纸的范围（STAGE_PAD x688 y270 w1124 h686），内缩 26 与垫纸的内边距相当。
-   卡片歌词档同此：右栏也只放播放器。 */
+/* 右半的动画歌词：舞台左右均分（各 960），歌词在右半里水平、垂直居中。左半的罗盘不动。
+   四行字（From / 标题 / By / Quality）仍按舞台坐标写在右半顶部，不进这一块。 */
 .stage[data-scene='lyrics'] > :global([data-immersive-lyrics-player]),
-.stage[data-scene='cardLyrics'] > :global([data-immersive-lyrics-player]) {
+.stage[data-scene='cardLyrics'] > :global([data-immersive-lyrics-player]),
+.stage[data-scene='card'] > :global([data-immersive-lyrics-player]) {
   position: absolute;
-  left: 714px;
-  top: 296px;
-  width: 1072px;
-  height: 634px;
+  left: 960px;
+  top: 300px;
+  width: 960px;
+  height: 660px;
 }
 
 .file-info {

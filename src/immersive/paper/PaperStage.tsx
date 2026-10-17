@@ -28,17 +28,25 @@ export interface PaperStageProps {
  * full 档的图纸内容：1920 × 1080 的舞台，整幅 `scale(s)` 等比缩放、居中放进场景，里面一律写舞台坐标
  * （`paperStage.ts`）。s 经 `StageScaleContext` 交给舞台里的 canvas 件，canvas 的物理尺寸按它开。
  *
- * 左区：图纸三档挂罗盘（`StageDial`），卡片两档挂卡片（`StageCard`），卡片歌词档的卡片带曲名/艺人。
- * 右栏：图纸档挂歌词卡、聚焦档挂聚焦歌词日志、歌词档与卡片歌词档挂 AMLL 播放器。
+ * 左半（0–960）：图纸/聚焦/歌词三档挂罗盘（`StageDial`），卡片两档挂卡片（`StageCard`）。
+ * 右半（960–1920）：四行字（From / 标题 / By / Quality）在顶部，下面是歌词——
  *
- * 频谱、整轨波形、量表与文件信息放进这里定位好的外框，外框上给全它们的几何变量（件里不写缺省，
- * 别的档在自己的外框上另给一套）。
+ * | 档 | 左半 | 右半顶部 | 右半下面 |
+ * |---|---|---|---|
+ * | `paper` | 罗盘 | 四行字 + 仪表 | 频谱 / 波形 / 量表 / 文件信息，底部歌词卡 |
+ * | `focus` | 罗盘 | 四行字 + 仪表 | 波形 / 量表 / 文件信息上移，底部聚焦歌词日志 |
+ * | `lyrics` | 罗盘 | 四行字 | 动画歌词（整块右半，居中） |
+ * | `card` | 卡片 | 四行字 | 动画歌词（同歌词视图） |
+ * | `cardLyrics` | 卡片（带曲名/艺人） | — | 动画歌词 |
  */
 export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps) {
   const card = variant === 'card' || variant === 'cardLyrics';
-  // 右栏只出动画歌词的两档：歌词档与卡片歌词档。
-  const lyricsOnly = variant === 'lyrics' || variant === 'cardLyrics';
-  // 卡片歌词档右栏那四行字（From / 标题 / By / Quality）删掉，因为卡片上已有曲名与艺人。
+  // 右半整块放动画歌词的三档：歌词、卡片、卡片歌词。
+  const animatedLyrics =
+    variant === 'lyrics' || variant === 'card' || variant === 'cardLyrics';
+  // 图纸档右栏留着频谱/波形/量表/文件信息；聚焦、歌词与卡片三档右半只放歌词。
+  const fullColumn = variant === 'paper';
+  // 四行字：只有卡片歌词档不出（卡片上已有曲名与艺人）。
   const showFields = variant !== 'cardLyrics';
   const frame: CSSProperties = {
     left: origin.x,
@@ -50,15 +58,20 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
   return (
     <StageScaleContext value={scale}>
       <div className={styles.stage} data-scene={variant} style={frame} data-paper-content>
-        <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} showPad={!lyricsOnly} />
+        <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} showPad={fullColumn} />
         {card ? <StageCard title={variant === 'cardLyrics'} /> : <StageDial />}
-        <StageFields stereo={<StageStereo />} showMeter={!lyricsOnly} showFields={showFields} />
+        <StageFields
+          stereo={<StageStereo />}
+          showMeter={variant === 'paper'}
+          showFields={showFields}
+          lyrics={variant === 'focus' ? <FocusLyricLog /> : undefined}
+        />
         {variant === 'paper' && (
           <div className={`${styles.slot} ${styles.spectrum}`} data-field-slot="spectrum">
             <PaperSpectrum />
           </div>
         )}
-        {!lyricsOnly && (
+        {fullColumn && (
           <>
             <div className={`${styles.slot} ${styles.waveform}`}>
               <PaperWaveform />
@@ -71,13 +84,8 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
             </div>
           </>
         )}
-        {lyricsOnly ? (
-          <ImmersiveLyricsPlayer />
-        ) : variant === 'focus' ? (
-          <FocusLyricLog />
-        ) : (
-          <LyricCard />
-        )}
+        {variant === 'paper' && <LyricCard />}
+        {animatedLyrics && <ImmersiveLyricsPlayer />}
       </div>
     </StageScaleContext>
   );

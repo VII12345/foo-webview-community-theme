@@ -210,3 +210,19 @@ export function paperGeometry(width: number, height: number): PaperGeometry {
     sunkTerrain: tier.startsWith('portrait'),
   };
 }
+
+/**
+ * 卡片两档用的几何：**无论容器多大都按 full 舞台排**，整幅等比缩放。窗口小于舞台门槛时
+ * `stageScale` 算出的 s 小于 1，版式不变、字跟着缩——不退回别的档位，卡片才在任何窗口下都出得来。
+ */
+export function stageGeometry(width: number, height: number): PaperGeometry {
+  const scale = stageScale(width, height);
+  return {
+    tier: 'full',
+    ...STAGE_LAYOUT,
+    origin: stageOrigin(width, height, scale),
+    scale,
+    arcs: STAGE_ARCS,
+    sunkTerrain: false,
+  };
+}

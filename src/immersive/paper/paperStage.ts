@@ -112,8 +112,8 @@ export const STAGE_ARCS: readonly DecorArc[] = [
   { cx: 960, cy: 542, r: 860, from: 3.52, to: 4.42, ticks: 5 },
 ];
 
-/** 标题：宽上限是右栏 1020 的 92%；字号从 76 起，放不下每次降 3 px，最小 62，仍放不下再滚动。 */
-export const STAGE_TITLE = { width: 938, font: { max: 76, min: 62, step: 3 } } as const;
+/** 标题：宽上限是右半（960）减左右各 40 的 92%；字号从 76 起，放不下每次降 3 px，最小 62，仍放不下再滚动。 */
+export const STAGE_TITLE = { width: 792, font: { max: 76, min: 62, step: 3 } } as const;
 /** 标题滚动速度与擦除软边，舞台像素，网页版原值。 */
 export const STAGE_TITLE_SPEED = 80;
 export const STAGE_TITLE_SOFTNESS = 96;

@@ -104,7 +104,18 @@ test('右上角可以切换聚焦视图，隐藏频谱并保持原图纸视图�
   expect(errors).toStrictEqual([]);
 });
 test('卡片视图：左区换成方封面卡片，背景与右栏四行字照旧；原视图仍在', async ({ page }) => {
-  const { view, errors } = await openImmersive(page);
+  const { view, errors } = await openImmersive(page, {
+    onHost(host) {
+      host.answer('lyrics.get', {
+        success: true,
+        available: true,
+        source: 'embedded',
+        path: '',
+        lyrics: '[00:40]卡片视图第一句',
+        synced: true,
+      });
+    },
+  });
   await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
   await page.getByRole('menuitemradio', { name: '卡片视图', exact: true }).click();
   await expect(view.locator('[data-tier][data-scene="card"]')).toBeVisible();
@@ -125,10 +136,61 @@ test('卡片视图：左区换成方封面卡片，背景与右栏四行字照�
   await expect(view.locator('[data-field="title"]')).toHaveText(PLAYING_TRACK.title);
   await expect(view.locator('[data-field="artist"]')).toHaveText(PLAYING_TRACK.artist);
   await expect(view.locator('[data-card-text]')).toHaveCount(0);
+  // 右半是动画歌词（与歌词视图一致），不是仪表与波形。
+  await expect(view.locator('.amll-lyric-player')).toBeVisible();
+  await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(0);
   // 原视图仍可切回。
   await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
   await page.getByRole('menuitemradio', { name: '图纸舞台', exact: true }).click();
   await expect(view.locator('[data-tier][data-scene="paper"]')).toBeVisible();
+  expect(errors).toStrictEqual([]);
+});
+
+test('卡片视图在紧凑档也按 full 舞台排、整体缩小，不退回落盘', async ({ page }) => {
+  // 用户平时的窗口约 1275 宽，以前落 compact 档、卡片根本不出现。
+  const { view, errors } = await openImmersive(page, { width: 1275 });
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '卡片视图', exact: true }).click();
+  await expect(view.locator('[data-tier="full"][data-scene="card"]')).toBeVisible();
+  await expect(view.locator('[data-dial-cover]')).toBeVisible();
+  await expect(view.locator('[data-card-seek]')).toBeVisible();
+  await expect(view.locator('[data-scene="card"] [data-dial-ring]')).toHaveCount(0);
+  expect(errors).toStrictEqual([]);
+});
+
+test('歌词一律排在右半并水平居中，不跨到左半', async ({ page }) => {
+  const { view, errors } = await openImmersive(page, {
+    onHost(host) {
+      host.answer('lyrics.get', {
+        success: true,
+        available: true,
+        source: 'embedded',
+        path: '',
+        lyrics: '[00:40]右半第一句',
+        synced: true,
+      });
+    },
+  });
+  for (const label of ['歌词视图', '卡片视图', '卡片歌词']) {
+    await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: label, exact: true }).click();
+    const pane = view.locator('[data-immersive-lyrics-player]');
+    await expect(pane).toBeVisible();
+    const box = await pane.evaluate((element) => {
+      const stage = element.closest('[data-paper-content]');
+      if (!stage) throw new Error('歌词不在舞台上');
+      const stageRect = stage.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
+      const scale = stageRect.width / 1920;
+      return {
+        left: Math.round((rect.left - stageRect.left) / scale),
+        right: Math.round((rect.right - stageRect.left) / scale),
+      };
+    });
+    // 舞台左右均分：右半从 960 开始。
+    expect(box.left).toBeGreaterThanOrEqual(960);
+    expect(box.right).toBeLessThanOrEqual(1920);
+  }
   expect(errors).toStrictEqual([]);
 });
 
