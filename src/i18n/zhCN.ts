@@ -390,4 +390,6 @@ export const zhCN: Messages = {
   'stats.loading': '正在读取统计…',
   'stats.empty': '还没有播放统计。装好 foo_monthly_stats 并听几首歌后再来。',
   'stats.failed': '读取播放统计数据库失败。',
+  'stats.denied':
+    '宿主因路径安全策略拒绝了统计库。统计库在受保护的目录里（如便携安装在 Program Files 下）；把它改到别处，或以管理员身份运行 foobar2000。',
 };

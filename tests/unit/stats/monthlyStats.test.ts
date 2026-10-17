@@ -1,6 +1,35 @@
 import { describe, expect, it } from 'vitest';
 import initSqlJs from 'sql.js/dist/sql-wasm-inline.js';
-import { artistsFromRows, queryStats, splitArtists } from '../../../src/stats/monthlyStats.ts';
+import {
+  artistsFromRows,
+  loadStats,
+  queryStats,
+  splitArtists,
+  type StatsHostFace,
+} from '../../../src/stats/monthlyStats.ts';
+
+const PROFILE = 'C:\\Program Files\\foobar2000\\profile';
+
+/** 只搭 `loadStats` 用到的那几项；每一项给一个应答，未给的按不会走到处理。 */
+function statsHost(answers: {
+  readonly profilePath?: string | null;
+  readonly exists?: unknown;
+  readonly read?: unknown;
+}): StatsHostFace {
+  return {
+    config: {
+      getVersionInfo: (() =>
+        Promise.resolve({
+          success: true,
+          profilePath: answers.profilePath === undefined ? PROFILE : answers.profilePath,
+        })) as StatsHostFace['config']['getVersionInfo'],
+    },
+    file: {
+      exists: (() => Promise.resolve(answers.exists)) as StatsHostFace['file']['exists'],
+      read: (() => Promise.resolve(answers.read)) as StatsHostFace['file']['read'],
+    },
+  };
+}
 
 /** 造一个临时的 monthly_count 库：`row(ymd, title, artist, seconds, plays)`。 */
 async function buildDb(
@@ -76,5 +105,63 @@ describe('统计查询', () => {
     expect(data.month.tracks).toEqual([]);
     expect(data.month.artists).toEqual([]);
     expect(data.month.trend).toEqual([]);
+  });
+});
+
+describe('读统计的状态', () => {
+  const bytes = async () =>
+    Buffer.from(await buildDb([['2026-10-17', '今天听', 'A', 100, 1]])).toString('base64');
+
+  it('读到库时算出各期数据', async () => {
+    const loaded = await loadStats(
+      statsHost({ exists: { success: true, exists: true }, read: { success: true, content: await bytes() } }),
+      new Date(2026, 9, 17),
+    );
+    expect(loaded.state).toBe('ready');
+    if (loaded.state === 'ready') expect(loaded.data.today.totals.seconds).toBe(100);
+  });
+
+  it('库不存在时答「没有统计」', async () => {
+    const loaded = await loadStats(
+      statsHost({ exists: { success: true, exists: false } }),
+      new Date(2026, 9, 17),
+    );
+    expect(loaded.state).toBe('empty');
+  });
+
+  it('宿主按路径安全拒绝时答「被拒」，不是「没有统计」', async () => {
+    // 便携安装在 Program Files 下时 profile 会被旧版宿主拒掉；要能分辨这两种。
+    const loaded = await loadStats(
+      statsHost({ exists: { success: false, error: 'denied', code: 'PERMISSION_DENIED' } }),
+      new Date(2026, 9, 17),
+    );
+    expect(loaded.state).toBe('denied');
+  });
+
+  it('存在检查放行但读取被拒时同样答「被拒」', async () => {
+    const loaded = await loadStats(
+      statsHost({
+        exists: { success: true, exists: true },
+        read: { success: false, error: 'denied', code: 'PERMISSION_DENIED' },
+      }),
+      new Date(2026, 9, 17),
+    );
+    expect(loaded.state).toBe('denied');
+  });
+
+  it('profile 路径取不到时答「没有统计」', async () => {
+    const loaded = await loadStats(statsHost({ profilePath: null }), new Date(2026, 9, 17));
+    expect(loaded.state).toBe('empty');
+  });
+
+  it('读到内容但不是库时答失败', async () => {
+    const loaded = await loadStats(
+      statsHost({
+        exists: { success: true, exists: true },
+        read: { success: true, content: 'bm90LWEtZGI=' }, // "not-a-db"
+      }),
+      new Date(2026, 9, 17),
+    );
+    expect(loaded.state).toBe('failed');
   });
 });

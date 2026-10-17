@@ -394,6 +394,8 @@ export const en = {
   'stats.loading': 'Loading stats…',
   'stats.empty': 'No playback stats yet. Install foo_monthly_stats and play some music.',
   'stats.failed': 'Could not read the playback stats database.',
+  'stats.denied':
+    'The host refused the stats database on path-security grounds. It sits in a protected directory (a portable install under Program Files, for example); move it elsewhere or run foobar2000 elevated.',
 };
 
 export type MessageKey = keyof typeof en;

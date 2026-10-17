@@ -155,8 +155,16 @@ export function StatsPage() {
     );
   if (state.state !== 'ready')
     return (
-      <div className={styles.root} data-stats-empty>
-        <p role="status">{t(state.state === 'empty' ? 'stats.empty' : 'stats.failed')}</p>
+      <div className={styles.root} data-stats-empty data-stats-state={state.state}>
+        <p role="status">
+          {t(
+            state.state === 'empty'
+              ? 'stats.empty'
+              : state.state === 'denied'
+                ? 'stats.denied'
+                : 'stats.failed',
+          )}
+        </p>
       </div>
     );
 

@@ -26,6 +26,8 @@ export type StatsLoad =
   | { readonly state: 'ready'; readonly data: StatsData }
   /** 插件没装、库不存在，或还没听过歌。 */
   | { readonly state: 'empty' }
+  /** 库在那儿，但宿主按路径安全策略拒了：便携安装落在受保护目录下时会这样。 */
+  | { readonly state: 'denied' }
   /** 能读到宿主但读取/解析失败。 */
   | { readonly state: 'failed' };
 
@@ -244,8 +246,8 @@ function decodeBase64(base64: string): Uint8Array {
 }
 
 /**
- * 读统计：先问 profile 路径（拼出库文件），没有插件或库就答空；读不到、解不开答失败。
- * 只读，不写文件。`now` 由调用方传入，方便测试。
+ * 读统计：先问 profile 路径（拼出库文件），没有插件或库就答空；宿主拒了答 `denied`；
+ * 读不到、解不开答失败。只读，不写文件。`now` 由调用方传入，方便测试。
  */
 export async function loadStats(host: StatsHostFace, now: Date = new Date()): Promise<StatsLoad> {
   const version = await settle(() => host.config.getVersionInfo());
@@ -254,8 +256,14 @@ export async function loadStats(host: StatsHostFace, now: Date = new Date()): Pr
   if (!profile) return { state: 'empty' };
   const path = `${profile}\\${STATS_DB_NAME}`;
   const exists = await settle(() => host.file.exists(path));
+  // 路径安全拒读与「文件不存在」要分开：前者说明库在那儿、用户也确实在记，改路径或
+  // 提权能解决，提示成「没有统计」只会让人以为插件没工作。
+  if (exists && exists.success === false && exists.code === 'PERMISSION_DENIED')
+    return { state: 'denied' };
   if (!exists || exists.success === false || !exists.exists) return { state: 'empty' };
   const read = await settle(() => host.file.read(path, { encoding: 'binary' }));
+  if (read && read.success === false && read.code === 'PERMISSION_DENIED')
+    return { state: 'denied' };
   // 二进制读把字节以 base64 放在 `content` 里（不带 `base64:` 前缀）。
   const body = read && read.success !== false ? read.content : undefined;
   if (typeof body !== 'string' || !body) return { state: 'failed' };

@@ -73,3 +73,24 @@ test('统计库不存在时页面显示空状态，不报错', async ({ page }) 
   await expect(page.locator('[data-stats-empty]')).toBeVisible();
   expect(env.errors).toEqual([]);
 });
+
+test('宿主按路径安全拒读时写明原因，不显示成「没有统计」', async ({ page }) => {
+  // 便携安装在 Program Files 下时 profile 被拒；要能分辨「没装插件」与「读不到」。
+  const env = await openPlayer(page, {
+    onHost(host) {
+      host.answer('file.exists', () => ({
+        success: false,
+        path: DB_PATH,
+        error: 'Access denied: protected system path',
+        code: 'PERMISSION_DENIED',
+      }));
+    },
+  });
+  await page.getByRole('navigation', { name: '侧边栏' }).getByRole('button', { name: '播放统计', exact: true }).click();
+  const empty = page.locator('[data-stats-empty]');
+  await expect(empty).toBeVisible();
+  await expect(empty).toHaveAttribute('data-stats-state', 'denied');
+  await expect(empty).toContainText('路径安全');
+  await expect(empty).not.toContainText('还没有播放统计');
+  expect(env.errors).toEqual([]);
+});
