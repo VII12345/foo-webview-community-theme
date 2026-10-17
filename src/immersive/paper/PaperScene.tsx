@@ -12,6 +12,7 @@ import { paperGeometry } from './paperTiers.ts';
 import styles from './PaperScene.module.css';
 import { PaperSheet } from './PaperSheet.tsx';
 import { PaperStage } from './PaperStage.tsx';
+import type { PaperVariant } from './paperVariant.ts';
 import { reportSceneTier } from './sceneTier.ts';
 import { useSceneSize } from './useSceneSize.ts';
 
@@ -32,7 +33,7 @@ import { useSceneSize } from './useSceneSize.ts';
  * 内容层原点，三段弧随档位挪；舞台上格子、护区与弧跟着缩放，记号按网页版像素换算。
  */
 export interface PaperSceneProps {
-  readonly variant?: 'paper' | 'focus' | 'lyrics';
+  readonly variant?: PaperVariant;
 }
 
 export function PaperScene({ variant = 'paper' }: PaperSceneProps) {

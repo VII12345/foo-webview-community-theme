@@ -9,11 +9,19 @@ import { hostFullscreenAtom, type ImmersiveShell } from './immersiveShell.ts';
 import styles from './ImmersiveControls.module.css';
 
 /** 场景菜单里每一项的文案键。 */
-const SCENE_LABELS: Record<ImmersiveScene, 'immersive.viewPaper' | 'immersive.viewFocus' | 'immersive.viewLyrics' | 'immersive.viewCard'> = {
+const SCENE_LABELS: Record<
+  ImmersiveScene,
+  | 'immersive.viewPaper'
+  | 'immersive.viewFocus'
+  | 'immersive.viewLyrics'
+  | 'immersive.viewCard'
+  | 'immersive.viewCardLyrics'
+> = {
   paper: 'immersive.viewPaper',
   focus: 'immersive.viewFocus',
   lyrics: 'immersive.viewLyrics',
   card: 'immersive.viewCard',
+  cardLyrics: 'immersive.viewCardLyrics',
 };
 
 // 右上角三颗键的焦点环：Fluent 那圈走 keyborg 的 `data-fui-focus-visible`，菜单关闭把焦点还回触发键时会被

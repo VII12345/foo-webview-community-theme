@@ -30,11 +30,15 @@ export const FPS_CAPS = [0, 240, 180, 165, 144, 120, 100, 90, 75, 60, 30] as con
 export type FpsCap = (typeof FPS_CAPS)[number];
 
 /**
- * 沉浸视图的场景。目前只有图纸一档，山脊图是它的背景层，不是另一个场景；加场景时在 `ImmersiveScene`
+ * 沉浸视图的场景。山脊图是背景层，不是另一个场景；加场景时在 `ImmersiveScene`
  * 与 `IMMERSIVE_SCENES` 里加值，存档照用。
+ *
+ * 五个场景共用同一张图纸舞台（背景、装饰、右栏都在），差别只在左区与右栏怎么写：
+ * `paper` 原图纸、`focus` 原图纸＋聚焦歌词、`lyrics` 原图纸＋右栏换动画歌词、`card` 左区换卡片、
+ * `cardLyrics` 左区换卡片且右栏去掉四行字（只留动画歌词）。
  */
-export type ImmersiveScene = 'paper' | 'focus' | 'lyrics' | 'card';
-export const IMMERSIVE_SCENES = ['paper', 'focus', 'lyrics', 'card'] as const;
+export type ImmersiveScene = 'paper' | 'focus' | 'lyrics' | 'card' | 'cardLyrics';
+export const IMMERSIVE_SCENES = ['paper', 'focus', 'lyrics', 'card', 'cardLyrics'] as const;
 export const DEFAULT_SCENE: ImmersiveScene = 'paper';
 
 export const IMMERSIVE_PREF_KEYS = {

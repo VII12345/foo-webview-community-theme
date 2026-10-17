@@ -58,6 +58,8 @@ const SCENE_LABELS: Readonly<Record<ImmersiveScene, MessageKey>> = {
   paper: 'settings.immersiveViewPaper',
   focus: 'settings.immersiveViewFocus',
   lyrics: 'settings.immersiveViewLyrics',
+  card: 'settings.immersiveViewCard',
+  cardLyrics: 'settings.immersiveViewCardLyrics',
 };
 
 /** 设置插槽只加载偏好；进入沉浸视图时仍由对应页面建立资源与全屏控制。 */

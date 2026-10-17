@@ -1,0 +1,66 @@
+/* 零尺寸的定位锚：各件按舞台坐标绝对定位，与罗盘那一层同位。 */
+.card {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* 封面下的一行：左边是曲名/艺人（只有卡片歌词档才出），右边是星级与更多；卡片视图没有文字那一块，
+   星级自己靠右（`margin-right: auto` 只在有文字时把它推开）。与封面同宽，右缘对齐封面右缘（x 610）。 */
+.meta {
+  position: absolute;
+  left: 150px;
+  top: 740px;
+  width: 460px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacingHorizontalS);
+}
+
+.text {
+  min-width: 0;
+  margin-right: auto;
+}
+
+.title {
+  overflow: hidden;
+  color: var(--paper-ink);
+  font-family: var(--fontFamilyBase);
+  font-size: 24px;
+  font-weight: var(--fontWeightSemibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artist {
+  overflow: hidden;
+  color: var(--colorNeutralForeground3);
+  font-family: var(--fontFamilyBase);
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--spacingHorizontalS);
+}
+
+/* 进度条：与封面同宽，线在正中。 */
+.seek {
+  position: absolute;
+  left: 150px;
+  top: 806px;
+  width: 460px;
+}
+
+/* 传输键一组 240 宽，居中在封面中线上；与罗盘一样压在歌词卡之上。 */
+.transport {
+  position: absolute;
+  left: 260px;
+  top: 846px;
+  z-index: 2;
+}

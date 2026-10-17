@@ -114,8 +114,10 @@
   top: 580px;
 }
 
-/* 歌词场景：播放器占满原右栏垫纸的范围（STAGE_PAD x688 y270 w1124 h686），内缩 26 与垫纸的内边距相当。 */
-.stage[data-scene='lyrics'] > :global([data-immersive-lyrics-player]) {
+/* 歌词场景：播放器占满原右栏垫纸的范围（STAGE_PAD x688 y270 w1124 h686），内缩 26 与垫纸的内边距相当。
+   卡片歌词档同此：右栏也只放播放器。 */
+.stage[data-scene='lyrics'] > :global([data-immersive-lyrics-player]),
+.stage[data-scene='cardLyrics'] > :global([data-immersive-lyrics-player]) {
   position: absolute;
   left: 714px;
   top: 296px;

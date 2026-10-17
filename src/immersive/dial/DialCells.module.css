@@ -1,0 +1,44 @@
+/* 按基线落位：字盒底边裁到字母基线，`top` 写的就是基线。 */
+.base {
+  position: absolute;
+  margin: 0;
+  translate: 0 -100%;
+  white-space: nowrap;
+  text-box-trim: trim-end;
+  text-box-edge: text alphabetic;
+}
+
+/* 封面下三格，写法同文件信息 3 × 2：列宽 160、第一格与封面左边对齐；小标基线 792、值基线 818。 */
+.cells {
+  position: absolute;
+  left: 150px;
+  top: 776px;
+  width: 480px;
+  height: 42px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 160px);
+}
+
+.cell {
+  position: relative;
+}
+
+.cell-key {
+  top: 16px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--colorNeutralForeground3);
+}
+
+.cell-value {
+  top: 42px;
+  max-width: 148px;
+  font-size: 18px;
+  overflow-x: clip;
+  text-overflow: ellipsis;
+}
+
+.cell-value.missing {
+  color: var(--colorNeutralForeground3);
+}

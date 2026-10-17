@@ -20,4 +20,5 @@ export const immersiveEn = {
   'immersive.viewFocus': 'Focus view',
   'immersive.viewLyrics': 'Lyrics view',
   'immersive.viewCard': 'Card view',
+  'immersive.viewCardLyrics': 'Card + lyrics',
 };

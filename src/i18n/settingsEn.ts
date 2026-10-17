@@ -113,6 +113,8 @@ export const settingsEn = {
   'settings.immersiveViewPaper': 'Paper stage',
   'settings.immersiveViewFocus': 'Focus view',
   'settings.immersiveViewLyrics': 'Lyrics view',
+  'settings.immersiveViewCard': 'Card view',
+  'settings.immersiveViewCardLyrics': 'Card + lyrics',
   'settings.backdropSystem': 'Drawn by the system',
   'settings.playerBar': 'Player bar position',
   'settings.playerBarBottom': 'Bottom of the window',

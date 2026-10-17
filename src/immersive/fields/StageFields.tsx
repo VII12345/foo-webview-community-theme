@@ -19,6 +19,8 @@ export interface StageFieldsProps {
   readonly stereo: ReactNode;
   /** 是否画出横线以下的仪表第一行；歌词场景只留 From / 标题 / By / Quality。 */
   readonly showMeter?: boolean;
+  /** 是否画出那四行字（From / 标题 / By / Quality）；卡片歌词档右栏已经由卡片写了曲名，为假。 */
+  readonly showFields?: boolean;
 }
 
 /**
@@ -30,7 +32,7 @@ export interface StageFieldsProps {
  * 标题字号从 76 起，放不下每次降 3、最小 62，仍放不下就循环滚动与擦除（`useTitleScroll`）。
  * From 行与 By 行标了 `data-decor-guard`，生成式网格不在标题块周围放装饰。
  */
-export function StageFields({ stereo, showMeter = true }: StageFieldsProps) {
+export function StageFields({ stereo, showMeter = true, showFields = true }: StageFieldsProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const extras = useAtomValueRawSync(trackExtrasAtom);
   const title = track?.title || MISSING;
@@ -46,33 +48,37 @@ export function StageFields({ stereo, showMeter = true }: StageFieldsProps) {
 
   return (
     <div className={styles.fields}>
-      <span className={styles['hot-square']} aria-hidden />
-      <div className={`${styles.base} ${styles.from}`} data-decor-guard="40">
-        <span>From:</span> <span data-field="album">{track?.album || MISSING}</span>
-      </div>
-      <h1
-        ref={titleBox}
-        className={`${styles.base} ${styles.title}`}
-        style={{ width: STAGE_TITLE.width }}
-        data-rolling={rolling || undefined}
-        data-field="title"
-      >
-        <span ref={titleText} className={styles['title-text']}>
-          {title}
-        </span>
-      </h1>
-      <span className={`${styles.base} ${styles.key} ${styles['by-key']}`} data-decor-guard="40">
-        By
-      </span>
-      <div className={`${styles.base} ${styles.artist}`} data-field="artist" data-decor-guard="40">
-        {track?.artist || MISSING}
-      </div>
-      {quality && (
+      {showFields && (
         <>
-          <span className={`${styles.base} ${styles.key} ${styles['quality-key']}`}>Quality</span>
-          <div className={`${styles.base} ${styles.quality}`} data-field="quality">
-            {quality}
+          <span className={styles['hot-square']} aria-hidden />
+          <div className={`${styles.base} ${styles.from}`} data-decor-guard="40">
+            <span>From:</span> <span data-field="album">{track?.album || MISSING}</span>
           </div>
+          <h1
+            ref={titleBox}
+            className={`${styles.base} ${styles.title}`}
+            style={{ width: STAGE_TITLE.width }}
+            data-rolling={rolling || undefined}
+            data-field="title"
+          >
+            <span ref={titleText} className={styles['title-text']}>
+              {title}
+            </span>
+          </h1>
+          <span className={`${styles.base} ${styles.key} ${styles['by-key']}`} data-decor-guard="40">
+            By
+          </span>
+          <div className={`${styles.base} ${styles.artist}`} data-field="artist" data-decor-guard="40">
+            {track?.artist || MISSING}
+          </div>
+          {quality && (
+            <>
+              <span className={`${styles.base} ${styles.key} ${styles['quality-key']}`}>Quality</span>
+              <div className={`${styles.base} ${styles.quality}`} data-field="quality">
+                {quality}
+              </div>
+            </>
+          )}
         </>
       )}
       {showMeter && <StageMeterRow stereo={stereo} />}

@@ -111,6 +111,8 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
   'settings.immersiveViewPaper': '图纸舞台',
   'settings.immersiveViewFocus': '聚焦视图',
   'settings.immersiveViewLyrics': '歌词视图',
+  'settings.immersiveViewCard': '卡片视图',
+  'settings.immersiveViewCardLyrics': '卡片歌词',
   'settings.backdropSystem': '由系统绘制',
   'settings.playerBar': '播放栏位置',
   'settings.playerBarBottom': '窗口底部',

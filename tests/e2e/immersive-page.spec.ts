@@ -103,26 +103,71 @@ test('右上角可以切换聚焦视图，隐藏频谱并保持原图纸视图�
   await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(1);
   expect(errors).toStrictEqual([]);
 });
-test('卡片场景：切过去后左区是播放卡，含封面、星级、进度条与播放控制；原三视图仍在', async ({
-  page,
-}) => {
+test('卡片视图：左区换成方封面卡片，背景与右栏四行字照旧；原视图仍在', async ({ page }) => {
   const { view, errors } = await openImmersive(page);
   await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
   await page.getByRole('menuitemradio', { name: '卡片视图', exact: true }).click();
-  const card = view.locator('[data-card-scene]');
-  await expect(card).toBeVisible();
-  // 封面、曲名、星级、进度条、播放控制都在。
-  await expect(card.locator('[data-shape="round"]')).toHaveCount(1);
-  await expect(card.getByText(PLAYING_TRACK.title)).toBeVisible();
-  await expect(card.locator('[data-now-playing-rating]')).toBeVisible();
-  await expect(card.getByRole('slider', { name: '播放进度' })).toBeVisible();
-  await expect(card.getByRole('group', { name: '播放控制' })).toBeVisible();
-  // 卡片场景不带罗盘的转动层与四角括号。
+  await expect(view.locator('[data-tier][data-scene="card"]')).toBeVisible();
+  // 左区：方封面、星级、进度条与播放控制都在，罗盘组不在。
+  await expect(view.locator('[data-dial-cover]')).toBeVisible();
+  await expect(view.locator('[data-now-playing-rating]')).toBeVisible();
+  await expect(view.locator('[data-card-seek]')).toBeVisible();
+  await expect(view.locator('[data-card-seek]').getByRole('slider', { name: '播放进度' })).toBeVisible();
+  await expect(view.getByRole('group', { name: '播放控制' })).toBeVisible();
+  // 卡片下面的三格照旧。
+  await expect(view.locator('[data-field="date"]')).toBeVisible();
+  await expect(view.locator('[data-field="label"]')).toBeVisible();
+  // 罗盘组（三圈实线环、转动层、刻度字）不在。
+  await expect(view.locator('[data-scene="card"] [data-dial-ring]')).toHaveCount(0);
   await expect(view.locator('canvas[data-orbit]')).toHaveCount(0);
-  // 原三视图仍可切回。
+  // 背景与装饰照旧，右栏四行字也照旧；卡片不自带曲名/艺人，避免与右栏重复。
+  await expect(view.locator('[data-paper-content]')).toHaveCount(1);
+  await expect(view.locator('[data-field="title"]')).toHaveText(PLAYING_TRACK.title);
+  await expect(view.locator('[data-field="artist"]')).toHaveText(PLAYING_TRACK.artist);
+  await expect(view.locator('[data-card-text]')).toHaveCount(0);
+  // 原视图仍可切回。
   await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
   await page.getByRole('menuitemradio', { name: '图纸舞台', exact: true }).click();
   await expect(view.locator('[data-tier][data-scene="paper"]')).toBeVisible();
+  expect(errors).toStrictEqual([]);
+});
+
+test('卡片歌词：左区卡片带曲名/艺人，右栏四行字删掉、动画歌词保留', async ({ page }) => {
+  const { view, errors } = await openImmersive(page, {
+    onHost(host) {
+      host.answer('lyrics.get', {
+        success: true,
+        available: true,
+        source: 'embedded',
+        path: '',
+        lyrics: '[00:40]卡片歌词第一句\n[00:45]卡片歌词第二句',
+        synced: true,
+      });
+    },
+  });
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '卡片歌词', exact: true }).click();
+  await expect(view.locator('[data-tier][data-scene="cardLyrics"]')).toBeVisible();
+  // 左区卡片：方封面、星级、进度条、播放控制与曲名/艺人。
+  await expect(view.locator('[data-dial-cover]')).toBeVisible();
+  await expect(view.locator('[data-now-playing-rating]')).toBeVisible();
+  await expect(view.locator('[data-card-seek]').getByRole('slider', { name: '播放进度' })).toBeVisible();
+  await expect(view.getByRole('group', { name: '播放控制' })).toBeVisible();
+  await expect(view.locator('[data-field="cardTitle"]')).toHaveText(PLAYING_TRACK.title);
+  await expect(view.locator('[data-field="cardArtist"]')).toHaveText(PLAYING_TRACK.artist);
+  // 右栏四行字全删。
+  await expect(view.locator('[data-field="title"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="artist"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="album"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="quality"]')).toHaveCount(0);
+  // 右栏的动画歌词保留。
+  const player = view.locator('.amll-lyric-player');
+  await expect(player).toBeVisible();
+  await expect(player).toContainText('卡片歌词第一句');
+  // 白框、频谱、波形与量表都不在（同歌词视图）。
+  await expect(view.locator('[data-pad]')).toHaveCount(0);
+  await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(0);
+  await expect(view.locator('canvas[data-orbit]')).toHaveCount(0);
   expect(errors).toStrictEqual([]);
 });
 
