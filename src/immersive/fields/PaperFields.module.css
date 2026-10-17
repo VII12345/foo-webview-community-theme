@@ -246,3 +246,8 @@
   min-height: 0;
   overflow: hidden;
 }
+
+/* compact 右栏的歌词从右栏左侧五分之一处开始；播放器根铺满这个缩进后的槽。 */
+.fields[data-paper-fields='compact'] .lyrics {
+  margin-left: 20%;
+}
