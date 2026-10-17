@@ -29,30 +29,27 @@ function TimesCell() {
 }
 
 export interface PaperMetaRowProps {
-  /** 去掉声场一格，Genre / Year / Label 左移补位，行高 143 → 113。 */
+  /** 去掉声场一格，Genre 的位置换成声压，行高 143 → 113。 */
   readonly compact: boolean;
   /** 左格里的声场件；`compact` 时不出。 */
   readonly stereo: ReactNode;
+  /** 耳机声压，占原来 Genre 的位置。 */
+  readonly soundPressure: ReactNode;
 }
 
 /**
- * 收缩档与竖版图纸右栏横线下的第一行，三格：声场、Genre / Year / Label、Duration / Elapsed（Elapsed 用热色）。
+ * 收缩档与竖版图纸右栏横线下的第一行，三格：声场、声压 / Year / Label、Duration / Elapsed（Elapsed 用热色）。
  * 缺值写 `—`，键名保留。格宽、分隔线与字的纵向位置照图纸；等宽字按图纸字号放大一成
  * （图纸用 Geist Mono，这里的等宽字体字面窄一成）。
  */
-export function PaperMetaRow({ compact, stereo }: PaperMetaRowProps) {
+export function PaperMetaRow({ compact, stereo, soundPressure }: PaperMetaRowProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const { label } = useAtomValueRawSync(trackExtrasAtom);
   return (
     <div className={compact ? `${styles.row} ${styles.compact}` : styles.row}>
       {!compact && <div className={styles.cell}>{stereo}</div>}
       <div className={`${styles.cell} ${styles.meta}`}>
-        <div className={styles.wide}>
-          <span className={styles.key}>Genre</span>
-          <div className={`${styles.value} ${styles.large}`} data-field="genre">
-            {track?.genre || MISSING}
-          </div>
-        </div>
+        <div className={styles.wide}>{soundPressure}</div>
         <div>
           <span className={styles.key}>Year</span>
           <div className={`${styles.value} ${styles.mono}`} data-field="year">

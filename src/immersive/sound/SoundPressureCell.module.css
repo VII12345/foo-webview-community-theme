@@ -1,0 +1,98 @@
+/* 舞台与版心两处位置：舞台按图纸坐标绝对定位，版心档里是右栏的一格。 */
+.cell {
+  position: absolute;
+  left: 1336px;
+  top: 290px;
+  width: 299px;
+  pointer-events: auto;
+  text-align: left;
+}
+
+.cell[data-variant='sheet'] {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: 100%;
+}
+
+.trigger {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--colorStrokeFocus2);
+  outline-offset: 3px;
+}
+
+.key {
+  font-family: var(--fontFamilyMonospace);
+  font-size: 16px;
+  line-height: 20px;
+  color: var(--colorNeutralForeground3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.value {
+  margin-top: 12px;
+  font-family: var(--fontFamilyBase);
+  font-size: 25px;
+  line-height: 30px;
+  color: var(--colorNeutralForeground1);
+  white-space: nowrap;
+}
+
+.detail {
+  margin-top: 6px;
+  font-family: var(--fontFamilyMonospace);
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--colorNeutralForeground3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 版心档把三行压到 Genre 原来的小标 + 值的位置。 */
+.cell[data-variant='sheet'] .key {
+  font-size: 11px;
+  line-height: 13px;
+  letter-spacing: 1px;
+}
+
+.cell[data-variant='sheet'] .value {
+  margin-top: 3px;
+  font-size: 18px;
+  line-height: 22px;
+}
+
+.cell[data-variant='sheet'] .detail {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 13px;
+}
+
+.cell[data-state='over'] .value,
+.cell[data-state='over'] .detail {
+  color: var(--paper-hot);
+}
+
+.cell[data-state='muted'] .value,
+.cell[data-state='no-loudness'] .value,
+.cell[data-state='no-device'] .value,
+.cell[data-state='no-amp'] .value,
+.cell[data-state='no-headphone'] .value {
+  color: var(--colorNeutralForeground3);
+}

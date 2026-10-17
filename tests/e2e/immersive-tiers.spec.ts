@@ -81,7 +81,7 @@ test('compact 1200 × 720：左环右表，罗盘缩到 0.8，右栏 600 宽，�
   await expect(sheet.rings).toHaveCount(3);
   await expect(sheet.orbit).toHaveCount(1);
   await expectMissing(sheet.view, ['correlation', 'sampleRate', 'remaining']);
-  for (const id of ['quality', 'duration', 'elapsed', 'genre', 'year', 'label']) {
+  for (const id of ['quality', 'duration', 'elapsed', 'soundPressure', 'year', 'label']) {
     await expect(field(sheet.view, id), id).toBeVisible();
   }
   await expect(field(sheet.view, 'title')).toHaveText(PLAYING_TRACK.title);
@@ -105,7 +105,7 @@ test('narrow 390 × 700：单栏，左上 160 封面、右侧传输键，只留 
   expect(await widthOf(sheet.fields)).toBeCloseTo(358, 0);
   await expect(sheet.rings).toHaveCount(0);
   await expect(sheet.orbit).toHaveCount(0);
-  await expectMissing(sheet.view, ['quality', 'genre', 'duration', 'sampleRate', 'correlation']);
+  await expectMissing(sheet.view, ['quality', 'soundPressure', 'duration', 'sampleRate', 'correlation']);
   await expect(sheet.view.getByText(/^DR: TT DR Meter/)).toHaveCount(0);
   await expect(field(sheet.view, 'title')).toBeVisible();
   await expect(field(sheet.view, 'album')).toBeVisible();
@@ -127,7 +127,7 @@ test('竖版 864 × 1536：上环下表、件件原尺寸，山脊图 1280 宽�
   await expect(sheet.fields).toHaveAttribute('data-paper-fields', 'full');
   expect(await widthOf(sheet.cover)).toBeCloseTo(300, 0);
   await expectFieldsBelowCover(sheet);
-  for (const id of ['correlation', 'sampleRate', 'genre', 'elapsed']) {
+  for (const id of ['correlation', 'sampleRate', 'soundPressure', 'elapsed']) {
     await expect(field(sheet.view, id), id).toHaveCount(1);
   }
   await expectSunkTerrain(sheet, 1536);
@@ -153,7 +153,7 @@ test('竖窄档 700 × 1000：环与转动层照紧凑竖版留着，下段只�
   await expect(sheet.rings).toHaveCount(3);
   await expect(sheet.orbit).toHaveCount(1);
   expect(await widthOf(sheet.fields)).toBeCloseTo(600, 0);
-  await expectMissing(sheet.view, ['quality', 'genre', 'duration', 'sampleRate']);
+  await expectMissing(sheet.view, ['quality', 'soundPressure', 'duration', 'sampleRate']);
   await expectFieldsBelowCover(sheet);
   expect((await sheet.sheet.boundingBox())?.y).toBe(0);
   await expectSunkTerrain(sheet, 1000);

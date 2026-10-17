@@ -14,6 +14,11 @@
   grid-template-columns: 1fr 92px;
 }
 
+/* 声压块比原来的 Genre 多一行明细，compact 里把行距收紧，仍收在 113 内。 */
+.row.compact .meta {
+  row-gap: 12px;
+}
+
 .key,
 .mono,
 .clock {
@@ -59,11 +64,6 @@
 
 .value {
   margin-top: var(--value-lead);
-}
-
-.large {
-  font-size: 18px;
-  line-height: 22px;
 }
 
 .mono {

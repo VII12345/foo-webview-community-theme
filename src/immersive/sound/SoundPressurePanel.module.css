@@ -1,0 +1,175 @@
+/* 浮层不用 Fluent Portal：挂在触发块里，跟着舞台/版心一起缩放，也不会被场景的 overflow 裁掉。 */
+.panel {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 380px;
+  max-height: 520px;
+  padding: 12px;
+  border: 1px solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground1);
+  box-shadow: var(--shadow16);
+  color: var(--colorNeutralForeground1);
+  font-family: var(--fontFamilyBase);
+  font-size: 13px;
+  line-height: normal;
+  pointer-events: auto;
+  text-align: left;
+}
+
+.panel:focus {
+  outline: none;
+}
+
+.panel.stage {
+  left: 0;
+  top: calc(100% + 12px);
+}
+
+/* 版心档的一格靠右，浮层向右对齐，最窄的版心里也不会伸出场景。 */
+.panel.sheet {
+  right: 0;
+  top: calc(100% + 8px);
+  width: 340px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 2px;
+  border-radius: var(--borderRadiusSmall);
+  background: var(--colorNeutralBackground3);
+}
+
+.tab {
+  flex: 1;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--borderRadiusSmall);
+  background: none;
+  color: var(--colorNeutralForeground2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tab[aria-selected='true'] {
+  background: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground1);
+  box-shadow: var(--shadow2);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 250px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--borderRadiusSmall);
+}
+
+.row[data-selected] {
+  background: var(--colorNeutralBackground3);
+}
+
+.pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--borderRadiusSmall);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pick:hover {
+  background: var(--colorNeutralBackground3);
+}
+
+.name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--fontWeightSemibold);
+}
+
+.summary {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--colorNeutralForeground3);
+  font-size: 11px;
+}
+
+.empty {
+  margin: 4px 8px;
+  color: var(--colorNeutralForeground3);
+}
+
+.hint {
+  margin: 0;
+  color: var(--colorNeutralForeground3);
+  font-size: 11px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.field > span {
+  color: var(--colorNeutralForeground3);
+  font-size: 12px;
+}
+
+.units {
+  display: flex;
+  gap: 4px;
+  padding-left: 100px;
+}
+
+.error {
+  margin: 0;
+  color: var(--colorPaletteRedForeground1);
+  font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}

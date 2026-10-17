@@ -1,0 +1,55 @@
+.group {
+  padding: 4px 0 8px;
+}
+
+.groupTitle {
+  margin: 8px 0 0;
+  padding: 0 0 4px;
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+  font-weight: var(--fontWeightSemibold);
+}
+
+.add {
+  padding: 8px 0 0;
+}
+
+.actions {
+  display: flex;
+  gap: 2px;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  padding: 12px 0 4px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.field > span {
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.units {
+  display: flex;
+  gap: 4px;
+}
+
+.error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--colorPaletteRedForeground1);
+  font-size: var(--fontSizeBase200);
+}

@@ -1,6 +1,7 @@
 import { makeStyles, Title2 } from '@fluentui/react-components';
 import {
   Globe20Regular,
+  Headphones20Regular,
   Info20Regular,
   Keyboard20Regular,
   MusicNote220Regular,
@@ -34,6 +35,7 @@ import { SettingsGroup } from './SettingsGroup.tsx';
 import { SettingsNav } from './SettingsNav.tsx';
 import styles from './SettingsPage.module.css';
 import { ShortcutsSection } from './ShortcutsSection.tsx';
+import { SoundPressureSection } from './SoundPressureSection.tsx';
 import { useFocusReturn } from './useFocusReturn.ts';
 import {
   CARD_FIELD_MIN_WIDTH,
@@ -83,6 +85,12 @@ const GROUPS: readonly GroupSpec[] = [
     label: 'settings.groupPlayback',
     icon: <PlayCircle20Regular />,
     content: <PlaybackSection />,
+  },
+  {
+    id: 'headphones',
+    label: 'settings.groupHeadphones',
+    icon: <Headphones20Regular />,
+    content: <SoundPressureSection />,
   },
   {
     id: 'immersive',

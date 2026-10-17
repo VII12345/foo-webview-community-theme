@@ -60,7 +60,7 @@ for (const colorScheme of ['dark', 'light'] as const) {
       await page.setViewportSize({ width: 1280, height: 800 });
       const settings = await openSettings(page);
       await expect(settings.nav).toHaveAttribute('data-settings-nav', 'directory');
-      const groups = ['常规', '外观', '播放', '沉浸视图', '歌词', '在线内容', '快捷键', '关于'];
+      const groups = ['常规', '外观', '播放', '耳机', '沉浸视图', '歌词', '在线内容', '快捷键', '关于'];
       await expect(settings.nav.getByRole('button')).toHaveText(groups);
       for (const name of groups) {
         await expect(settings.nav.getByRole('button', { name, exact: true })).toBeVisible();

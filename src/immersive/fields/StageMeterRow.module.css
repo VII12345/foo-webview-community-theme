@@ -57,23 +57,6 @@
   left: 1306px;
 }
 
-.genre-key {
-  left: 1336px;
-  top: 306px;
-}
-
-.genre {
-  left: 1336px;
-  top: 364px;
-  max-width: 299px;
-  font-family: var(--fontFamilyBase);
-  font-size: 25px;
-  overflow-x: clip;
-  text-overflow: ellipsis;
-}
-
-/* Album artist 照 Genre 上下排：值落在附行基线 431，与左右几格的附行对齐；小标只比值高一行小字，
-   离上面的 Genre 值远些，两组读得开。值与 Genre 同宽，超了省略。 */
 .album-artist-key {
   left: 1336px;
   top: 411px;
@@ -88,7 +71,7 @@
   text-overflow: ellipsis;
 }
 
-/* 时长格右对齐到 x 1780，左边框就是与 Genre 格之间的分隔线。第一列是分隔线到字的 30，第二列至少 85 宽；
+/* 时长格右对齐到 x 1780，左边框就是与声压格之间的分隔线。第一列是分隔线到字的 30，第二列至少 85 宽；
    一小时以上的时长更宽，第二列随之变宽、分隔线左移。键名与值叠在第二列同一格里、各自按基线相对格顶下移，
    列宽只取这两者；附行的剩余时间绝对定位，不把分隔线往左推。 */
 .duration-cell {

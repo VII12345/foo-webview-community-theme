@@ -17,6 +17,7 @@ const FOOTNOTE =
 /** 右栏里由场景填的五块；场景没填的留出空位，格子照样占高。 */
 export interface PaperFieldSlots {
   readonly stereo: ReactNode;
+  readonly soundPressure: ReactNode;
   readonly spectrum: ReactNode;
   readonly waveform: ReactNode;
   readonly gauges: ReactNode;
@@ -39,7 +40,7 @@ export interface PaperFieldsProps {
 }
 
 /**
- * 收缩档与竖版的图纸右栏：From 行、标题、By 与 Quality，横线下依次是 `PaperMetaRow`（声场、Genre / Year / Label、
+ * 收缩档与竖版的图纸右栏：From 行、标题、By 与 Quality，横线下依次是 `PaperMetaRow`（声场、声压 / Year / Label、
  * Duration / Elapsed）、频谱、整轨波形、量表与文件信息 3 × 2（`PaperFileInfo`）、脚注、歌词。
  * 字段名是等宽英文，是版式的一部分，不进语言包；缺值写 `—`，键名保留，图纸的格子不因为空就塌。
  *
@@ -102,7 +103,11 @@ export function PaperFields({ placement, height, slots, lyricsOnly = false }: Pa
       </div>
       <hr className={styles.rule} />
       {!lyricsOnly && mode !== 'narrow' && (
-        <PaperMetaRow compact={mode === 'compact'} stereo={slots.stereo} />
+        <PaperMetaRow
+          compact={mode === 'compact'}
+          stereo={slots.stereo}
+          soundPressure={slots.soundPressure}
+        />
       )}
       {!lyricsOnly && slots.spectrum !== null && (
         <div className={styles.spectrum}>{slots.spectrum}</div>

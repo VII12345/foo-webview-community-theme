@@ -29,6 +29,7 @@ test('歌词视图去掉白框与框内元素，只留歌词占原白框范围',
   await expect(view.locator('[data-pad]')).toHaveCount(0);
   await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(0);
   await expect(view.locator('[data-field="genre"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="soundPressure"]')).toHaveCount(0);
   await expect(view.locator('[data-field="duration"]')).toHaveCount(0);
   await expect(view.locator('[data-field="loudness"]')).toBeHidden();
   // 歌词在，且占着原白框的位置（不是屏幕中央、也不是底部条）。
@@ -112,7 +113,7 @@ test('右上角可以切换聚焦视图，隐藏频谱并保持原图纸视图�
   // 只去掉频谱柱；垫纸、四行字、仪表、波形、量表与文件信息都要留着。
   await expect(focus.locator('[data-pad]')).toHaveCount(1);
   await expect(view.locator('[data-field="title"]')).toBeVisible();
-  await expect(view.locator('[data-field="genre"]')).toBeVisible();
+  await expect(view.locator('[data-field="soundPressure"]')).toBeVisible();
   await expect(view.locator('[data-field="duration"]')).toBeVisible();
   await expect(view.locator('[data-field="playhead"]')).toBeVisible();
   await expect(view.locator('[data-field="dynamicRange"]')).toBeVisible();

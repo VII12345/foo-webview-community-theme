@@ -41,6 +41,8 @@ export const playbackAtom: Atom<PlaybackState> = atom((get) => get(stateAtom));
 export const currentTrackAtom: Atom<Track | null> = atom((get) => get(stateAtom).track);
 export const playbackOrderAtom: Atom<OrderName | null> = atom((get) => get(stateAtom).order);
 export const volumeDbAtom: Atom<number> = atom((get) => get(stateAtom).volumeDb);
+/** 只随静音态变，不跟每 100 ms 的进度更新。 */
+export const mutedAtom: Atom<boolean> = atom((get) => get(stateAtom).muted);
 
 type Domain = 'state' | 'track' | 'position' | 'volume' | 'order';
 

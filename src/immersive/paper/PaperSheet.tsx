@@ -5,6 +5,7 @@ import { LyricLog } from '../lyrics/LyricLog.tsx';
 import { FocusLyricLog } from '../lyrics/FocusLyricLog.tsx';
 import { ImmersiveLyricsPlayer } from '../lyrics/ImmersiveLyricsPlayer.tsx';
 import { PaperSpectrum } from '../spectrum/PaperSpectrum.tsx';
+import { SoundPressureCell } from '../sound/SoundPressureCell.tsx';
 import { PaperStereo } from '../stereo/PaperStereo.tsx';
 import { PaperWaveform } from '../waveform/PaperWaveform.tsx';
 import { PaperMarks } from './PaperMarks.tsx';
@@ -43,6 +44,7 @@ export function PaperSheet({ geometry, variant = 'paper' }: PaperSheetProps) {
         lyricsOnly={lyricsOnly}
         slots={{
           stereo: <PaperStereo />,
+          soundPressure: <SoundPressureCell variant="sheet" />,
           spectrum: variant === 'paper' ? <PaperSpectrum /> : null,
           waveform: <PaperWaveform />,
           gauges: <PaperGauges />,
