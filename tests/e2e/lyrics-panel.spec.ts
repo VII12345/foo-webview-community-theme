@@ -821,6 +821,89 @@ test('搜索结果按词源分组可折叠，默认展开', async ({ page }) => 
   await expect(group.locator('[data-lyrics-candidate]')).toHaveCount(1);
   expect(env.errors).toEqual([]);
 });
+test('按来源与标识类型手动搜词：网易云歌曲 ID 直接出候选并取词', async ({ page }) => {
+  const env = await openLyrics(page);
+  env.host.answer('http.get', (params) => {
+    const url = new URL(String(params['url']));
+    const body =
+      url.pathname === '/api/song/detail/'
+        ? {
+            code: 200,
+            songs: [
+              {
+                id: 2048982668,
+                name: 'ID 歌曲',
+                artists: [{ name: 'ID 艺人' }],
+                album: { name: 'ID 专辑' },
+                duration: 200000,
+              },
+            ],
+          }
+        : url.pathname === '/api/song/lyric/v1'
+          ? { code: 200, lrc: { lyric: '[00:01]ID 歌词' } }
+          : {};
+    return {
+      success: true,
+      status: 200,
+      headers: {},
+      body: JSON.stringify(body),
+      responseType: 'text',
+    };
+  });
+  await panel(page).hover();
+  await panel(page).getByRole('switch', { name: '在线歌词' }).check();
+  await panel(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
+  const search = panel(page).locator('[data-lyrics-search]');
+  await search.getByRole('combobox', { name: '搜索方式' }).selectOption('id');
+  await expect(search.getByRole('combobox', { name: '标识类型' })).toHaveValue('neteaseSongId');
+  await search.getByRole('textbox', { name: '歌曲 ID / MID / Hash' }).fill('2048982668');
+  await expect(search.locator('[data-lyrics-candidate]')).toHaveCount(1);
+  await expect(search.locator('[data-lyrics-source-group="netease"]')).toContainText('ID 歌曲');
+  await expect(search.locator('[data-lyrics-candidate]')).toContainText('逐行');
+  expect(env.errors).toEqual([]);
+});
+
+test('手动搜词可选 QQ MID 与酷狗 Hash', async ({ page }) => {
+  const env = await openLyrics(page);
+  env.host.answer('http.get', (params) => {
+    const url = new URL(String(params['url']));
+    const body =
+      url.pathname === '/lyric/fcgi-bin/fcg_query_lyric_new.fcg'
+        ? { retcode: 0, lyric: '[00:01]MID 歌词', trans: '' }
+        : url.pathname === '/search' && url.hostname === 'krcs.kugou.com'
+          ? {
+              status: 200,
+              candidates: [
+                { id: '1', accesskey: 'K', song: 'Hash 歌曲', singer: 'Hash 艺人', duration: 1000 },
+              ],
+            }
+          : {};
+    return {
+      success: true,
+      status: 200,
+      headers: {},
+      body: JSON.stringify(body),
+      responseType: 'text',
+    };
+  });
+  await panel(page).hover();
+  await panel(page).getByRole('switch', { name: '在线歌词' }).check();
+  await panel(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
+  const search = panel(page).locator('[data-lyrics-search]');
+  await search.getByRole('combobox', { name: '搜索方式' }).selectOption('id');
+  await search.getByRole('combobox', { name: '来源' }).selectOption('qq');
+  await expect(search.getByRole('combobox', { name: '标识类型' })).toHaveValue('qqSongId');
+  await search.getByRole('textbox', { name: '歌曲 ID / MID / Hash' }).fill('0039MnYb0qxYhV');
+  await search.getByRole('combobox', { name: '标识类型' }).selectOption('qqMid');
+  await expect(search.locator('[data-lyrics-source-group="qq"]')).toContainText('0039MnYb0qxYhV');
+
+  await search.getByRole('combobox', { name: '来源' }).selectOption('kugou');
+  await expect(search.getByRole('combobox', { name: '标识类型' })).toHaveValue('kugouHash');
+  await search.getByRole('textbox', { name: '歌曲 ID / MID / Hash' }).fill('ABC123');
+  await expect(search.locator('[data-lyrics-candidate]')).toContainText('Hash 歌曲');
+  expect(env.errors).toEqual([]);
+});
+
 test('单框搜索处理中文组词、清空和失败，窄窗返回保留预览外壳', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
   const env = await openLyrics(page, LOCAL, 720);

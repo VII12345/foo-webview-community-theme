@@ -1,8 +1,11 @@
 import type { fb } from 'foo-webview-sdk/bridge';
 import { settle } from '../../host/hostCall.ts';
 
+/** JSON 正文；与 SDK 内部的 JsonValue 同形（那个类型没有从包根导出）。 */
+type JsonBody = string | number | boolean | null | undefined | JsonBody[] | { [key: string]: JsonBody };
+
 /** 在线来源用到的宿主接口：请求由宿主发出，不受跨域限制，本地与内网地址宿主不放行。 */
-export type LyricsHttpHost = { readonly http: Pick<typeof fb.http, 'request'> };
+export type LyricsHttpHost = { readonly http: Pick<typeof fb.http, 'request' | 'post'> };
 
 export interface LyricsHttpAnswer {
   readonly status: number;
@@ -34,6 +37,27 @@ export async function lyricsGet(
   );
   if (signal?.aborted) return null;
   if (!answer || typeof answer.body !== 'string' || answer.body.length > BODY_LIMIT) return null;
+  return { status: answer.status ?? 0, body: answer.body };
+}
+
+/**
+ * 发一个 POST（JSON 正文）。请求头、超时与 GET 相同；网络失败、超时或应答过大答 null，
+ * HTTP 错误码照样交回，由来源判断是「没有」还是「失败」。
+ */
+export async function lyricsPost(
+  host: LyricsHttpHost,
+  url: string,
+  body: JsonBody,
+  headers: Readonly<Record<string, string>> = {},
+  signal?: AbortSignal,
+): Promise<LyricsHttpAnswer | null> {
+  if (signal?.aborted) return null;
+  const answer = await settle(() =>
+    host.http.post(url, body, { timeout: TIMEOUT_MS, headers: { ...headers } }),
+  );
+  if (signal?.aborted) return null;
+  if (!answer || answer.success === false) return null;
+  if (typeof answer.body !== 'string' || answer.body.length > BODY_LIMIT) return null;
   return { status: answer.status ?? 0, body: answer.body };
 }
 

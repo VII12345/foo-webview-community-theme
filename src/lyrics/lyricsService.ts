@@ -15,7 +15,7 @@ import {
 import type { LyricsHttpHost } from './online/lyricsHttp.ts';
 import type { createLyricsOnline } from './online/lyricsOnline.ts';
 import type { FoundLyrics } from './online/lyricsSearch.ts';
-import type { LyricsCandidate, LyricsQuery } from './online/lyricsSource.ts';
+import type { LyricsCandidate, LyricsIdQuery, LyricsQuery } from './online/lyricsSource.ts';
 
 export interface LyricsTarget extends LyricsTrack {
   /** Path-free metadata identity used only for saved lyric preferences. */
@@ -52,7 +52,7 @@ export interface LyricsService {
   readonly local: Atom<LocalLyricsState>;
   readonly choices: Atom<LyricsChoiceState>;
   readonly covers: LyricsCoverAccess;
-  search(keywords: string, force?: boolean): Promise<void>;
+  search(keywords: string, force?: boolean, id?: LyricsIdQuery): Promise<void>;
   readonly preview: Atom<LyricsCandidatePreview>;
   readonly offset: Atom<number>;
   readonly subject: Atom<string>;

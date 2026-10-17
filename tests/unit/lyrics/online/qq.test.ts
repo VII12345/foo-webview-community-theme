@@ -5,6 +5,13 @@ import { installLyricsHttp, json } from '../../../fixtures/lyricsHttp.ts';
 
 const SEARCH = 'https://c.y.qq.com/soso/fcgi-bin/client_search_cp';
 const LYRIC = 'https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg';
+const SONGID = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
+
+/** QRC 文本转接口返回的十六进制。 */
+const hexOf = (text: string) =>
+  [...new TextEncoder().encode(text)]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
 
 const query: LyricsQuery = {
   title: '晴天',
@@ -81,5 +88,49 @@ describe('QQ 音乐来源', () => {
     expect(await createQqSource(empty.host).fetch(candidate)).toBe('missing');
     const denied = installLyricsHttp({ [LYRIC]: json({ retcode: -1, lyric: '' }) });
     expect(await createQqSource(denied.host).fetch(candidate)).toBe('failed');
+  });
+
+  it('手动 MID 直接生成候选并沿用 songmid 取词', async () => {
+    const [mid] = (await createQqSource(installLyricsHttp({}).host).search({
+      ...query,
+      id: { source: 'qq', kind: 'qqMid', value: '0039MnYb0qxYhV' },
+    })) as LyricsCandidate[];
+    expect(mid).toMatchObject({ source: 'qq', ref: '0039MnYb0qxYhV', idKind: 'mid' });
+    const http = installLyricsHttp({
+      [LYRIC]: json({ retcode: 0, lyric: '[00:01]手工 MID', trans: '' }),
+    });
+    expect(await createQqSource(http.host).fetch(mid!)).toMatchObject({
+      kind: 'synced',
+      lines: [{ words: [{ word: '手工 MID' }] }],
+    });
+    expect(http.requests()[0]?.url.searchParams.get('songmid')).toBe('0039MnYb0qxYhV');
+  });
+
+  it('手动数字 Song ID：POST PlayLyricInfo 取 QRC 逐字词', async () => {
+    const qrc = '[1000,2000]风(0,500)到这里(500,1500)';
+    const http = installLyricsHttp({
+      [SONGID]: json({
+        code: 0,
+        'music.musichallSong.PlayLyricInfo.GetPlayLyricInfo': {
+          code: 0,
+          data: { lyric: hexOf(qrc) },
+        },
+      }),
+    });
+    const [songId] = (await createQqSource(http.host).search({
+      ...query,
+      id: { source: 'qq', kind: 'qqSongId', value: '2048982668' },
+    })) as LyricsCandidate[];
+    expect(songId).toMatchObject({ source: 'qq', ref: '2048982668', idKind: 'songId' });
+    expect(await createQqSource(http.host).fetch(songId!)).toMatchObject({
+      kind: 'synced',
+      lines: [{ words: [{ word: '风' }, { word: '到这里' }] }],
+    });
+    expect(http.posts()[0]?.url.pathname).toBe('/cgi-bin/musicu.fcg');
+    expect(
+      (http.posts()[0]?.body as Record<string, Record<string, { param: { songID: number } }>>)[
+        'music.musichallSong.PlayLyricInfo.GetPlayLyricInfo'
+      ]?.param.songID,
+    ).toBe(2048982668);
   });
 });

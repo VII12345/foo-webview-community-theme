@@ -10,10 +10,21 @@ export interface LyricsSourceOutcome {
   readonly status: 'results' | 'empty' | 'failed';
 }
 
+/** 用户手动按来源标识搜词：来源、标识类型与值。 */
+export type LyricsIdKind = 'neteaseSongId' | 'qqSongId' | 'qqMid' | 'kugouHash';
+
+export interface LyricsIdQuery {
+  readonly source: LyricsSourceId;
+  readonly kind: LyricsIdKind;
+  readonly value: string;
+}
+
 /** 拿去在线搜的那一首：只有这几项会发出去，不带路径。 */
 export interface LyricsQuery {
   /** 手动搜索的原始关键词；有值时不按曲名、艺人或时长筛选。 */
   readonly keywords?: string;
+  /** 手动按来源标识搜；有值时只问这一个来源，不按曲名、艺人再搜。 */
+  readonly id?: LyricsIdQuery;
   readonly title: string;
   readonly artists: readonly string[];
   /** 未知时为空串。 */
@@ -28,6 +39,8 @@ export interface LyricsQuery {
 export interface LyricsCandidate {
   readonly source: LyricsSourceId;
   readonly ref: string;
+  /** 来源自己认的标识类型：QQ 的数字 Song ID 与 MID 走不同取词接口。 */
+  readonly idKind?: 'mid' | 'songId';
   readonly title: string;
   /** 已按这家的写法拆成单个艺人。 */
   readonly artists: readonly string[];

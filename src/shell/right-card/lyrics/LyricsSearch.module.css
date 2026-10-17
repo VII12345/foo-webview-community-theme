@@ -11,6 +11,18 @@
   padding: var(--spacingVerticalS) var(--spacingHorizontalM);
 }
 
+/* 搜索方式与手动标识的选择：一行排开，窄了自动换行。 */
+.query-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacingHorizontalXS);
+}
+
+.query-mode > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .heading,
 .actions {
   display: flex;

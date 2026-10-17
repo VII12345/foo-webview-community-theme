@@ -1,6 +1,6 @@
 import { ReadingSurface } from '../../../theme/ReadingSurface.tsx';
 import { useViewControlStyles } from '../../../theme/controlStyles.ts';
-import { Button, Input, Spinner, Tooltip } from '@fluentui/react-components';
+import { Button, Input, Select, Spinner, Tooltip } from '@fluentui/react-components';
 import {
   AlbumRegular,
   MicRegular,
@@ -20,7 +20,7 @@ import { localeAtom, translateAtom } from '../../../i18n/locale.ts';
 import { useService } from '../../../kit/useService.ts';
 import { lyricsKey } from '../../../lyrics/lyricsService.ts';
 import { lyricsCandidateId } from '../../../lyrics/lyricsSearchSession.ts';
-import type { LyricsCandidate } from '../../../lyrics/online/lyricsSource.ts';
+import type { LyricsCandidate, LyricsIdKind, LyricsIdQuery } from '../../../lyrics/online/lyricsSource.ts';
 import { isWordLevel } from '../../../lyrics/lyricsText.ts';
 import { createSnapshotSlot } from '../../../nav/historyStack.ts';
 import { useRightCardSnapshot } from '../rightCardContext.ts';
@@ -28,7 +28,24 @@ import { LyricsSubpageHeading } from './LyricsSubpageHeading.tsx';
 import { LyricsCandidateCover } from './LyricsCandidateCover.tsx';
 import styles from './LyricsSearch.module.css';
 
-const SNAPSHOT = createSnapshotSlot<{ keywords: string; scroll: number; focus: string }>();
+const SNAPSHOT = createSnapshotSlot<{
+  keywords: string;
+  mode: 'keyword' | 'id';
+  idSource: 'netease' | 'qq' | 'kugou';
+  idKind: LyricsIdKind;
+  scroll: number;
+  focus: string;
+}>();
+
+const ID_KINDS: Readonly<Record<'netease' | 'qq' | 'kugou', readonly LyricsIdKind[]>> = {
+  netease: ['neteaseSongId'],
+  qq: ['qqSongId', 'qqMid'],
+  kugou: ['kugouHash'],
+};
+
+function defaultKind(source: 'netease' | 'qq' | 'kugou'): LyricsIdKind {
+  return ID_KINDS[source][0] ?? 'neteaseSongId';
+}
 
 /** 候选时长：`m:ss`，超过一小时写 `h:mm:ss`。 */
 function formatDuration(milliseconds: number): string {
@@ -112,6 +129,19 @@ export function LyricsSearch({
   const [keywords, setKeywords] = useState(
     result.keywords || [title, artist].filter(Boolean).join(' '),
   );
+  const [mode, setMode] = useState<'keyword' | 'id'>('keyword');
+  const [idSource, setIdSource] = useState<'netease' | 'qq' | 'kugou'>('netease');
+  const [idKind, setIdKind] = useState<LyricsIdKind>('neteaseSongId');
+  const idValue = keywords.trim();
+  const manualId: LyricsIdQuery | undefined =
+    mode === 'id' && idValue ? { source: idSource, kind: idKind, value: idValue } : undefined;
+  const searchable = mode === 'id' ? manualId !== undefined : idValue.length > 0;
+  const upToDate =
+    mode === 'id'
+      ? result.id?.source === idSource &&
+        result.id.kind === idKind &&
+        result.id.value === idValue
+      : result.keywords.trim() === idValue;
   const [composing, setComposing] = useState(false);
   const [using, setUsing] = useState('');
   const input = useRef<HTMLInputElement>(null);
@@ -119,7 +149,14 @@ export function LyricsSearch({
   const results = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mounted = useRef(true);
-  const pendingSnapshot = useRef<{ keywords: string; scroll: number; focus: string } | null>(null);
+  const pendingSnapshot = useRef<{
+    keywords: string;
+    mode: 'keyword' | 'id';
+    idSource: 'netease' | 'qq' | 'kugou';
+    idKind: LyricsIdKind;
+    scroll: number;
+    focus: string;
+  } | null>(null);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -129,6 +166,9 @@ export function LyricsSearch({
   useRightCardSnapshot(SNAPSHOT, {
     capture: () => ({
       keywords,
+      mode,
+      idSource,
+      idKind,
       scroll: results.current?.scrollTop ?? 0,
       focus:
         document.activeElement instanceof HTMLElement
@@ -138,7 +178,14 @@ export function LyricsSearch({
     restore: (value) => {
       pendingSnapshot.current = value;
       setKeywords(value.keywords);
-      void service.search(value.keywords);
+      setMode(value.mode);
+      setIdSource(value.idSource);
+      setIdKind(value.idKind);
+      const id =
+        value.mode === 'id' && value.keywords.trim()
+          ? { source: value.idSource, kind: value.idKind, value: value.keywords.trim() }
+          : undefined;
+      void service.search(value.keywords, false, id);
     },
   });
   useLayoutEffect(() => {
@@ -158,35 +205,101 @@ export function LyricsSearch({
     pendingSnapshot.current = null;
   }, [result, keywords]);
   useEffect(() => {
-    if (
-      enabled &&
-      !composing &&
-      keywords.trim() &&
-      (keywords.trim() !== result.keywords.trim() || result.status === 'idle')
-    )
-      timer.current = setTimeout(() => void service.search(keywords), 400);
+    const id =
+      mode === 'id' && keywords.trim()
+        ? { source: idSource, kind: idKind, value: keywords.trim() }
+        : undefined;
+    if (enabled && !composing && searchable && (!upToDate || result.status === 'idle'))
+      timer.current = setTimeout(() => void service.search(keywords, false, id), 400);
     return () => clearTimeout(timer.current);
-  }, [service, enabled, composing, keywords, result.keywords, result.status]);
+  }, [
+    service,
+    enabled,
+    composing,
+    keywords,
+    result.keywords,
+    result.status,
+    result.id?.source,
+    result.id?.kind,
+    result.id?.value,
+    mode,
+    idSource,
+    idKind,
+    searchable,
+    upToDate,
+  ]);
   return (
     <section ref={root} className={styles.root} aria-label={t('lyrics.search')} data-lyrics-search>
       <form
         className={styles.form}
         onSubmit={(event) => {
           event.preventDefault();
-          if (enabled && !composing) {
+          if (enabled && !composing && searchable) {
             clearTimeout(timer.current);
-            void service.search(keywords, true);
+            void service.search(keywords, true, manualId);
           }
         }}
       >
         <LyricsSubpageHeading title={t('lyrics.search')} />
+        <div className={styles['query-mode']}>
+          <Select
+            size="small"
+            aria-label={t('lyrics.searchMode')}
+            value={mode}
+            onChange={(_, data) => {
+              service.cancelSearch();
+              setKeywords('');
+              setMode(data.value === 'id' ? 'id' : 'keyword');
+            }}
+          >
+            <option value="keyword">{t('lyrics.mode.keyword')}</option>
+            <option value="id">{t('lyrics.mode.id')}</option>
+          </Select>
+          {mode === 'id' && (
+            <>
+              <Select
+                size="small"
+                aria-label={t('lyrics.idSource')}
+                value={idSource}
+                onChange={(_, data) => {
+                  const next =
+                    data.value === 'qq' ? 'qq' : data.value === 'kugou' ? 'kugou' : 'netease';
+                  service.cancelSearch();
+                  setIdSource(next);
+                  setIdKind(defaultKind(next));
+                }}
+              >
+                <option value="netease">{t('lyrics.source.netease')}</option>
+                <option value="qq">{t('lyrics.source.qq')}</option>
+                <option value="kugou">{t('lyrics.source.kugou')}</option>
+              </Select>
+              <Select
+                size="small"
+                aria-label={t('lyrics.idKind')}
+                value={idKind}
+                onChange={(_, data) => {
+                  const next = ID_KINDS[idSource].find((kind) => kind === data.value);
+                  if (!next) return;
+                  service.cancelSearch();
+                  setIdKind(next);
+                }}
+              >
+                {ID_KINDS[idSource].map((kind) => (
+                  <option key={kind} value={kind}>
+                    {t(`lyrics.idKind.${kind}`)}
+                  </option>
+                ))}
+              </Select>
+            </>
+          )}
+        </div>
         <Input
           className={controls.field}
           ref={input}
           autoFocus
           data-lyrics-focus="query"
-          aria-label={t('lyrics.keywords')}
-          placeholder={t('lyrics.keywords')}
+          aria-label={mode === 'id' ? t('lyrics.idValue') : t('lyrics.keywords')}
+          placeholder={mode === 'id' ? t('lyrics.idValue') : t('lyrics.keywords')}
           value={keywords}
           onChange={(_, data) => {
             service.cancelSearch();

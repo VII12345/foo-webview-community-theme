@@ -38,17 +38,23 @@ export async function findLyricsCandidates(
     outcomes.set(source.id, 'failed');
     return [];
   }
+  const requested = query.id
+    ? sources.filter((source) => source.id === query.id?.source)
+    : sources;
   const byMatch = (a: LyricsCandidate, b: LyricsCandidate) =>
     compareTrack(query, b).points - compareTrack(query, a).points ||
-    sources.findIndex((source) => source.id === a.source) -
-      sources.findIndex((source) => source.id === b.source);
+    requested.findIndex((source) => source.id === a.source) -
+      requested.findIndex((source) => source.id === b.source);
   const candidates = (
     await Promise.all(
-      sources.filter((source) => source.id !== 'lrcmux').map((source) => ask(source)),
+      requested
+        .filter((source) => source.id !== 'lrcmux')
+        .map((source) => ask(source)),
     )
   )
     .flat()
-    .filter((candidate) => !isDurationTooShort(query, candidate));
+    // 用户手动指定的标识就是这一首，不再按时长门槛淘汰。
+    .filter((candidate) => !!query.id || !isDurationTooShort(query, candidate));
   const normalize = (value: string) =>
     value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
   const currentQuery =
@@ -61,20 +67,22 @@ export async function findLyricsCandidates(
   const match = [...candidates].sort(byMatch).find((item) => item.title && item.artists.length);
   // 聚合接口只收曲名和艺人；自由关键词先由直连来源解析成候选，不借当前艺人猜测另一首歌。
   const aggregateQuery: LyricsQuery | null =
-    !query.keywords || (!match && currentQuery)
-      ? { ...query, keywords: undefined }
-      : match
-        ? {
-            title: match.title,
-            artists: match.artists,
-            album: match.album,
-            albumArtists: match.albumArtists ?? [],
-            durationMs: match.durationMs,
-          }
-        : null;
+    query.id
+      ? null
+      : !query.keywords || (!match && currentQuery)
+        ? { ...query, keywords: undefined }
+        : match
+          ? {
+              title: match.title,
+              artists: match.artists,
+              album: match.album,
+              albumArtists: match.albumArtists ?? [],
+              durationMs: match.durationMs,
+            }
+          : null;
   if (aggregateQuery) {
     const more = await Promise.all(
-      sources
+      requested
         .filter((source) => source.id === 'lrcmux')
         .map((source) => ask(source, aggregateQuery)),
     );
@@ -83,7 +91,7 @@ export async function findLyricsCandidates(
   const unique = new Map(
     candidates.map((candidate) => [`${candidate.source}:${candidate.ref}`, candidate]),
   );
-  const outcomesOf = sources.flatMap((source): LyricsSourceOutcome[] => {
+  const outcomesOf = requested.flatMap((source): LyricsSourceOutcome[] => {
     const status = outcomes.get(source.id);
     return status ? [{ id: source.id, status }] : [];
   });

@@ -15,6 +15,8 @@ import {
 import type { LyricsCandidate, LyricsQuery, LyricsSource } from './lyricsSource.ts';
 
 const SEARCH_URL = 'https://lyrics.kugou.com/search';
+/** 按歌曲 Hash 查歌词候选；返回的 id/accesskey 仍走同一个下载接口。 */
+const HASH_SEARCH_URL = 'https://krcs.kugou.com/search';
 const DOWNLOAD_URL = 'https://lyrics.kugou.com/download';
 /** 歌词接口不给封面，靠歌搜索接口的 `Image` 字段补；`{size}` 是尺寸占位符。 */
 const SONG_SEARCH_URL = 'https://songsearch.kugou.com/song_search_v2';
@@ -157,6 +159,29 @@ export function createKugouSource(host: LyricsHttpHost): LyricsSource {
   return {
     id: 'kugou',
     async search(query: LyricsQuery, signal?: AbortSignal) {
+      // 用户给了歌曲 Hash：用 Hash 查候选，关键词与时长留空。
+      const manual = query.id;
+      if (manual?.source === 'kugou') {
+        if (manual.kind !== 'kugouHash' || !manual.value.trim()) return [];
+        const params = new URLSearchParams({
+          ver: '1',
+          man: 'yes',
+          client: 'pc',
+          keyword: '',
+          duration: '',
+          hash: manual.value.trim(),
+          album_audio_id: '',
+        });
+        const answer = await lyricsGet(
+          host,
+          `${HASH_SEARCH_URL}?${params.toString()}`,
+          undefined,
+          signal,
+        );
+        const data = lyricsJson(answer);
+        if (answer?.status !== 200 || asNumber(field(data, 'status')) !== 200) return 'failed';
+        return asList(field(data, 'candidates')).flatMap((item) => candidateOf(item) ?? []);
+      }
       const { keyword, useDuration } = keywordOf(query);
       const params = new URLSearchParams({ ver: '1', man: 'yes', client: 'pc', keyword });
       if (useDuration) params.set('duration', String(Math.round(query.durationMs)));

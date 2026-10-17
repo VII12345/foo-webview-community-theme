@@ -8,6 +8,7 @@ import { startLyricsCandidateCovers, type LyricsCoverTarget } from './lyricsCand
 import type {
   LyricsCandidate,
   LyricsFetchResult,
+  LyricsIdQuery,
   LyricsSource,
   LyricsSourceId,
   LyricsSourceOutcome,
@@ -25,6 +26,8 @@ export interface LyricsChoiceState {
   readonly failed: readonly LyricsSourceId[];
   /** 实际问过的每个来源与结果；空结果也保留，界面按它显示来源。 */
   readonly sources: readonly LyricsSourceOutcome[];
+  /** 这一轮是哪一个来源、哪一类标识的手动搜索。 */
+  readonly id?: LyricsIdQuery;
 }
 
 export type LyricsCandidatePreview =
@@ -225,10 +228,10 @@ export function startLyricsSearchSession(
     cancelSearch,
     sources: loadSources,
     candidate: (id: string) => candidates.get(id),
-    async search(keywords: string, force = false) {
+    async search(keywords: string, force = false, id?: LyricsIdQuery) {
       const target = store.get(deps.track);
       const prefs = store.get(deps.prefs);
-      const key = JSON.stringify([keywords.trim(), prefs.sources]);
+      const key = JSON.stringify([keywords.trim(), prefs.sources, id ?? null]);
       cancelSearch();
       if (force) {
         searches.delete(key);
@@ -243,23 +246,30 @@ export function startLyricsSearchSession(
       if (!target || !online() || !keywords.trim()) return;
       const controller = new AbortController();
       searching = controller;
-      store.set(choices, { ...EMPTY, keywords, status: 'searching' });
+      store.set(choices, { ...EMPTY, keywords, status: 'searching', ...(id ? { id } : {}) });
       try {
         const [all, { findLyricsCandidates }] = await Promise.all([
           loadSources(),
           import('./online/lyricsCandidates.ts'),
         ]);
         if (controller.signal.aborted) return;
-        const selected = (prefs.sources ?? []).flatMap((id) =>
-          all.filter((source) => source.id === id),
+        const selected = (prefs.sources ?? []).flatMap((sourceId) =>
+          all.filter((source) => source.id === sourceId),
         );
         const result = await findLyricsCandidates(
-          { ...target.query, keywords: keywords.trim() },
+          id
+            ? { ...target.query, id }
+            : { ...target.query, keywords: keywords.trim() },
           selected,
           controller.signal,
         );
         if (disposed || controller.signal.aborted) return;
-        const ready: LyricsChoiceState = { ...result, keywords, status: 'ready' };
+        const ready: LyricsChoiceState = {
+          ...result,
+          keywords,
+          status: 'ready',
+          ...(id ? { id } : {}),
+        };
         for (const candidate of result.candidates)
           candidates.set(lyricsCandidateId(candidate), candidate);
         if (result.failed.length === 0) searches.set(key, ready);
@@ -267,7 +277,7 @@ export function startLyricsSearchSession(
         await hydrateCandidates(ready.candidates);
       } catch {
         if (!disposed && !controller.signal.aborted)
-          store.set(choices, { ...EMPTY, keywords, status: 'search-failed' });
+          store.set(choices, { ...EMPTY, keywords, status: 'search-failed', ...(id ? { id } : {}) });
       } finally {
         if (searching === controller) searching = null;
       }

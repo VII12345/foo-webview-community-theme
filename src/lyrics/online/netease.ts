@@ -71,6 +71,36 @@ export function createNeteaseSource(host: LyricsHttpHost): LyricsSource {
   return {
     id: 'netease',
     async search(query: LyricsQuery, signal?: AbortSignal) {
+      // 用户给了歌曲 ID：只取这一首的详情，不再按曲名搜。
+      const manual = query.id;
+      if (manual?.source === 'netease') {
+        if (manual.kind !== 'neteaseSongId' || !/^\d+$/.test(manual.value)) return [];
+        const params = new URLSearchParams({ ids: `[${manual.value}]` });
+        const answer = await lyricsGet(
+          host,
+          `${DETAIL_URL}?${params.toString()}`,
+          HEADERS,
+          signal,
+        );
+        if (answer?.status !== 200) return 'failed';
+        const data = lyricsJson(answer);
+        if (asNumber(field(data, 'code')) !== 200) return [];
+        const song = asList(field(data, 'songs')).find(
+          (item) => String(asNumber(field(item, 'id'))) === manual.value,
+        );
+        const candidate = song ? candidateOf(song) : null;
+        // 详情拿不到时仍给出按 ID 取词的候选，歌词接口只要 id。
+        return [
+          candidate ?? {
+            source: 'netease' as const,
+            ref: manual.value,
+            title: manual.value,
+            artists: [],
+            album: '',
+            durationMs: 0,
+          },
+        ];
+      }
       const params = new URLSearchParams({
         s: query.keywords ?? [query.title, query.artists[0]].filter(Boolean).join(' '),
         type: '1',

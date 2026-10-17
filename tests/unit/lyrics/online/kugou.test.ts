@@ -4,6 +4,7 @@ import type { LyricsCandidate, LyricsQuery } from '../../../../src/lyrics/online
 import { installLyricsHttp, json } from '../../../fixtures/lyricsHttp.ts';
 
 const SEARCH = 'https://lyrics.kugou.com/search';
+const HASH_SEARCH = 'https://krcs.kugou.com/search';
 const DOWNLOAD = 'https://lyrics.kugou.com/download';
 const SONG_SEARCH = 'https://songsearch.kugou.com/song_search_v2';
 
@@ -109,6 +110,39 @@ describe('酷狗来源', () => {
     expect(params?.get('id')).toBe('103868636');
     expect(params?.get('accesskey')).toBe('733CA696');
     expect(params?.get('fmt')).toBe('krc');
+  });
+
+  it('手动 Hash：用 krcs 的 hash 参数查候选，后续仍走 id/accesskey 下载', async () => {
+    const http = installLyricsHttp({
+      [HASH_SEARCH]: json({
+        status: 200,
+        candidates: [
+          {
+            id: '103868636',
+            accesskey: '733CA696',
+            song: '江南',
+            singer: '林俊杰',
+            duration: 267_946,
+          },
+        ],
+      }),
+    });
+    const [found] = (await createKugouSource(http.host).search({
+      ...query,
+      id: { source: 'kugou', kind: 'kugouHash', value: 'ABC123' },
+    })) as LyricsCandidate[];
+    expect(found).toMatchObject({ source: 'kugou', ref: '103868636:733CA696' });
+    const params = http.requests()[0]?.url.searchParams;
+    expect(http.requests()[0]?.url.pathname).toBe('/search');
+    expect(params?.get('hash')).toBe('ABC123');
+    expect(params?.get('keyword')).toBe('');
+    const content = await encryptKrc(KRC);
+    const download = installLyricsHttp({
+      [DOWNLOAD]: json({ status: 200, content, fmt: 'krc' }),
+    });
+    expect(await createKugouSource(download.host).fetch(found!)).toMatchObject({
+      kind: 'synced',
+    });
   });
 
   it('正文为空答没有；凭据不对（status 403）与解不开的正文答失败', async () => {

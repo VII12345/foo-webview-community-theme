@@ -15,7 +15,7 @@ export type LyricsRoutes = Readonly<Record<string, LyricsReply | ((url: URL) => 
  */
 export function installLyricsHttp(routes: LyricsRoutes) {
   const host = installFakeHost();
-  host.answer('http.get', (params) => {
+  const answer = (params: Readonly<Record<string, unknown>>) => {
     const url = new URL(String(params['url']));
     const route = routes[url.origin + url.pathname];
     const reply = typeof route === 'function' ? route(url) : route;
@@ -26,12 +26,20 @@ export function installLyricsHttp(routes: LyricsRoutes) {
       body: reply?.body ?? '',
       responseType: 'text',
     };
-  });
+  };
+  host.answer('http.get', answer);
+  host.answer('http.post', answer);
   return {
     host: host.fb,
     requests: () =>
       host.callsTo('http.get').map((params) => ({
         url: new URL(String(params['url'])),
+        header: (name: string): unknown => Reflect.get(Object(params['headers']), name),
+      })),
+    posts: () =>
+      host.callsTo('http.post').map((params) => ({
+        url: new URL(String(params['url'])),
+        body: params['body'],
         header: (name: string): unknown => Reflect.get(Object(params['headers']), name),
       })),
   };

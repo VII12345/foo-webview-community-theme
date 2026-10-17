@@ -5,6 +5,7 @@ import { installLyricsHttp, json } from '../../../fixtures/lyricsHttp.ts';
 
 const SEARCH = 'https://music.163.com/api/search/get/web';
 const LYRIC = 'https://music.163.com/api/song/lyric/v1';
+const DETAIL = 'https://music.163.com/api/song/detail/';
 
 const query: LyricsQuery = {
   title: 'アイドル',
@@ -59,6 +60,47 @@ describe('网易云来源', () => {
     expect(await createNeteaseSource(empty.host).search(query)).toEqual([]);
     const limited = installLyricsHttp({ [SEARCH]: json({ code: -460, message: 'Cheating' }) });
     expect(await createNeteaseSource(limited.host).search(query)).toBe('failed');
+  });
+
+  it('手动给歌曲 ID：查详情生成候选；详情没有这首也留一条按 ID 取词的候选', async () => {
+    const manual: LyricsQuery = {
+      ...query,
+      id: { source: 'netease', kind: 'neteaseSongId', value: '2048982668' },
+    };
+    const http = installLyricsHttp({
+      [DETAIL]: json({
+        code: 200,
+        songs: [
+          {
+            id: 2048982668,
+            name: 'アイドル',
+            artists: [{ name: 'YOASOBI' }],
+            album: { name: 'アイドル' },
+            duration: 213_233,
+          },
+        ],
+      }),
+    });
+    expect(await createNeteaseSource(http.host).search(manual)).toEqual([candidate]);
+    expect(http.requests()[0]?.url.searchParams.get('ids')).toBe('[2048982668]');
+
+    const missing = installLyricsHttp({ [DETAIL]: json({ code: 200, songs: [] }) });
+    expect(await createNeteaseSource(missing.host).search(manual)).toEqual([
+      {
+        source: 'netease',
+        ref: '2048982668',
+        title: '2048982668',
+        artists: [],
+        album: '',
+        durationMs: 0,
+      },
+    ]);
+    expect(
+      await createNeteaseSource(missing.host).search({
+        ...manual,
+        id: { ...manual.id!, value: 'abc' },
+      }),
+    ).toEqual([]);
   });
 
   it('有 YRC 时取逐字词，配上 YRC 那套时间的译文；JSON 写的信息行跳过', async () => {
