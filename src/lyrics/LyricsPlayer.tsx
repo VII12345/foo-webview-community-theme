@@ -33,8 +33,6 @@ export interface LyricsPlayerProps {
   readonly onZoom?: (direction: 1 | -1) => void;
   /** Alt+滚轮 调「播放行位置」：上滚下移播放行、下滚上移。与字号分开一组修饰键，互不干扰。 */
   readonly onAlignNudge?: (direction: 1 | -1) => void;
-  /** 行内水平对齐；`center` 用在右半区这类歌词要居中的窄框里。缺省靠左，与 AMLL 原生一致。 */
-  readonly align?: 'start' | 'center';
 }
 
 const curve = ([x1, y1, x2, y2]: LyricsMotion['transitionCurve']) =>
@@ -55,7 +53,6 @@ export function LyricsPlayer({
   onSeek,
   onZoom,
   onAlignNudge,
-  align = 'start',
 }: LyricsPlayerProps) {
   const t = useAtomValueRawSync(translateAtom);
   const host = useRef<HTMLDivElement>(null);
@@ -343,7 +340,6 @@ export function LyricsPlayer({
       className={styles.root}
       style={style}
       data-scheme={scheme}
-      data-align={align}
       data-spring={motion.spring && !reduced ? 'on' : 'off'}
       data-reduced-motion={reduced || undefined}
       data-translation={display?.showTranslation === false ? 'hidden' : undefined}

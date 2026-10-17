@@ -34,7 +34,6 @@ export function ImmersiveLyricsPlayer() {
         onSeek={canSeek ? (seconds) => void services.lyrics?.seek(state.key, seconds) : undefined}
         onZoom={zoom}
         onAlignNudge={nudge}
-        align="center"
       />
     </div>
   );

@@ -104,15 +104,36 @@
 
 /* 聚焦视图的右栏底部已由 StageFields 的歌词槽占位，波形与量表不再下移。 */
 
-/* 右半的动画歌词：舞台左右均分（各 960），歌词在右半里水平、垂直居中。左半的罗盘不动。
-   四行字（From / 标题 / By / Quality）仍按舞台坐标写在右半顶部，不进这一块。 */
+/* 聚焦档：波形与量表整块上移压缩，在垫纸底部给聚焦歌词腾出一条。歌词槽的位置写在
+   `StageFields.module.css` 的 `.lyrics`（同一条左缘与宽）。 */
+.stage[data-scene='focus'] .waveform {
+  top: 460px;
+  height: 80px;
+  --wave-band-top: 20px;
+  --wave-band-height: 52px;
+  --wave-playhead-height: 62px;
+}
+
+.stage[data-scene='focus'] .gauges {
+  top: 552px;
+  height: 84px;
+}
+
+.stage[data-scene='focus'] .file-info {
+  top: 552px;
+  height: 84px;
+  --info-row: 52px;
+}
+
+/* 右半的动画歌词：舞台左右均分（各 960）。歌词靠右半左侧三分之一处（舞台 x 1280），左对齐，
+   垂直居中在右半。左半的罗盘不动；四行字仍按舞台坐标写在右半顶部。 */
 .stage[data-scene='lyrics'] > :global([data-immersive-lyrics-player]),
 .stage[data-scene='cardLyrics'] > :global([data-immersive-lyrics-player]),
 .stage[data-scene='card'] > :global([data-immersive-lyrics-player]) {
   position: absolute;
-  left: 960px;
+  left: 1280px;
   top: 300px;
-  width: 960px;
+  width: 600px;
   height: 660px;
 }
 

@@ -91,12 +91,42 @@ test('右上角切换键鼠标点过不留焦点框，键盘聚焦才显示', as
   expect(errors).toStrictEqual([]);
 });
 test('右上角可以切换聚焦视图，隐藏频谱并保持原图纸视图可恢复', async ({ page }) => {
-  const { view, errors } = await openImmersive(page);
+  const { view, errors } = await openImmersive(page, {
+    onHost(host) {
+      host.answer('lyrics.get', {
+        success: true,
+        available: true,
+        source: 'embedded',
+        path: '',
+        lyrics: '[00:40]聚焦第一句',
+        synced: true,
+      });
+    },
+  });
   await expect(view.locator('[data-tier][data-scene="paper"]')).toBeVisible();
   await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
   await page.getByRole('menuitemradio', { name: '聚焦视图', exact: true }).click();
-  await expect(view.locator('[data-tier][data-scene="focus"]')).toBeVisible();
+  const focus = view.locator('[data-tier][data-scene="focus"]');
+  await expect(focus).toBeVisible();
   await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(0);
+  // 只去掉频谱柱；垫纸、四行字、仪表、波形、量表与文件信息都要留着。
+  await expect(focus.locator('[data-pad]')).toHaveCount(1);
+  await expect(view.locator('[data-field="title"]')).toBeVisible();
+  await expect(view.locator('[data-field="genre"]')).toBeVisible();
+  await expect(view.locator('[data-field="duration"]')).toBeVisible();
+  await expect(view.locator('[data-field="playhead"]')).toBeVisible();
+  await expect(view.locator('[data-field="dynamicRange"]')).toBeVisible();
+  await expect(view.locator('[data-field="sampleRate"]')).toBeVisible();
+  // 歌词在右栏底部，不压在量表上。
+  const lyrics = view.locator('[data-focus-lyrics]');
+  await expect(lyrics).toBeVisible();
+  const boxes = await Promise.all([
+    lyrics.boundingBox(),
+    view.locator('[data-field="loudness"]').boundingBox(),
+  ]);
+  const [lyricBox, loudnessBox] = boxes;
+  if (!lyricBox || !loudnessBox) throw new Error('聚焦视图的元素不可见');
+  expect(lyricBox.y).toBeGreaterThanOrEqual(loudnessBox.y + loudnessBox.height);
   await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
   await page.getByRole('menuitemradio', { name: '图纸舞台', exact: true }).click();
   await expect(view.locator('[data-tier][data-scene="paper"]')).toBeVisible();
@@ -158,7 +188,7 @@ test('卡片视图在紧凑档也按 full 舞台排、整体缩小，不退回�
   expect(errors).toStrictEqual([]);
 });
 
-test('歌词一律排在右半并水平居中，不跨到左半', async ({ page }) => {
+test('歌词一律排在右半靠左三分之一处，左对齐', async ({ page }) => {
   const { view, errors } = await openImmersive(page, {
     onHost(host) {
       host.answer('lyrics.get', {
@@ -182,14 +212,19 @@ test('歌词一律排在右半并水平居中，不跨到左半', async ({ page 
       const stageRect = stage.getBoundingClientRect();
       const rect = element.getBoundingClientRect();
       const scale = stageRect.width / 1920;
+      const row = element.querySelector('[class*="lyricLineWrapper"]');
+      const rowRect = row?.getBoundingClientRect();
       return {
         left: Math.round((rect.left - stageRect.left) / scale),
         right: Math.round((rect.right - stageRect.left) / scale),
+        // 行盒的左缘贴着容器左缘 = 左对齐（居中的话会留出一大截空白）。
+        rowInset: rowRect ? Math.round(rowRect.left - rect.left) : null,
       };
     });
-    // 舞台左右均分：右半从 960 开始。
-    expect(box.left).toBeGreaterThanOrEqual(960);
+    // 舞台左缘 1280（右半靠左三分之一处），右缘不超过舞台。
+    expect(box.left).toBe(1280);
     expect(box.right).toBeLessThanOrEqual(1920);
+    expect(box.rowInset).toBeLessThan(4);
   }
   expect(errors).toStrictEqual([]);
 });

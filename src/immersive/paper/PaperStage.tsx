@@ -44,8 +44,11 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
   // 右半整块放动画歌词的三档：歌词、卡片、卡片歌词。
   const animatedLyrics =
     variant === 'lyrics' || variant === 'card' || variant === 'cardLyrics';
-  // 图纸档右栏留着频谱/波形/量表/文件信息；聚焦、歌词与卡片三档右半只放歌词。
+  // 聚焦档的右半仍要出垫纸与仪表，只是波形与量表上移压缩，给底部的歌词腾位置。
+  const focus = variant === 'focus';
+  // 右半出仪表与波形/量表/文件信息的档：图纸与聚焦。歌词与卡片三档右半只放歌词。
   const fullColumn = variant === 'paper';
+  const metered = variant === 'paper' || focus;
   // 四行字：只有卡片歌词档不出（卡片上已有曲名与艺人）。
   const showFields = variant !== 'cardLyrics';
   const frame: CSSProperties = {
@@ -58,20 +61,20 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
   return (
     <StageScaleContext value={scale}>
       <div className={styles.stage} data-scene={variant} style={frame} data-paper-content>
-        <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} showPad={fullColumn} />
+        <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} showPad={metered} />
         {card ? <StageCard title={variant === 'cardLyrics'} /> : <StageDial />}
         <StageFields
           stereo={<StageStereo />}
-          showMeter={variant === 'paper'}
+          showMeter={metered}
           showFields={showFields}
-          lyrics={variant === 'focus' ? <FocusLyricLog /> : undefined}
+          lyrics={focus ? <FocusLyricLog /> : undefined}
         />
         {variant === 'paper' && (
           <div className={`${styles.slot} ${styles.spectrum}`} data-field-slot="spectrum">
             <PaperSpectrum />
           </div>
         )}
-        {fullColumn && (
+        {metered && (
           <>
             <div className={`${styles.slot} ${styles.waveform}`}>
               <PaperWaveform />
