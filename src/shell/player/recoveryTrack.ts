@@ -25,16 +25,25 @@ export const recoveryViewAtom: Atom<RecoveryView | null> = atom((get) => {
   };
 });
 
+/** 从 `trackKeyOf` 口径的键（`path|subsong`）拆回路径与分轨号；格式不对答 null。 */
+export function parseRecoveryKey(key: string): { path: string; subsong: number } | null {
+  const match = /^(.*)\|(\d+)$/.exec(key);
+  if (!match?.[1]) return null;
+  return { path: match[1], subsong: Number(match[2]) };
+}
+
 /**
  * 恢复记录拼成播放栏能用的曲目行：只有标题、艺人、专辑、时长与句柄有意义，其余字段留空。
- * 播放栏里的封面、评分与菜单都按「正在播放」那一首取，没有当前曲目时自然不亮。
+ * 路径与分轨号从记录的 key 还原，保证 `trackKeyOf(recoveryTrack(record)) === record.key`。
  */
 export function recoveryTrack(record: PlaybackRecoveryRecord): Track {
+  const parsed = parseRecoveryKey(record.key);
+  const path = parsed?.path ?? record.handle;
   return {
     handle: record.handle,
-    path: record.handle,
-    absolutePath: record.handle,
-    subsong: 0,
+    path,
+    absolutePath: path.replace(/^file:\/\//, ''),
+    subsong: parsed?.subsong ?? 0,
     title: record.title,
     artist: record.artist,
     artists: record.artist ? [record.artist] : [],

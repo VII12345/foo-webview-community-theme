@@ -12,6 +12,11 @@ import {
   parseFormatDetail,
   type FormatReading,
 } from '../../../track/trackFormat.ts';
+import {
+  parseRecoveryKey,
+  recoveryViewAtom,
+  type RecoveryView,
+} from '../recoveryTrack.ts';
 import { startTrackSwap } from './trackSwap.ts';
 
 /** 播放栏里画封面的最大边长，CSS 像素：胶囊的圆形封面 48，标题栏的 44 也够用。 */
@@ -52,34 +57,43 @@ function browserPixelRatio(): number {
 }
 
 /**
- * 正在播放那一首的封面地址与格式细节，跟着 `currentTrackAtom` 换曲时各取一次；编辑标签、暂停不重取。
- * 换曲过渡要的那份记录（`trackSwap.ts`）也随它起停：都是播放栏上怎么显示正在播放的这一首。
- * 请求尺寸只在换曲时按当时的像素比定。两份应答回来时这一首已经换掉的，一律丢掉。
+ * 播放栏上显示那一首的封面地址与格式细节：有当前曲目时跟当前曲目，没有时跟恢复记录兜底；编辑标签、暂停不重取。
+ * 换曲过渡要的那份记录（`trackSwap.ts`）仍只跟当前曲目：恢复记录出现不算一次换曲。
  *
  * 格式细节求的是宿主此刻正在播放的曲目，不带路径：`titleformat.eval` 不传路径时就是它，动态信息也在。
- * 宿主先换曲、事件后到时，这次求值可能是新一首的；随后的换曲事件会再求一次，把它盖掉。
+ * 恢复记录期间宿主没有活动曲目，不请求格式；恢复成功后同一首从恢复切到 live，即使身份键相同也要补一次。
  */
 export function startNowPlaying(
   store: Store,
   host: NowPlayingFace = fb,
   pixelRatio: () => number = browserPixelRatio,
+  recoveryAtom: Atom<RecoveryView | null> = recoveryViewAtom,
 ): NowPlayingService {
   store.set(stateAtom, INITIAL);
   let disposed = false;
   let generation = 0;
+  let shownKey = '';
+  let shownOrigin: 'live' | 'recovery' | null = null;
 
   const update = (mine: number, patch: Partial<NowPlayingState>) => {
     if (!disposed && mine === generation)
       store.set(stateAtom, { ...store.get(stateAtom), ...patch });
   };
 
-  async function readCover(track: Track, mine: number): Promise<void> {
+  async function readCover(path: string, mine: number, fallback?: string): Promise<void> {
     const size = artworkRequestSize(NOW_PLAYING_COVER_SIZE, pixelRatio());
-    const answer = track.path
-      ? await settle(() => host.artwork.getFb2kUrlByPath(track.path, 'front', { maxSize: size }))
-      : null;
-    const url = answer && answer.success !== false && answer.available ? answer.dataUrl : '';
-    update(mine, { cover: url || null });
+    const ask = async (candidate: string): Promise<string | null> => {
+      if (!candidate) return null;
+      const answer = await settle(() =>
+        host.artwork.getFb2kUrlByPath(candidate, 'front', { maxSize: size }),
+      );
+      const url = answer && answer.success !== false && answer.available ? answer.dataUrl : '';
+      return url || null;
+    };
+    let url = await ask(path);
+    // 恢复记录的 handle 在 CUE/多轨文件上可能不被封面接口接受；用 key 里还原的纯路径再试一次。
+    if (!url && fallback && fallback !== path) url = await ask(fallback);
+    update(mine, { cover: url });
   }
 
   async function readFormat(mine: number): Promise<void> {
@@ -88,21 +102,47 @@ export function startNowPlaying(
     update(mine, { format: usable ? parseFormatDetail(answer.result) : 'failed' });
   }
 
-  function follow(): void {
+  /** 当前该显示哪一首：live 优先，恢复记录只兜底。 */
+  function source():
+    | { readonly origin: 'live'; readonly key: string; readonly track: Track }
+    | { readonly origin: 'recovery'; readonly key: string; readonly record: RecoveryView['record'] }
+    | null {
     const track = store.get(currentTrackAtom);
-    const key = trackKeyOf(track);
-    if (key === store.get(stateAtom).key) return;
-    const mine = ++generation;
-    if (!track) {
-      store.set(stateAtom, INITIAL);
-      return;
-    }
-    store.set(stateAtom, { key, cover: store.get(stateAtom).cover, format: 'pending' });
-    void readCover(track, mine);
-    void readFormat(mine);
+    if (track) return { origin: 'live', key: trackKeyOf(track), track };
+    const view = store.get(recoveryAtom);
+    return view ? { origin: 'recovery', key: view.record.key, record: view.record } : null;
   }
 
-  const off = store.sub(currentTrackAtom, follow);
+  function follow(): void {
+    const next = source();
+    if (!next) {
+      shownKey = '';
+      shownOrigin = null;
+      if (store.get(stateAtom).key !== '' || store.get(stateAtom).cover !== null) {
+        generation += 1;
+        store.set(stateAtom, INITIAL);
+      }
+      return;
+    }
+    // 恢复栏每保存一次进度，recoveryViewAtom 都会给一个新对象；身份键与来源都没变就不重取。
+    if (next.key === shownKey && next.origin === shownOrigin) return;
+    shownKey = next.key;
+    shownOrigin = next.origin;
+    const mine = ++generation;
+    const previous = store.get(stateAtom);
+    if (next.origin === 'live') {
+      store.set(stateAtom, { key: next.key, cover: previous.cover, format: 'pending' });
+      void readCover(next.track.path, mine);
+      void readFormat(mine);
+      return;
+    }
+    store.set(stateAtom, { key: next.key, cover: previous.cover, format: 'failed' });
+    const parsed = parseRecoveryKey(next.record.key);
+    void readCover(next.record.handle, mine, parsed?.path);
+  }
+
+  const offLive = store.sub(currentTrackAtom, follow);
+  const offRecovery = store.sub(recoveryAtom, follow);
   follow();
   const swaps = startTrackSwap(store);
 
@@ -110,7 +150,8 @@ export function startNowPlaying(
     dispose() {
       disposed = true;
       generation += 1;
-      off();
+      offLive();
+      offRecovery();
       swaps.dispose();
     },
   };

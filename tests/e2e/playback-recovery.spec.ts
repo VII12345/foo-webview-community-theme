@@ -50,6 +50,9 @@ test('没有当前曲目时底部播放栏常驻上次那一首，点播放按�
   });
   await expect(page.getByText(PLAYING_TRACK.title).first()).toBeVisible();
   await expect(bar(page)).toHaveAttribute('data-recovery', '');
+  // 恢复栏用记录里的曲目句柄取封面，不再只显示占位图标。
+  await expect(bar(page).locator('img')).toBeVisible();
+  expect(player.calls('artwork.getFb2kUrlByPath').at(-1)?.['path']).toBe(RECORD.handle);
   await bar(page).getByRole('button', { name: '播放', exact: true }).click();
   await expect.poll(() => player.calls('playlist.playTrack').length).toBe(1);
   expect(player.calls('playlist.playTrack')[0]).toMatchObject({ playlistGuid: GUID, index: 4 });
