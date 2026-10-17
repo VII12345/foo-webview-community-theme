@@ -72,9 +72,9 @@ export function LyricsPlayer({
   offsetRef.current = offset;
   const linesRef = useRef(lines);
   linesRef.current = lines;
-  // 拖动预览选中的秒数；null 表示没在预览。渲染虚线与播放按钮。
+  // 虚线盖层选中的秒数；null 表示没在预览。渲染虚线与播放按钮。
   const [preview, setPreview] = useState<number | null>(null);
-  // 虚线覆盖层的中心 Y（相对容器）；量不到时用 null，样式回退到容器中线。
+  // 虚线的中心 Y（相对容器）；按下时量一次就定住，拖动过程中不再改。null 时样式回退到容器中线。
   const [previewTop, setPreviewTop] = useState<number | null>(null);
   const drag = useRef<{ startY: number; baseIndex: number; lineHeight: number } | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -129,34 +129,24 @@ export function LyricsPlayer({
   }, [player, clock]);
 
   /**
-   * 量当前被选中那一行在容器里的中心 Y（CSS 像素），供虚线覆盖层定位。AMLL 只渲染可视范围的行，
-   * 行外层是 `[class*="lyricLineWrapper"]`，但**底部填充行**（`bottomLineWrapper`）也带这个类，
-   * 且行上没有时间属性。这里按 DOM 顺序取「第 n 个非底部行」——AMLL 按歌词顺序渲染，与 `lines` 一致。
-   * 量不到（还没渲染）答 null。
+   * 虚线停在哪：当前行**停稳后**的中心 Y（相对容器，CSS 像素）。按 AMLL 的对齐规则直接算，
+   * 不量 DOM —— 拖动一开始 AMLL 就在滚行，量到的只是半路的位置。
+   *
+   * AMLL 把当前行的锚点落在 `容器高 × alignPosition` 上（`alignAnchor` 决定锚点是在行的
+   * 上沿、中线还是下沿），所以：锚点在中线时行的中心就是那一点；在上下沿时再让半个行高。
+   * 用 `clientHeight` / `offsetHeight`，不进舞台缩放。
    */
-  const measurePreviewTop = (seconds: number): number | null => {
+  const anchorTop = (): number | null => {
     const element = host.current;
     if (!element) return null;
-    const index = indexAt(seconds);
-    const rows = [...element.querySelectorAll<HTMLElement>('[class*="lyricLineWrapper"]')].filter(
-      (row) => !row.className.includes('bottomLineWrapper'),
-    );
-    if (rows.length === 0) return null;
-    // 可见行的第一个不一定对应 lines[0]（滚动后 AMLL 只挂着可视范围内的行）。
-    // 用文本匹配最稳：按预览秒取那一行的纯文本，在可见行里找包含它的那一个。
-    const targetLine = linesRef.current[index];
-    const targetText = (targetLine?.words ?? []).map((word) => word.word).join('').trim();
-    let best: HTMLElement | null = null;
-    if (targetText) {
-      best =
-        rows.find((row) => (row.textContent ?? '').replace(/\s+/g, '').includes(targetText.replace(/\s+/g, ''))) ??
-        null;
-    }
-    best ??= rows[Math.min(index, rows.length - 1)] ?? null;
-    if (!best) return null;
-    const rowBox = best.getBoundingClientRect();
-    const hostBox = element.getBoundingClientRect();
-    return rowBox.top - hostBox.top + rowBox.height / 2;
+    const height = element.clientHeight;
+    if (height <= 0) return null;
+    const anchor = height * motion.alignPosition;
+    if (motion.alignAnchor === 'center') return anchor;
+    const row = element.querySelector<HTMLElement>('[class*="lyricLineWrapper"]');
+    const rowHeight = row?.offsetHeight ?? 0;
+    if (rowHeight <= 0) return anchor;
+    return motion.alignAnchor === 'top' ? anchor + rowHeight / 2 : anchor - rowHeight / 2;
   };
 
   // 拖动预览：按住上下拖，把目标行的时间用 `setCurrentTime` 预览出来（不改播放进度）；松手留 3 秒。
@@ -166,9 +156,11 @@ export function LyricsPlayer({
     const secondsAt = (index: number) =>
       (linesRef.current[Math.min(Math.max(index, 0), linesRef.current.length - 1)]?.startTime ?? 0) /
       1000;
-    /** 真实行距：取相邻两个已渲染行盒子的中心差；只剩一行时用它的高度。 */
+    /** 真实行距：取相邻两个歌词行的中心差；只剩一行时用它的高度。底部的填充行不是歌词行，要排掉。 */
     const rowSpacing = (): number => {
-      const rows = [...element.querySelectorAll<HTMLElement>('[class*="lyricLineWrapper"]')];
+      const rows = [...element.querySelectorAll<HTMLElement>('[class*="lyricLineWrapper"]')].filter(
+        (row) => !row.className.includes('bottomLineWrapper'),
+      );
       const first = rows[0]?.getBoundingClientRect();
       const second = rows[1]?.getBoundingClientRect();
       if (first && second) return Math.max(12, second.top - first.top);
@@ -182,6 +174,8 @@ export function LyricsPlayer({
         return;
       clearTimeout(hideTimer.current);
       hideTimer.current = undefined;
+      // 虚线的位置在按下时定一次，之后不再动：拖动时只有歌词在滚，读起来才像在「挪歌词」。
+      setPreviewTop(anchorTop());
       drag.current = {
         startY: event.clientY,
         baseIndex: indexAt(clock.position() - offsetRef.current),
@@ -201,7 +195,6 @@ export function LyricsPlayer({
       if (created) {
         created.setCurrentTime((seconds - offsetRef.current) * 1000, true);
         created.update(16);
-        setPreviewTop(measurePreviewTop(seconds));
       }
     };
     const onUp = (event: PointerEvent) => {
@@ -226,17 +219,20 @@ export function LyricsPlayer({
 
   useEffect(() => () => clearTimeout(hideTimer.current), []);
 
-  // 预览期间每帧跟着目标行量一次：拖动的重排与松开后弹簧还在动，虚线才一直压在那一行上。
+  // 预览期间按同一套规则重算锚点：拖动的重排与松开后弹簧还在动，行要几秒才停稳；
+  // 位置只由容器高与 `alignPosition` 决定，算出来就是停稳后的位置，不必等行安定。
+  // 规则与按下时那一次相同，所以虚线在整个预览期间一动不动。
   useEffect(() => {
     if (preview === null) return undefined;
-    let handle = 0;
-    const follow = () => {
-      setPreviewTop(measurePreviewTop(preview));
-      handle = requestAnimationFrame(follow);
-    };
-    handle = requestAnimationFrame(follow);
-    return () => cancelAnimationFrame(handle);
-  }, [preview]);
+    const sync = () => setPreviewTop(anchorTop());
+    sync();
+    // 容器大小变了（窗口缩放、换档）才需要重算；行怎么滚都不影响。
+    const element = host.current;
+    const observer =
+      typeof ResizeObserver === 'undefined' || !element ? null : new ResizeObserver(sync);
+    if (element) observer?.observe(element);
+    return () => observer?.disconnect();
+  }, [preview, motion.alignPosition, motion.alignAnchor]);
 
   useLayoutEffect(() => {
     const parent = host.current;

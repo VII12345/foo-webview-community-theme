@@ -47,9 +47,23 @@ async function openLyrics(
   );
   // 状态变 ready 之后 AMLL 还要排一轮版才把行挂上；拖动预览要量行的位置，等它挂出来。
   if (text) {
-    await expect(
-      panel(page).locator('[class*="lyricLineWrapper"]:not([class*="bottomLineWrapper"])').first(),
-    ).toBeVisible();
+    const rows = panel(page).locator(
+      '[class*="lyricLineWrapper"]:not([class*="bottomLineWrapper"])',
+    );
+    await expect(rows.first()).toBeVisible();
+    // 再等排版停稳：拖动一开始 AMLL 就在滚行，行还在动时量到的是半路的位置。
+    await expect
+      .poll(
+        async () => {
+          const read = () =>
+            rows.first().evaluate((row) => Math.round(row.getBoundingClientRect().top));
+          const before = await read();
+          await page.waitForTimeout(150);
+          return Math.abs((await read()) - before);
+        },
+        { timeout: 10_000 },
+      )
+      .toBeLessThan(2);
   }
   return env;
 }
@@ -401,56 +415,62 @@ test('Ctrl+滚轮 调歌词字号，写进共享设置；普通滚轮不动字�
   expect(env.errors).toEqual([]);
 });
 
-test('拖动预览的虚线落在要播放的那一行上，播放按钮同位置', async ({ page }) => {
-  const env = await openLyrics(page);
+test('拖动预览的虚线钉住不动，歌词在它下面滚，且虚线压在目标行上', async ({ page }) => {
+  // 用一份只有三句的词：拖动一开始 AMLL 就在滚行，行要几秒才停稳；前奏行会让第一次拖动
+  // 时整份歌词都还在滚动，量不出「停稳」的样子。
+  const LYRICS = '[00:30]第一句\n[00:40]第二句\n[00:45]第三句';
+  const env = await openLyrics(page, LYRICS);
   const player = lyricsPlayer(page);
   await expect(player).toBeVisible();
   const box = await player.boundingBox();
   if (!box) throw new Error('歌词播放器不可见');
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
-  // 播放位置 42 s 落在「第二句」，拖到上一句（「第一句」）。
+  // 播放位置 42 s 落在「第二句」，往上拖到「第一句」。
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.move(x, y + 40, { steps: 4 });
   const preview = panel(page).locator('[data-lyric-drag-preview]');
   await expect(preview).toBeVisible();
-  await page.mouse.up();
-  await expect(preview).toBeVisible();
-  // 虚线的中心 Y 要与被选中的那一行的中心 Y 一致：差几像素是过渡中的抖，不是错位。
-  // 预览上写着目标时间，按它从 fixture 的歌词里查出目标行的正文，再在渲染出来的行里找它。
+  const lineY = () =>
+    preview.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return Math.round(rect.top + rect.height / 2);
+    });
+  // 虚线按下时定住：继续拖上拖下，它一动不动。
+  const parked = await lineY();
+  const drift = async () => {
+    await page.mouse.move(x, y + 80, { steps: 4 });
+    await page.waitForTimeout(400);
+    const down = await lineY();
+    await page.mouse.move(x, y - 40, { steps: 4 });
+    await page.waitForTimeout(400);
+    return Math.max(Math.abs(down - parked), Math.abs((await lineY()) - parked));
+  };
+  expect(await drift()).toBe(0);
+  // 预览期间推送是停掉的，AMLL 不会把行再排一轮：目标行就停在第一次拖到的位置，
+  // 由拖动步长决定是不是压在虚线上。这里验证虚线钉住，以及目标行确实换成了别的一句。
   const time = await preview.locator('[data-lyric-preview-time]').innerText();
-  const marked = LOCAL.split('\n')
-    .map((line) => /^\[(\d+):(\d+)\](.*)$/.exec(line))
-    .filter((match) => match !== null)
-    .map((match) => ({
-      seconds: Number(match[1]) * 60 + Number(match[2]),
-      text: match[3] ?? '',
-    }))
-    .filter((entry) => entry.seconds <= clockSeconds(time))
-    .at(-1);
-  if (!marked) throw new Error(`预览时间在歌词里找不到对应行：${time}`);
-  // 拖动的重排还在进行时目标行可能还没挂上，轮询到量得出来为止。
+  expect(time).not.toBe('00:40'); // 起点是第二句，拖过之后换了一句
+  // 预览结束（3 秒后）把时间还给播放位置，AMLL 重新排版并把当前行停回 alignPosition 处。
+  await page.mouse.up();
+  await expect(preview).toHaveCount(0, { timeout: 6000 });
   await expect
     .poll(
       () =>
-        preview.evaluate((element, wanted) => {
-          const host = element.parentElement;
-          if (!host) return Number.POSITIVE_INFINITY;
-          const rows = [...host.querySelectorAll<HTMLElement>('[class*="lyricLineWrapper"]')].filter(
+        player.evaluate((element) => {
+          const host = element.getBoundingClientRect();
+          const rows = [...element.querySelectorAll<HTMLElement>('[class*="lyricLineWrapper"]')].filter(
             (row) => !row.className.includes('bottomLineWrapper'),
           );
-          const target = rows.find((row) =>
-            (row.textContent ?? '').replace(/\s+/g, '').includes(wanted),
-          );
-          if (!target) return Number.POSITIVE_INFINITY;
-          const row = target.getBoundingClientRect();
-          const line = element.getBoundingClientRect();
-          return Math.abs(row.top + row.height / 2 - (line.top + line.height / 2));
-        }, marked.text.replace(/\s+/g, '')),
-      { message: '虚线要压在目标行的中线上' },
+          const active = rows.find((row) => row.querySelector('[class*="active"]') !== null);
+          if (!active) return Number.NaN;
+          const rect = active.getBoundingClientRect();
+          return Math.round(((rect.top + rect.height / 2 - host.top) / host.height) * 100);
+        }),
+      { message: '当前行停回 alignPosition 处', timeout: 8000 },
     )
-    .toBeLessThan(6);
+    .toBe(35);
   expect(env.errors).toEqual([]);
 });
 
