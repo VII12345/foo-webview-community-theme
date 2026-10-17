@@ -225,7 +225,11 @@ export function startPlaybackRecovery(
     void deps.writer.set(RECOVERY_KEY, record, lifetime.signal);
     const current = state();
     // 宿主已经开始放另一首：启动时亮着的恢复栏让位给正常播放栏；同一首则只更新记录。
-    if (current.status === 'pending') {
+    if (
+      current.status === 'pending' ||
+      current.status === 'unavailable' ||
+      current.status === 'failed'
+    ) {
       set(current.record.key === record.key ? { status: 'pending', record } : { status: 'idle' });
     }
   }  /** 读一次宿主的当前曲目与所在列表行，拼成一份记录。 */
