@@ -42,6 +42,8 @@ export const lyricsZhCN = {
   'lyrics.trackFailed': '当前曲目读取失败',
   'lyrics.localMissing': '没有找到本地歌词',
   'lyrics.onlineMissing': '没有找到匹配的歌词',
+  'lyrics.sourceEmpty': '这个来源没有找到匹配的歌词',
+  'lyrics.sourceFailed': '这个来源搜索失败',
   'lyrics.metadataMissing': '缺少曲名或艺人，无法搜索在线歌词',
   'lyrics.localFailed': '本地歌词读取失败',
   'lyrics.onlineFailed': '在线歌词获取失败',

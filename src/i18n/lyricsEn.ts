@@ -42,6 +42,8 @@ export const lyricsEn = {
   'lyrics.trackFailed': 'Could not read the current track',
   'lyrics.localMissing': 'No local lyrics found',
   'lyrics.onlineMissing': 'No matching lyrics found',
+  'lyrics.sourceEmpty': 'No matching lyrics from this source',
+  'lyrics.sourceFailed': 'This source could not be searched',
   'lyrics.metadataMissing': 'A track title and artist are required to search for lyrics',
   'lyrics.localFailed': 'Could not read local lyrics',
   'lyrics.onlineFailed': 'Could not retrieve online lyrics',

@@ -31,7 +31,15 @@ describe('手动歌词候选搜索', () => {
       [source('lrclib', [poor, poor]), source('netease', 'failed'), fallback],
       new AbortController().signal,
     );
-    expect(result).toEqual({ candidates: [poor], failed: ['netease'] });
+    expect(result).toEqual({
+      candidates: [poor],
+      failed: ['netease'],
+      sources: [
+        { id: 'lrclib', status: 'results' },
+        { id: 'netease', status: 'failed' },
+        { id: 'lrcmux', status: 'empty' },
+      ],
+    });
     expect(fallback.search).toHaveBeenCalled();
   });
 
@@ -41,11 +49,16 @@ describe('手动歌词候选搜索', () => {
     expect(await findLyricsCandidates(QUERY, sources, new AbortController().signal)).toEqual({
       candidates: [fallbackCandidate],
       failed: [],
+      sources: [
+        { id: 'lrclib', status: 'empty' },
+        { id: 'lrcmux', status: 'results' },
+      ],
     });
     const cancelled = source('netease', 'failed');
     expect(await findLyricsCandidates(QUERY, [cancelled], AbortSignal.abort())).toEqual({
       candidates: [],
       failed: [],
+      sources: [],
     });
     expect(cancelled.search).not.toHaveBeenCalled();
   });

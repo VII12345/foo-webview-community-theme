@@ -72,6 +72,21 @@ export function LyricsSearch({
       return groups;
     }, new Map<LyricsCandidate['source'], LyricsCandidate[]>()),
   );
+  // 每个实际问过的来源都出一组；成功但没有候选的也留着，写明「无结果」。
+  const sourceGroups =
+    result.sources.length > 0
+      ? result.sources.map((outcome) => ({
+          source: outcome.id,
+          status: outcome.status,
+          candidates: candidateGroups.find(([source]) => source === outcome.id)?.[1] ?? [],
+        }))
+      : candidateGroups.map(([source, candidates]) => ({
+          source,
+          status: 'results' as const,
+          candidates,
+        }));
+  const allSourcesFailed =
+    result.sources.length > 0 && result.sources.every((outcome) => outcome.status === 'failed');
   // 每个词源那一组可折叠；默认展开，状态只在本页存活，不进偏好。
   const [collapsed, setCollapsed] = useState<ReadonlySet<LyricsCandidate['source']>>(new Set());
   const toggleGroup = (source: LyricsCandidate['source']) =>
@@ -203,18 +218,18 @@ export function LyricsSearch({
         {result.status === 'searching' && <Spinner size="small" label={t('lyrics.searching')} />}
         {(result.status === 'search-failed' || result.failed.length > 0) && (
           <p role="status">
-            {result.failed.length
-              ? t('lyrics.failedSources', {
+            {result.status === 'search-failed' || allSourcesFailed
+              ? t('lyrics.searchFailed')
+              : t('lyrics.failedSources', {
                   sources: listFormat.format(
                     result.failed.map((source) => t(`lyrics.source.${source}`)),
                   ),
-                })
-              : t('lyrics.searchFailed')}
+                })}
           </p>
         )}
         {result.status === 'fetch-failed' && <p role="status">{t('lyrics.fetchFailed')}</p>}
         {result.status === 'missing' && <p role="status">{t('lyrics.selectedMissing')}</p>}
-        {result.status === 'ready' && !result.failed.length && !result.candidates.length && (
+        {result.status === 'ready' && sourceGroups.length === 0 && !result.candidates.length && (
           <p role="status">{t('lyrics.onlineMissing')}</p>
         )}
         {localReady && (
@@ -273,7 +288,7 @@ export function LyricsSearch({
             </article>
           </section>
         )}
-        {candidateGroups.map(([source, candidates]) => {
+        {sourceGroups.map(({ source, status, candidates }) => {
           const isCollapsed = collapsed.has(source);
           return (
           <section key={source} className={styles.group} data-lyrics-source-group={source}>
@@ -294,7 +309,13 @@ export function LyricsSearch({
                 <span className={styles['group-count']}>{candidates.length}</span>
               </button>
             </h2>
-            {!isCollapsed && candidates.map((candidate) => {
+            {!isCollapsed &&
+              (candidates.length === 0 ? (
+                <p className={styles['source-status']} role="status">
+                  {t(status === 'failed' ? 'lyrics.sourceFailed' : 'lyrics.sourceEmpty')}
+                </p>
+              ) : (
+                candidates.map((candidate) => {
           const id = lyricsCandidateId(candidate);
           const chosen =
             currentLyrics.status === 'ready' &&
@@ -410,7 +431,8 @@ export function LyricsSearch({
               </div>
             </article>
             );
-            })}
+                })
+              ))}
           </section>
           );
         })}

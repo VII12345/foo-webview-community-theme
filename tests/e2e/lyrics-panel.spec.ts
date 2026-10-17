@@ -809,6 +809,10 @@ test('搜索结果按词源分组可折叠，默认展开', async ({ page }) => 
   const group = search.locator('[data-lyrics-source-group="lrclib"]');
   const toggle = group.locator('[data-lyrics-group-toggle="lrclib"]');
   await expect(group.locator('[data-lyrics-candidate]')).toHaveCount(1);
+  // 搜索成功但没有候选的来源也留在列表里，不随空结果消失。
+  await expect(search.locator('[data-lyrics-source-group="netease"]')).toContainText(
+    '这个来源没有找到匹配的歌词',
+  );
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await toggle.click();
   await expect(group.locator('[data-lyrics-candidate]')).toHaveCount(0);
@@ -844,6 +848,9 @@ test('单框搜索处理中文组词、清空和失败，窄窗返回保留预�
   env.host.answer('http.get', hostFailure('OPERATION_FAILED'));
   await input.fill('新的关键词');
   await expect(search).toContainText('歌词搜索失败');
+  await expect(search.locator('[data-lyrics-source-group="lrclib"]')).toContainText(
+    '这个来源搜索失败',
+  );
   await expect(search).not.toContainText('没有找到匹配的歌词');
   await expect(search).not.toContainText('所选歌词读取失败');
   const box = await search.boundingBox();

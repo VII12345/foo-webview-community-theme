@@ -10,6 +10,7 @@ import type {
   LyricsFetchResult,
   LyricsSource,
   LyricsSourceId,
+  LyricsSourceOutcome,
 } from './online/lyricsSource.ts';
 
 interface LyricsChoice extends LyricsCandidate {
@@ -22,6 +23,8 @@ export interface LyricsChoiceState {
     'idle' | 'searching' | 'ready' | 'loading' | 'search-failed' | 'fetch-failed' | 'missing';
   readonly candidates: readonly LyricsChoice[];
   readonly failed: readonly LyricsSourceId[];
+  /** 实际问过的每个来源与结果；空结果也保留，界面按它显示来源。 */
+  readonly sources: readonly LyricsSourceOutcome[];
 }
 
 export type LyricsCandidatePreview =
@@ -34,7 +37,13 @@ export type LyricsCandidatePreview =
       readonly content: LyricsContent;
     };
 
-const EMPTY: LyricsChoiceState = { keywords: '', status: 'idle', candidates: [], failed: [] };
+const EMPTY: LyricsChoiceState = {
+  keywords: '',
+  status: 'idle',
+  candidates: [],
+  failed: [],
+  sources: [],
+};
 export const lyricsCandidateId = (candidate: Pick<LyricsCandidate, 'source' | 'ref'>) =>
   JSON.stringify([candidate.source, candidate.ref]);
 export const lyricsTargetId = (target: LyricsTarget | null) =>

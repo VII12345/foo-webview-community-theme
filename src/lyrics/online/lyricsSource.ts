@@ -4,6 +4,12 @@ import type { LyricsContent } from '../lyricsText.ts';
 export const LYRICS_SOURCE_IDS = ['lrclib', 'netease', 'kugou', 'qq', 'ttmlDb', 'lrcmux'] as const;
 export type LyricsSourceId = (typeof LYRICS_SOURCE_IDS)[number];
 
+/** 一次搜索里某个来源的结果：有候选、成功但没有、请求或解析失败。 */
+export interface LyricsSourceOutcome {
+  readonly id: LyricsSourceId;
+  readonly status: 'results' | 'empty' | 'failed';
+}
+
 /** 拿去在线搜的那一首：只有这几项会发出去，不带路径。 */
 export interface LyricsQuery {
   /** 手动搜索的原始关键词；有值时不按曲名、艺人或时长筛选。 */

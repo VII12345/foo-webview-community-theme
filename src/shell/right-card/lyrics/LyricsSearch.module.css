@@ -40,6 +40,14 @@
   line-height: var(--lineHeightBase200);
 }
 
+/* 来源成功但没有候选、或请求失败：留在组里，不把整个来源藏掉。 */
+.source-status {
+  margin: 0 var(--spacingHorizontalM) var(--spacingVerticalS);
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+  line-height: var(--lineHeightBase200);
+}
+
 /* 词源分组标题做成折叠键：整行可点，箭头指展开方向，右边写这组有几条。 */
 .group-toggle {
   display: flex;

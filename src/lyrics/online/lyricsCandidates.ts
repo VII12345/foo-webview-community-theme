@@ -1,9 +1,19 @@
 import { compareTrack, isDurationTooShort } from './lyricsMatch.ts';
-import type { LyricsCandidate, LyricsQuery, LyricsSource, LyricsSourceId } from './lyricsSource.ts';
+import type {
+  LyricsCandidate,
+  LyricsQuery,
+  LyricsSource,
+  LyricsSourceId,
+  LyricsSourceOutcome,
+} from './lyricsSource.ts';
+
+export type { LyricsSourceOutcome } from './lyricsSource.ts';
 
 export interface LyricsCandidates {
   readonly candidates: readonly LyricsCandidate[];
   readonly failed: readonly LyricsSourceId[];
+  /** 这次实际问过的来源与各自结果；界面按它保留「无结果」的来源。 */
+  readonly sources: readonly LyricsSourceOutcome[];
 }
 
 /** 手动搜索保留候选，不用自动取词的匹配门槛淘汰；明显偏短的已知时长版本除外。 */
@@ -12,17 +22,20 @@ export async function findLyricsCandidates(
   sources: readonly LyricsSource[],
   signal: AbortSignal,
 ): Promise<LyricsCandidates> {
-  const failed: LyricsSourceId[] = [];
+  const outcomes = new Map<LyricsSourceId, 'results' | 'empty' | 'failed'>();
   async function ask(source: LyricsSource, request = query): Promise<readonly LyricsCandidate[]> {
     if (signal.aborted) return [];
     try {
       const result = await source.search(request, signal);
       if (signal.aborted) return [];
-      if (result !== 'failed') return result;
+      if (result !== 'failed') {
+        outcomes.set(source.id, result.length ? 'results' : 'empty');
+        return result;
+      }
     } catch {
       if (signal.aborted) return [];
     }
-    failed.push(source.id);
+    outcomes.set(source.id, 'failed');
     return [];
   }
   const byMatch = (a: LyricsCandidate, b: LyricsCandidate) =>
@@ -70,8 +83,13 @@ export async function findLyricsCandidates(
   const unique = new Map(
     candidates.map((candidate) => [`${candidate.source}:${candidate.ref}`, candidate]),
   );
+  const outcomesOf = sources.flatMap((source): LyricsSourceOutcome[] => {
+    const status = outcomes.get(source.id);
+    return status ? [{ id: source.id, status }] : [];
+  });
   return {
     candidates: [...unique.values()].sort(byMatch),
-    failed,
+    failed: outcomesOf.filter((item) => item.status === 'failed').map((item) => item.id),
+    sources: outcomesOf,
   };
 }
