@@ -79,6 +79,8 @@ export interface CapsuleVolumeProps {
   readonly roomy?: boolean;
   /** 放在标题栏里：浮层朝下开、左缘对齐这个键。缺省朝上开、右缘对齐。 */
   readonly below?: boolean;
+  /** 额外的键样式（沉浸卡片里的圆键）。 */
+  readonly className?: string;
 }
 
 /**
@@ -94,7 +96,7 @@ const BELOW_TITLEBAR_OFFSET = (56 - 36) / 2 + 4;
  * 展开成设备列表（`VolumeStack`、`OutputDeviceList`）。浮层不进历史，Esc 与点别处收起（Fluent 的
  * Popover 自己处理），焦点回到这个键。
  */
-export function CapsuleVolume({ roomy = false, below = false }: CapsuleVolumeProps) {
+export function CapsuleVolume({ roomy = false, below = false, className }: CapsuleVolumeProps) {
   const viewControls = useViewControlStyles();
   const t = useAtomValueRawSync(translateAtom);
   const classes = useStyles();
@@ -130,7 +132,7 @@ export function CapsuleVolume({ roomy = false, below = false }: CapsuleVolumePro
         >
           <Button
             appearance="subtle"
-            className={mergeClasses(classes.key, roomy && classes.roomy, viewControls.icon)}
+            className={mergeClasses(classes.key, roomy && classes.roomy, viewControls.icon, className)}
             icon={<Icon />}
             aria-label={t('player.output')}
             disabled={!control.connected}

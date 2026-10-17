@@ -76,7 +76,12 @@ export function StageCard({ title }: StageCardProps) {
       <div className={styles.seek} data-card-seek>
         <SeekBar interactive thickness={4} thumb clock />
       </div>
-      <PaperTransport className={styles.transport} guard={60} scale={STAGE_CARD_SCALE} />
+      <PaperTransport
+        className={styles.transport}
+        guard={60}
+        scale={STAGE_CARD_SCALE}
+        extras
+      />
       <DialCells style={{ top: 930 }} />
       <NowPlayingMenu at={menu.at} onClose={menu.close} />
     </div>

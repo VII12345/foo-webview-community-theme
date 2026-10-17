@@ -20,6 +20,8 @@ import { playbackAtom } from '../../playback/playback.ts';
 import { playbackConnectedAtom } from '../../playback/playerAtoms.ts';
 import { controlsVisibleAtom } from '../page/immersiveShell.ts';
 import { useViewServices } from '../page/viewServices.ts';
+import { OrderMenuButton } from '../../shell/player/OrderMenuButton.tsx';
+import { CapsuleVolume } from '../../shell/player/volume/CapsuleVolume.tsx';
 import styles from './PaperTransport.module.css';
 
 /** 只随播放态变：`playbackAtom` 每 100 ms 随进度更新一次，整份读会让三颗键跟着重画。 */
@@ -50,6 +52,18 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground1,
     ':hover': { color: tokens.colorNeutralForeground1 },
     [PRESSED]: { color: tokens.colorNeutralForeground1 },
+  },
+  // 卡片两档两侧的模式与音量键：与两侧传输键同径，细环线，悬停/按下不换底。
+  extra: {
+    width: 'var(--side)',
+    minWidth: 'var(--side)',
+    height: 'var(--side)',
+    padding: '0',
+    borderRadius: '50%',
+    ...shorthands.border('1px', 'solid', RING),
+    color: tokens.colorNeutralForeground2,
+    ':hover': { color: tokens.colorNeutralForeground2 },
+    [PRESSED]: { color: tokens.colorNeutralForeground2 },
   },
   // 中键实心：底取中性前景色、图标反过来取底色，不用品牌色。
   play: {
@@ -124,6 +138,8 @@ export interface PaperTransportProps {
   /** 这一组放在哪由外层定，定位经这两项传进来。 */
   readonly className?: string;
   readonly style?: CSSProperties;
+  /** 卡片两档：在上一首左边加播放顺序、下一首右边加音量。 */
+  readonly extras?: boolean;
 }
 
 /**
@@ -138,6 +154,7 @@ export function PaperTransport({
   scale = 1,
   className,
   style,
+  extras = false,
 }: PaperTransportProps) {
   const t = useAtomValueRawSync(translateAtom);
   const connected = useAtomValueRawSync(playbackConnectedAtom);
@@ -176,9 +193,15 @@ export function PaperTransport({
       role="group"
       aria-label={t('player.controls')}
       data-decor-guard={guard}
+      data-extras={extras || undefined}
       onFocus={onFocus}
       onBlur={onBlur}
     >
+      {extras && (
+        <span className={styles.extra}>
+          <OrderMenuButton className={classes.extra} disabled={disabled} large />
+        </span>
+      )}
       <TransportKey
         label={t('player.previous')}
         icon={<Previous24Regular />}
@@ -203,6 +226,11 @@ export function PaperTransport({
         disabled={disabled}
         onClick={() => void playback.next()}
       />
+      {extras && (
+        <span className={styles.extra}>
+          <CapsuleVolume className={classes.extra} />
+        </span>
+      )}
     </div>
   );
 }

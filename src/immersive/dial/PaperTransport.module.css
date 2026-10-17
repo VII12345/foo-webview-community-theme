@@ -8,6 +8,28 @@
   transition: opacity var(--motion-faster) var(--curveLinear);
 }
 
+/* 卡片两档：顺序 / 上一首 / 播放 / 下一首 / 音量五颗排成一行，键之间留 8。 */
+.transport[data-extras] {
+  width: auto;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+/* 包一层只为对齐；键本身仍直接排在这一行里。 */
+.extra {
+  display: contents;
+}
+
+/* 选择器带上元素，压过 Fluent 按原子类给的 28/36 尺寸。 */
+.extra > button {
+  width: var(--side);
+  min-width: var(--side);
+  height: var(--side);
+  padding: 0;
+  border: 1px solid var(--paper-ring);
+  border-radius: 50%;
+}
+
 /* 控件层藏起时淡出，且不接指针。 */
 .hidden {
   opacity: 0;

@@ -176,6 +176,39 @@ test('卡片视图：左区换成方封面卡片，背景与右栏四行字照�
   expect(errors).toStrictEqual([]);
 });
 
+test('卡片两档的播放键组：顺序在上一首左、音量在下一首右；聚焦与图纸不加这两颗', async ({
+  page,
+}) => {
+  const { view, errors } = await openImmersive(page);
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '卡片视图', exact: true }).click();
+  const transport = view.getByRole('group', { name: '播放控制' });
+  await expect(transport.locator('[data-player-key="order"]')).toBeVisible();
+  await expect(transport.locator('[data-player-key="volume"]')).toBeVisible();
+  const order = await transport.evaluate((group) =>
+    [...group.querySelectorAll('button')].map(
+      (button) => button.getAttribute('data-player-key') ?? button.getAttribute('aria-label'),
+    ),
+  );
+  expect(order).toEqual(['order', '上一首', '暂停', '下一首', 'volume']);
+
+  // 卡片歌词档共用同一组键。
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '卡片歌词', exact: true }).click();
+  const lyricsCard = view.getByRole('group', { name: '播放控制' });
+  await expect(lyricsCard.locator('[data-player-key="order"]')).toBeVisible();
+  await expect(lyricsCard.locator('[data-player-key="volume"]')).toBeVisible();
+
+  for (const label of ['聚焦视图', '图纸舞台']) {
+    await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: label, exact: true }).click();
+    const plain = view.getByRole('group', { name: '播放控制' });
+    await expect(plain.locator('[data-player-key="order"]')).toHaveCount(0);
+    await expect(plain.locator('[data-player-key="volume"]')).toHaveCount(0);
+  }
+  expect(errors).toStrictEqual([]);
+});
+
 test('卡片视图在紧凑档也按 full 舞台排、整体缩小，不退回落盘', async ({ page }) => {
   // 用户平时的窗口约 1275 宽，以前落 compact 档、卡片根本不出现。
   const { view, errors } = await openImmersive(page, { width: 1275 });
