@@ -1,6 +1,6 @@
 {
   "name": "foo-webview-default-theme",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "foo_ui_webview2 的默认主题（React + Fluent UI React v9）",
   "license": "AGPL-3.0-only",
@@ -13,7 +13,9 @@
     "build": "vite build --config vite.boot.config.ts && vite build",
     "preview": "vite preview --outDir dist",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "release:bundle": "node scripts/release/build-github-bundle.mjs",
+    "release:publish": "node scripts/release/publish-github.mjs"
   },
   "dependencies": {
     "@applemusic-like-lyrics/core": "0.6.0",

@@ -1,4 +1,7 @@
 node_modules/
 dist/
+release-out/
+test-results/
+playwright-report/
 *.log
 .vite/
