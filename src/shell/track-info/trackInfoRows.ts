@@ -14,6 +14,8 @@ export interface InfoRow {
   readonly missing?: MessageKey;
   /** 摘要行的可见值来自哪些标签；同义标签各自一项，编辑时不合并。 */
   readonly sources?: readonly { readonly name: string; readonly values: readonly string[] }[];
+  /** 摘要行没有匹配标签时，从摘要新增用的规范标签名。 */
+  readonly addName?: string;
 }
 
 type TagField = readonly [MessageKey, ...string[]];
@@ -52,7 +54,7 @@ function taggedRows(tags: readonly InfoTag[], fields: readonly TagField[]): Info
       missing: 'trackInfo.notTagged',
       ...(matched.length
         ? { sources: matched.map((tag) => ({ name: tag.name, values: tag.values })) }
-        : {}),
+        : { addName: names[0] }),
     };
   });
 }

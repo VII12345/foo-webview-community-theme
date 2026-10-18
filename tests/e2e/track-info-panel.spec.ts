@@ -278,9 +278,29 @@ test('全部标签与摘要可编辑：改多值、加标签、删标签，摘�
     info,
   }));
 
+  // 摘要里缺失的标签也能从这一行新增。
+  const discsRow = page
+    .locator('dl > div')
+    .filter({ has: page.getByText('总碟数', { exact: true }) });
+  await expect(discsRow).toContainText('未填写');
+  await discsRow.getByRole('button', { name: '编辑这些标签' }).click();
+  const missingEditor = page.getByRole('dialog');
+  await missingEditor.getByLabel('标签值').fill('2');
+  await missingEditor.getByRole('button', { name: '保存' }).click();
+  await expect.poll(() => writes.at(-1)).toMatchObject({ TOTALDISCS: ['2'] });
+  await expect(discsRow).toContainText('2');
+
   await page.getByRole('button', { name: '全部标签', exact: true }).click();
   const genre = page.locator('dl > div').filter({ has: page.getByText('GENRE', { exact: true }) });
   await genre.hover();
+  // 编辑、删除、复制三个键都要落在这一行里，复制键不能被挤出右缘。
+  const genreBox = await genre.boundingBox();
+  for (const button of await genre.locator('button').all()) {
+    const box = await button.boundingBox();
+    expect(
+      genreBox && box && box.x >= genreBox.x && box.x + box.width <= genreBox.x + genreBox.width,
+    ).toBe(true);
+  }
   await genre.getByRole('button', { name: '编辑标签' }).click();
   const editor = page.locator('[data-tag-editor]');
   await editor.getByLabel('标签值').first().fill('Rock');

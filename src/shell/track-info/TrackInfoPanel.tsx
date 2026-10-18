@@ -115,6 +115,7 @@ function CopyInfoButton({
           appearance="subtle"
           size="small"
           icon={<Copy16Regular />}
+          aria-label={t('trackInfo.copy')}
           disabled={disabled}
           onClick={() => void service.copy(text)}
         />
@@ -366,7 +367,7 @@ function InfoSectionContent({
       )}
       {rows.length > 0 && (
         <dl className={styles.rows}>
-          {rows.map(({ label, values, missing, sources }) => (
+          {rows.map(({ label, values, missing, sources, addName }) => (
             <div className={styles.row} key={label}>
               <dt>{t(label)}</dt>
               <dd>
@@ -384,7 +385,7 @@ function InfoSectionContent({
                 )}
               </dd>
               <span className={styles.actions}>
-                {sources && sources.length > 0 && (
+                {(sources?.length || addName) && (
                   <Tooltip content={t('trackInfo.editTags')} relationship="label">
                     <Button
                       className={mergeClasses(classes.icon, controls.icon)}
@@ -393,7 +394,9 @@ function InfoSectionContent({
                       icon={<Edit16Regular />}
                       aria-label={t('trackInfo.editTags')}
                       disabled={state.saving}
-                      onClick={() => setEditingRow({ label, values, missing, sources })}
+                      onClick={() =>
+                        setEditingRow({ label, values, missing, sources, addName })
+                      }
                     />
                   </Tooltip>
                 )}
@@ -446,13 +449,23 @@ function InfoSectionContent({
           <DialogBody>
             <DialogTitle>{t('trackInfo.editTags')}</DialogTitle>
             <DialogContent>
-              {editingRow?.sources && (
+              {editingRow && (editingRow.sources?.length || editingRow.addName) && (
                 <TagEditor
-                  drafts={editingRow.sources.map((source) => ({
-                    name: source.name,
-                    values: source.values,
-                    fixedName: true,
-                  }))}
+                  drafts={
+                    editingRow.sources?.length
+                      ? editingRow.sources.map((source) => ({
+                          name: source.name,
+                          values: source.values,
+                          fixedName: true,
+                        }))
+                      : [
+                          {
+                            name: editingRow.addName ?? '',
+                            values: [''],
+                            fixedName: true,
+                          },
+                        ]
+                  }
                   t={t}
                   busy={state.saving}
                   onSave={async (drafts) => {

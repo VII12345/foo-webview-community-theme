@@ -113,7 +113,7 @@
 .row,
 .tag-row {
   display: grid;
-  grid-template-columns: 80px minmax(0, 1fr) 28px;
+  grid-template-columns: 80px minmax(0, 1fr) max-content;
   gap: var(--spacingHorizontalS);
   padding-block: var(--spacingVerticalXS);
   align-items: start;
@@ -197,7 +197,7 @@
 }
 
 .tag-row {
-  grid-template-columns: 80px minmax(0, 1fr) 28px;
+  grid-template-columns: 80px minmax(0, 1fr) max-content;
   border-bottom: 1px solid var(--colorNeutralStroke3);
 }
 

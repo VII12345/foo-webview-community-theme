@@ -23,8 +23,6 @@ import {
 import { useAtomValueRawSync } from 'jotai/react';
 import type { Translate } from '../../i18n/translate.ts';
 import { MENU_SURFACE_MOTION } from '../../motion/MenuMotion.tsx';
-import { useRightCard } from '../right-card/rightCardContext.ts';
-import { closeRightCard } from '../right-card/rightCardFocus.ts';
 import type { TrackInfoService } from './trackInfo.ts';
 import type { TrackInfoTarget } from './trackInfoTarget.ts';
 import { infoMediaKind } from './trackInfoModel.ts';
@@ -63,17 +61,18 @@ export function TrackInfoToolbar({
   target,
   t,
   locale,
+  onClose,
 }: {
   readonly service: TrackInfoService;
   readonly target: TrackInfoTarget;
   readonly t: Translate;
   readonly locale: string;
+  readonly onClose?: () => void;
 }) {
   const controls = useViewControlStyles();
   const source = useAtomValueRawSync(target.source);
   const preview = useAtomValueRawSync(target.preview);
   const state = useAtomValueRawSync(service.state);
-  const rightCard = useRightCard();
   const classes = useStyles();
   const SourceIcon = source === 'preview' ? Eye16Regular : Play12Regular;
   return (
@@ -148,7 +147,8 @@ export function TrackInfoToolbar({
               <MenuDivider />
               <MenuItem
                 icon={<Dismiss16Regular />}
-                onClick={() => closeRightCard(rightCard, 'info')}
+                disabled={!onClose}
+                onClick={onClose}
               >
                 {t('rightCard.close')}
               </MenuItem>

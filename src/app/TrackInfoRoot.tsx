@@ -6,6 +6,7 @@ import type { ContextMenuPoint } from '../kit/context-menu/contextMenuGeometry.t
 import { TrackMenu } from '../library/TrackMenu.tsx';
 import type { AppServices } from './services.ts';
 import { RightCardInformationContext } from '../shell/right-card/rightCardContext.ts';
+import { closeRightCard } from '../shell/right-card/rightCardFocus.ts';
 import { TrackInfoPanel } from '../shell/track-info/TrackInfoPanel.tsx';
 import { TrackInfoToolbar } from '../shell/track-info/TrackInfoToolbar.tsx';
 import { TrackInfoArtwork } from '../shell/track-info/TrackInfoArtwork.tsx';
@@ -61,7 +62,13 @@ function Information({ integration }: { readonly integration: TrackInfoIntegrati
   );
 }
 
-function InformationToolbar({ integration }: { readonly integration: TrackInfoIntegration }) {
+function InformationToolbar({
+  integration,
+  onClose,
+}: {
+  readonly integration: TrackInfoIntegration;
+  readonly onClose: () => void;
+}) {
   const t = useAtomValueRawSync(translateAtom);
   const locale = useAtomValueRawSync(localeAtom).active;
   return (
@@ -70,6 +77,7 @@ function InformationToolbar({ integration }: { readonly integration: TrackInfoIn
       target={integration.target}
       t={t}
       locale={locale}
+      onClose={onClose}
     />
   );
 }
@@ -142,7 +150,12 @@ export function TrackInfoRoot({
           integration
             ? {
                 content: <Information integration={integration} />,
-                toolbar: <InformationToolbar integration={integration} />,
+                toolbar: (
+                  <InformationToolbar
+                    integration={integration}
+                    onClose={() => closeRightCard(rightCard, 'info')}
+                  />
+                ),
               }
             : null
         }
