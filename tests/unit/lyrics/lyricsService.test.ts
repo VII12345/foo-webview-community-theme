@@ -38,7 +38,7 @@ const httpLyrics = (
   ]),
 });
 
-function setup(enabled = false, withArchive = false) {
+function setup(enabled = false, withArchive = false, autoSave = false) {
   const host = installFakeHost();
   host.answer('lyrics.get', { success: true, available: false, path: '' });
   host.answer('http.get', (params) => {
@@ -50,6 +50,7 @@ function setup(enabled = false, withArchive = false) {
   const active = atom(true);
   const connected = atom(true);
   const pref = atom<LyricsPrefs>({ enabled, sources: ['lrclib'] });
+  const autoSaveWord = atom(autoSave);
   const local = startLocalLyrics(store, { host: host.fb, track: current, connected });
   const archive = withArchive
     ? startLyricsArchive(store, current, host.fb, createMemoryConfigWriter(host.fb))
@@ -60,7 +61,7 @@ function setup(enabled = false, withArchive = false) {
     active,
     connected,
     local,
-    prefs: { pref },
+    prefs: { pref, autoSaveWord },
     archive,
   });
   onTestFinished(() => {
@@ -182,9 +183,68 @@ describe('当前曲目歌词', () => {
     expect(env.state()).toMatchObject({ source: 'embedded' });
   });
 
+  it('开关打开时，自动匹配的在线逐字歌词写进本地标签且只写一次', async () => {
+    const env = setup(true, false, true);
+    env.host.answer('http.get', {
+      ...httpLyrics('逐字'),
+      body: JSON.stringify([
+        {
+          id: 1,
+          trackName: '逐字',
+          artistName: '艺人',
+          albumName: '专辑',
+          duration: 120,
+          syncedLyrics: '[00:01.00]<00:01.00>Hel<00:01.40>lo<00:02.00>',
+        },
+      ]),
+    });
+    env.play(target());
+    await expect.poll(() => env.state()).toMatchObject({ status: 'ready', source: 'lrclib' });
+    await expect
+      .poll(() => env.host.written.get('E:/Music/a.flac|subsong:1'))
+      .toContain('Hel');
+    // 本地回读后 follow 再跑一次，不应重复写。
+    await flush();
+    const writes = env.host.callsTo('lyrics.save').length;
+    await flush();
+    expect(env.host.callsTo('lyrics.save').length).toBe(writes);
+  });
+
+  it('自动写标签默认关闭；已有本地歌词时也不写', async () => {
+    const off = setup(true);
+    off.host.answer('http.get', {
+      ...httpLyrics('逐字'),
+      body: JSON.stringify([
+        {
+          id: 1,
+          trackName: '逐字',
+          artistName: '艺人',
+          albumName: '专辑',
+          duration: 120,
+          syncedLyrics: '[00:01.00]<00:01.00>Hel<00:01.40>lo<00:02.00>',
+        },
+      ]),
+    });
+    off.play(target());
+    await expect.poll(() => off.state()).toMatchObject({ status: 'ready', source: 'lrclib' });
+    expect(off.host.callsTo('lyrics.save')).toHaveLength(0);
+
+    const local = setup(true, false, true);
+    local.host.answer('lyrics.get', {
+      success: true,
+      available: true,
+      source: 'embedded',
+      path: '',
+      lyrics: '本地已有歌词',
+      synced: false,
+    });
+    local.play(target());
+    await expect.poll(() => local.state()).toMatchObject({ source: 'embedded' });
+    expect(local.host.callsTo('lyrics.save')).toHaveLength(0);
+  });
+
   it('本地曲目的默认选择写进文件标签，重读恢复；恢复自动选择清掉', async () => {
-    const env = setup(true, true);
-    env.host.answer('lyrics.get', {
+    const env = setup(true, true);    env.host.answer('lyrics.get', {
       success: true,
       available: true,
       source: 'embedded',

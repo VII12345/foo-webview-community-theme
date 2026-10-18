@@ -15,6 +15,7 @@ import {
 import type { LyricsHttpHost } from './online/lyricsHttp.ts';
 import type { createLyricsOnline } from './online/lyricsOnline.ts';
 import type { FoundLyrics } from './online/lyricsSearch.ts';
+import { levelRank } from './online/lyricsMatch.ts';
 import type { LyricsCandidate, LyricsIdQuery, LyricsQuery } from './online/lyricsSource.ts';
 
 export interface LyricsTarget extends LyricsTrack {
@@ -43,7 +44,7 @@ export interface LyricsDeps {
   readonly active: Atom<boolean>;
   readonly visible?: Atom<boolean>;
   readonly local: Pick<LocalLyricsService, 'state' | 'refresh' | 'saveEmbedded'>;
-  readonly prefs: Pick<LyricsPrefsService, 'pref'>;
+  readonly prefs: Pick<LyricsPrefsService, 'pref'> & { readonly autoSaveWord?: Atom<boolean> };
   readonly archive?: LyricsArchive;
 }
 
@@ -89,6 +90,8 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
   let manualInput = '';
   let previewInput = '';
   let selection = 0;
+  // 自动写入只试一次：成功、失败、只读文件都不在后续 follow 里反复重试。
+  const autoSaved = new Map<string, 'pending' | 'done'>();
   const subject = atom((get) => lyricsTargetId(get(deps.track)));
   const offset = atom((get) => {
     const ready = get(state);
@@ -100,6 +103,43 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
   function cancel(): void {
     request?.abort();
     request = null;
+  }
+
+  /**
+   * 在线自动匹配到逐字歌词且开关打开时，把它写进本地文件的 LYRICS。只在没有本地歌词、没有手选、
+   * 没有归档选择、匹配度高以上时写；写入前再核对曲目没换，避免把旧词写进新文件。
+   */
+  function maybeAutoSaveWord(
+    target: LyricsTarget,
+    found: LyricsReady,
+    local: LocalLyricsState,
+  ): void {
+    const enabled = deps.prefs.autoSaveWord
+      ? store.get(deps.prefs.autoSaveWord)
+      : false;
+    if (!enabled || !target.local || local.status !== 'missing' || local.key !== target.key)
+      return;
+    if (chosen) return;
+    if (target.archiveKey && deps.archive && store.get(deps.archive.selected)) return;
+    if (!found.match || !isWordLevel(found.content)) return;
+    if (levelRank(found.match.level) > levelRank('high')) return;
+    const key = `${target.key}\u0000${lyricsVersion(found)}`;
+    if (autoSaved.has(key)) return;
+    autoSaved.set(key, 'pending');
+    if (autoSaved.size > 50) {
+      const oldest = autoSaved.keys().next().value;
+      if (oldest !== undefined && oldest !== key) autoSaved.delete(oldest);
+    }
+    const stillCurrent = () =>
+      store.get(deps.track)?.key === target.key &&
+      !chosen &&
+      !(target.archiveKey && deps.archive && store.get(deps.archive.selected)) &&
+      store.get(deps.local.state).status === 'missing';
+    if (!stillCurrent()) {
+      autoSaved.delete(key);
+      return;
+    }
+    void deps.local.saveEmbedded(found.content).finally(() => autoSaved.set(key, 'done'));
   }
 
   async function load(
@@ -228,13 +268,11 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
               ? 'line'
               : 'plain'
           : null;
-      store.set(
-        state,
-        local.status === 'ready' &&
-          (!kind || localRank(local.content) < order.indexOf(kind))
-          ? local
-          : outcome,
-      );
+      const localWins =
+        local.status === 'ready' && (!kind || localRank(local.content) < order.indexOf(kind));
+      store.set(state, localWins ? local : outcome);
+      if (!localWins && outcome.status === 'ready')
+        maybeAutoSaveWord(target, outcome, local);
       return;
     }
     const previewWanted = previewInput === identity && (!deps.visible || store.get(deps.visible));

@@ -68,6 +68,14 @@ const PRIORITY_PREF = defineConfigPref(
 );
 export const LYRICS_PRIORITY_KEY = PRIORITY_PREF.key;
 
+/** 在线自动匹配到逐字歌词时，是否写回本地文件的 LYRICS 标签；默认关闭。 */
+const AUTO_SAVE_PREF = defineConfigPref<boolean>(
+  'defaultTheme.lyrics.autoSaveOnlineWord',
+  false,
+  (raw) => (typeof raw === 'boolean' ? raw : undefined),
+);
+export const AUTO_SAVE_ONLINE_WORD_KEY = AUTO_SAVE_PREF.key;
+
 export interface LyricsPrefs {
   readonly order?: readonly LyricsPriority[];
   readonly enabled: boolean;
@@ -109,11 +117,14 @@ export const LYRICS_PREFS_KEY = ONLINE_PREF.key;
 
 export interface LyricsPrefsService {
   readonly pref: Atom<LyricsPrefs>;
+  /** 在线自动匹配逐字歌词时是否写标签；默认关闭。 */
+  readonly autoSaveWord: Atom<boolean>;
   readonly ready: Promise<void>;
   readonly persistence: ConfigPersistence;
   setEnabled(enabled: boolean, locale: string): Promise<boolean>;
   setOrder(order: readonly LyricsPriority[]): Promise<boolean>;
   setSources(sources: readonly LyricsSourceId[]): Promise<boolean>;
+  setAutoSaveWord(enabled: boolean): Promise<boolean>;
   dispose(): void;
 }
 
@@ -124,7 +135,7 @@ export function startLyricsPrefs(
   host?: ConfigPrefFace,
   writer?: Pick<ConfigWriter, 'set'>,
 ): LyricsPrefsService {
-  const prefs = startConfigPrefs(store, [ONLINE_PREF, PRIORITY_PREF], host, writer);
+  const prefs = startConfigPrefs(store, [ONLINE_PREF, PRIORITY_PREF, AUTO_SAVE_PREF], host, writer);
   // 读档结束时把老存档没见过的来源补进去并写回：界面与搜索都看得到，下次读档也不必再补。
   void prefs.ready.then(() => {
     const current = store.get(ONLINE_PREF.atom);
@@ -136,6 +147,7 @@ export function startLyricsPrefs(
   });
   return {
     pref: atom((get) => ({ ...get(ONLINE_PREF.atom), order: get(PRIORITY_PREF.atom) })),
+    autoSaveWord: AUTO_SAVE_PREF.atom,
     ready: prefs.ready,
     persistence: prefs,
     setEnabled(enabled, locale) {
@@ -152,6 +164,7 @@ export function startLyricsPrefs(
     setOrder: (order) => prefs.set(PRIORITY_PREF, [...order]),
     setSources: (sources) =>
       prefs.set(ONLINE_PREF, { ...store.get(ONLINE_PREF.atom), sources: [...sources] }),
+    setAutoSaveWord: (enabled) => prefs.set(AUTO_SAVE_PREF, enabled),
     dispose: prefs.dispose,
   };
 }

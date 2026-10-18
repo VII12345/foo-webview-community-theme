@@ -33,6 +33,7 @@ export function LyricsPreferenceCard() {
   const locale = useAtomValueRawSync(localeAtom).active;
   const service = useService(lyricsPrefsKey);
   const pref = useAtomValueRawSync(service.pref);
+  const autoSaveWord = useAtomValueRawSync(service.autoSaveWord);
   const order = pref.order ?? LYRICS_PRIORITY;
   const preset =
     order.join() === LYRICS_PRIORITY.join()
@@ -118,6 +119,19 @@ export function LyricsPreferenceCard() {
           />
         )}
       >
+        <SettingsRow
+          title={t('lyrics.autoSaveOnlineWord')}
+          description={t('lyrics.autoSaveOnlineWordHint')}
+        >
+          {({ labelId, descriptionId }) => (
+            <Switch
+              aria-labelledby={labelId}
+              aria-describedby={descriptionId}
+              checked={autoSaveWord}
+              onChange={(_, data) => void service.setAutoSaveWord(data.checked)}
+            />
+          )}
+        </SettingsRow>
         {allSources.map((source) => {
           const index = sources.indexOf(source);
           return (

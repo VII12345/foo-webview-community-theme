@@ -1190,6 +1190,26 @@ test('含空格字体名与字号保存，预览按比例跟随', async ({ page 
   expect(env.errors).toEqual([]);
 });
 
+test('歌词偏好可选本地逐字优先，并可打开自动写标签开关', async ({ page }) => {
+  const env = await openLyrics(page);
+  await openLyricsSettings(page);
+  const settings = page.locator('[data-lyrics-settings]');
+  await settings.getByRole('button', { name: '歌词偏好', exact: true }).click();
+  await settings.getByRole('combobox', { name: '歌词偏好', exact: true }).click();
+  await page.getByRole('option', { name: '本地逐字优先', exact: true }).click();
+  await expect
+    .poll(() => env.host.config.get('defaultTheme.lyrics.priority'))
+    .toEqual(['localWord', 'word', 'local', 'line', 'plain']);
+
+  await settings.getByRole('button', { name: '在线歌词', exact: true }).click();
+  const autoSave = settings.getByRole('switch', { name: '自动保存在线逐字歌词' });
+  await autoSave.click();
+  await expect
+    .poll(() => env.host.config.get('defaultTheme.lyrics.autoSaveOnlineWord'))
+    .toBe(true);
+  expect(env.errors).toEqual([]);
+});
+
 test('歌词搜索页写明实际读取的标签与写入目标', async ({ page }) => {
   const env = await openLyrics(page);
   env.host.answer('metadata.read', {

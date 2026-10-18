@@ -1,5 +1,7 @@
 export const lyricsZhCN = {
   'lyrics.onlineOff': '在线歌词已关闭',
+  'lyrics.autoSaveOnlineWord': '自动保存在线逐字歌词',
+  'lyrics.autoSaveOnlineWordHint': '仅当本地没有歌词时，把自动匹配的高匹配度逐字歌词写进音频文件的 LYRICS 标签。此操作会修改文件。',
   'lyrics.priority': '歌词偏好',
   'lyrics.localFirst': '本地优先',
   'lyrics.localWordFirst': '本地逐字优先',

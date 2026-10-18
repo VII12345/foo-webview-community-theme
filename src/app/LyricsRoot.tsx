@@ -5,7 +5,12 @@ import { translateAtom } from '../i18n/locale.ts';
 import { bindService } from '../kit/serviceKey.ts';
 import { ServicesContext, serviceMap, useService } from '../kit/useService.ts';
 import { lyricsKey } from '../lyrics/lyricsService.ts';
-import { lyricsPrefsKey, LYRICS_PREFS_KEY, LYRICS_PRIORITY_KEY } from '../lyrics/lyricsPrefs.ts';
+import {
+  lyricsPrefsKey,
+  AUTO_SAVE_ONLINE_WORD_KEY,
+  LYRICS_PREFS_KEY,
+  LYRICS_PRIORITY_KEY,
+} from '../lyrics/lyricsPrefs.ts';
 import { lyricsMotionKey, LYRICS_MOTION_KEY } from '../lyrics/lyricsMotion.ts';
 import {
   lyricsDisplayKey,
@@ -72,7 +77,7 @@ function LyricsContent({
           <>
             <SettingsSaveNotice
               persistence={integration.prefs.persistence}
-              keys={[LYRICS_PREFS_KEY, LYRICS_PRIORITY_KEY]}
+              keys={[LYRICS_PREFS_KEY, LYRICS_PRIORITY_KEY, AUTO_SAVE_ONLINE_WORD_KEY]}
             />
             <SettingsSaveNotice
               persistence={integration.display.persistence}
@@ -113,7 +118,7 @@ function LyricsSettingsContent({
         <>
           <SettingsSaveNotice
             persistence={integration.prefs.persistence}
-            keys={[LYRICS_PREFS_KEY, LYRICS_PRIORITY_KEY]}
+            keys={[LYRICS_PREFS_KEY, LYRICS_PRIORITY_KEY, AUTO_SAVE_ONLINE_WORD_KEY]}
           />
           <SettingsSaveNotice
             persistence={integration.motion.persistence}

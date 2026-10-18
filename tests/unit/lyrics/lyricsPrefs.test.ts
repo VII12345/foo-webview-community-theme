@@ -1,6 +1,6 @@
 import { createStore } from 'jotai/vanilla';
 import { describe, expect, it, onTestFinished } from 'vitest';
-import { LYRICS_PREFS_KEY, LYRICS_PRIORITY, parseLyricsPriority, startLyricsPrefs } from '../../../src/lyrics/lyricsPrefs.ts';
+import { AUTO_SAVE_ONLINE_WORD_KEY, LYRICS_PREFS_KEY, LYRICS_PRIORITY, parseLyricsPriority, startLyricsPrefs } from '../../../src/lyrics/lyricsPrefs.ts';
 import { createMemoryConfigWriter } from '../../fixtures/dataWriter.ts';
 import { hostFailure, type ConfigValue } from '../../fixtures/hostAnswers.ts';
 import { flush } from '../../fixtures/playingTrack.ts';
@@ -17,6 +17,16 @@ function setup(value?: ConfigValue) {
 }
 
 describe('歌词联网偏好', () => {
+  it('自动写标签默认关闭，开关写进 config', async () => {
+    const env = setup();
+    await env.service.ready;
+    expect(env.store.get(env.service.autoSaveWord)).toBe(false);
+    expect(await env.service.setAutoSaveWord(true)).toBe(true);
+    await env.service.persistence.settled();
+    expect(env.store.get(env.service.autoSaveWord)).toBe(true);
+    expect(env.host.config.get(AUTO_SAVE_ONLINE_WORD_KEY)).toBe(true);
+  });
+
   it('旧的四项优先级在 local 前补上 localWord，新的五项原样接受', () => {
     expect(parseLyricsPriority(['local', 'word', 'line', 'plain'])).toEqual([
       'localWord',
@@ -131,6 +141,12 @@ describe('歌词联网偏好', () => {
     held.respond(0, {
       success: true,
       key: 'defaultTheme.lyrics.priority',
+      found: false,
+      value: null,
+    });
+    held.respond(0, {
+      success: true,
+      key: 'defaultTheme.lyrics.autoSaveOnlineWord',
       found: false,
       value: null,
     });
