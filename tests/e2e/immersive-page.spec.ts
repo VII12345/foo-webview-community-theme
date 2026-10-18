@@ -419,6 +419,47 @@ test('歌词一律排在右半靠左五分之一处，左对齐', async ({ page 
   expect(errors).toStrictEqual([]);
 });
 
+test('当前行主行使用强调色，其他行保持中性', async ({ page }) => {
+  const { view, host, state, errors } = await openImmersive(page, {
+    onHost(host) {
+      host.answer('lyrics.get', {
+        success: true,
+        available: true,
+        source: 'embedded',
+        path: '',
+        lyrics: '[00:00]第一句字\n[00:05]第二句字',
+        synced: true,
+      });
+    },
+  });
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '歌词视图', exact: true }).click();
+  state.position = 1;
+  host.emit('playback:seeked', { hostTime: Date.now(), position: 1 });
+  const player = view.locator('.amll-lyric-player');
+  await expect(player).toContainText('第一句字');
+  const colors = await player.evaluate((root) => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--accent)';
+    root.appendChild(probe);
+    const accent = getComputedStyle(probe).color;
+    probe.remove();
+    const active = root.querySelector('[class*="lyricMainLine"][class*="_active"]');
+    const others = [...root.querySelectorAll('[class*="lyricMainLine"]')].filter(
+      (line) => line !== active,
+    );
+    return {
+      accent,
+      active: active ? getComputedStyle(active).color : null,
+      others: others.map((line) => getComputedStyle(line).color),
+    };
+  });
+  expect(colors.active).toBe(colors.accent);
+  expect(colors.others.length).toBeGreaterThan(0);
+  expect(colors.others.every((color) => color !== colors.accent)).toBe(true);
+  expect(errors).toStrictEqual([]);
+});
+
 test('卡片歌词：左区卡片带曲名/艺人，右栏四行字删掉、动画歌词保留', async ({ page }) => {
   const { view, errors } = await openImmersive(page, {
     onHost(host) {
