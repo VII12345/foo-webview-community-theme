@@ -6,13 +6,21 @@
   min-width: 0;
   padding: var(--spacingVerticalL) var(--spacingHorizontalL);
   gap: var(--spacingVerticalM);
+  overflow-y: auto;
+  overflow-x: hidden;
   container: folders / inline-size;
 }
 .body {
   display: flex;
   flex: 1;
-  min-height: 0;
+  min-height: 420px;
   overflow: hidden;
+}
+@media (max-height: 720px) {
+  .root {
+    padding-block: var(--spacingVerticalS);
+    gap: var(--spacingVerticalS);
+  }
 }
 .browser {
   box-sizing: border-box;

@@ -2,6 +2,20 @@ import { expect, test } from '@playwright/test';
 import { openFolders } from '../fixtures/foldersPage.ts';
 import { FOLDER_TRACKS } from '../fixtures/foldersLibrary.ts';
 
+test('窗口压扁时整页可滚动，封面卡片至少有文件夹占位图标', async ({ page }) => {
+  const env = await openFolders(page);
+  await env.folder('Alpha').click();
+  await env.view.getByRole('button', { name: '封面', exact: true }).click();
+  await expect(env.view.locator('[data-folder-art]').first()).toBeVisible();
+  await expect(env.view.locator('[data-folder-art] svg').first()).toBeVisible();
+  await page.setViewportSize({ width: 1000, height: 520 });
+  await expect
+    .poll(() => env.view.evaluate((element) => element.scrollHeight > element.clientHeight))
+    .toBe(true);
+  await expect(env.tree).toBeVisible();
+  expect(env.errors).toEqual([]);
+});
+
 test('Ctrl 逐项取消目录后可以保留空选择', async ({ page }) => {
   const env = await openFolders(page);
   await env.folder('Alpha').click();

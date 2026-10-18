@@ -1,7 +1,7 @@
 import { Folder48Regular } from '@fluentui/react-icons';
 import { useAtomValueRawSync } from 'jotai/react';
 import type { LibraryTrack } from 'foo-webview-sdk';
-import { trackPathOf } from '../../../host/libraryContract.ts';
+import { folderArtworkPath } from './folderArtworkPath.ts';
 import { foldersCoversVersionAtom } from './foldersCovers.ts';
 import { useCoverLoad } from '../../../covers/useCoverLoad.ts';
 import styles from './FolderArt.module.css';
@@ -19,9 +19,7 @@ function FolderImage({ path, size }: { readonly path: string; readonly size: num
   });
   return image.src ? (
     <img src={image.src} alt="" draggable={false} onLoad={image.onLoad} onError={image.onError} />
-  ) : (
-    <Folder48Regular />
-  );
+  ) : null;
 }
 export function FolderArt({
   track,
@@ -30,10 +28,11 @@ export function FolderArt({
   readonly track: LibraryTrack | undefined;
   readonly size: number;
 }) {
-  const path = track ? trackPathOf(track) : '';
+  const path = folderArtworkPath(track);
   return (
-    <span className={styles.root} style={{ width: size, height: size }} aria-hidden>
-      {path ? <FolderImage key={path} path={path} size={size} /> : <Folder48Regular />}
+    <span className={styles.root} style={{ width: size, height: size }} aria-hidden data-folder-art>
+      <Folder48Regular />
+      {path ? <FolderImage key={path} path={path} size={size} /> : null}
     </span>
   );
 }

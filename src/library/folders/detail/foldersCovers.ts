@@ -67,7 +67,8 @@ export function startFoldersCovers(
       ...(old?.url && gate.isShown(path) ? { previous: old.url } : {}),
     });
     if (old) gate.refresh(path);
-    if (cache.size > 512) {
+    // 目录墙不虚拟化；上限与专辑封面一致，避免大目录反复淘汰重载。
+    if (cache.size > 2000) {
       for (const key of cache.keys()) {
         if (!pending.has(key) && key !== path) {
           cache.delete(key);
