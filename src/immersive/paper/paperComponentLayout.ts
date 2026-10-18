@@ -147,6 +147,10 @@ export interface CardTops {
   readonly seek: number | null;
   readonly transport: number | null;
   readonly cells: number | null;
+  /** 第一个可见模块的 top；全隐藏时 null。 */
+  readonly top: number | null;
+  /** 最后一个可见模块的 bottom；全隐藏时 null。 */
+  readonly bottom: number | null;
 }
 
 export function cardTops(
@@ -175,5 +179,13 @@ export function cardTops(
   const transport = show('card.transport') ? cursor : null;
   if (transport !== null) cursor += 124; // 80 高 + 44 间隔
   const cells = show('card.cells') ? cursor : null;
-  return { cover, meta, seek, transport, cells };
+
+  const top = cover ?? meta ?? seek ?? transport ?? cells;
+  let bottom: number | null = null;
+  if (cells !== null) bottom = cells + 48;
+  else if (transport !== null) bottom = transport + 80;
+  else if (seek !== null) bottom = seek + 40;
+  else if (meta !== null) bottom = meta + metaHeight;
+  else if (cover !== null) bottom = cover + 460;
+  return { cover, meta, seek, transport, cells, top, bottom };
 }

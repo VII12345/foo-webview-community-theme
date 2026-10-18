@@ -79,6 +79,8 @@ describe('卡片左区纵向流', () => {
       seek: 766,
       transport: 806,
       cells: 930,
+      top: 220,
+      bottom: 978,
     });
     expect(cardTops('cardLyrics', none)).toEqual({
       cover: 220,
@@ -86,16 +88,20 @@ describe('卡片左区纵向流', () => {
       seek: 766,
       transport: 806,
       cells: 930,
+      top: 220,
+      bottom: 978,
     });
   });
 
-  it('隐藏封面/进度/传输后其余上移', () => {
+  it('隐藏封面/进度/传输后其余上移，边界跟着可见模块走', () => {
     expect(cardTops('card', new Set(['card.cover']))).toEqual({
       cover: null,
       meta: 220,
       seek: 286,
       transport: 326,
       cells: 450,
+      top: 220,
+      bottom: 498,
     });
     expect(cardTops('card', new Set(['card.seek']))).toMatchObject({
       transport: 766,

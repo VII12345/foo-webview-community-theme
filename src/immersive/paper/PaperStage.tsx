@@ -131,7 +131,23 @@ export function PaperStage({ scale, origin, variant = 'paper', hidden = new Set<
         {animatedLyrics && show('right.lyrics') && (
           <ImmersiveLyricsPlayer
             fontScale={scale > 0 ? 1 / scale : 1}
-            top={rightTops.lyrics}
+            top={
+              variant === 'cardLyrics' && cardLayout?.top != null
+                ? cardLayout.top
+                : rightTops.lyrics
+            }
+            bottom={
+              variant === 'cardLyrics' && cardLayout?.bottom != null
+                ? STAGE_HEIGHT - cardLayout.bottom
+                : undefined
+            }
+            height={
+              variant === 'cardLyrics' &&
+              cardLayout?.top != null &&
+              cardLayout?.bottom != null
+                ? cardLayout.bottom - cardLayout.top
+                : undefined
+            }
             edgeAligned
           />
         )}

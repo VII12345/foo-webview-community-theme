@@ -488,10 +488,24 @@ test('卡片歌词：左区卡片带曲名/艺人，右栏四行字删掉、动�
   await expect(view.locator('[data-field="artist"]')).toHaveCount(0);
   await expect(view.locator('[data-field="album"]')).toHaveCount(0);
   await expect(view.locator('[data-field="quality"]')).toHaveCount(0);
-  // 右栏的动画歌词保留。
+  // 右栏的动画歌词保留，上下边界与左区卡片一致（220–978）。
   const player = view.locator('.amll-lyric-player');
   await expect(player).toBeVisible();
   await expect(player).toContainText('卡片歌词第一句');
+  const geometry = await view
+    .locator('[data-immersive-lyrics-player]')
+    .evaluate((element) => {
+      const stage = element.closest('[data-paper-content]');
+      if (!stage) throw new Error('歌词不在舞台上');
+      const stageRect = stage.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
+      const scale = stageRect.width / 1920;
+      return {
+        top: Math.round((rect.top - stageRect.top) / scale),
+        bottom: Math.round((rect.bottom - stageRect.top) / scale),
+      };
+    });
+  expect(geometry).toEqual({ top: 220, bottom: 978 });
   // 白框、频谱、波形与量表都不在（同歌词视图）。
   await expect(view.locator('[data-pad]')).toHaveCount(0);
   await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(0);

@@ -14,12 +14,18 @@ export function ImmersiveLyricsPlayer({
   fontScale = 1,
   edgeAligned = false,
   top,
+  bottom,
+  height,
 }: {
   readonly fontScale?: number;
   /** full 舞台的动画歌词贴住右区左缘，不用 AMLL 默认的 1em 行内边距。 */
   readonly edgeAligned?: boolean;
   /** 可见模块变化后的纵向位置，舞台坐标。 */
   readonly top?: number;
+  /** 可见模块变化后的下边界，舞台坐标换算出的 CSS bottom；不传则铺到舞台底。 */
+  readonly bottom?: number;
+  /** 卡片歌词跟左区上下对齐时用显式高度覆盖 CSS 的 660。 */
+  readonly height?: number;
 } = {}) {
   const services = useViewServices();
   const lyrics = useService(lyricsKey);
@@ -34,7 +40,11 @@ export function ImmersiveLyricsPlayer({
   return (
     <div
       className={styles.root}
-      style={top !== undefined ? { top } : undefined}
+      style={
+        top !== undefined || bottom !== undefined || height !== undefined
+          ? { top, bottom, height }
+          : undefined
+      }
       data-immersive-lyrics-player
       data-edge-aligned={edgeAligned || undefined}
     >

@@ -49,7 +49,11 @@ export function StageCard({ title, hidden, tops }: StageCardProps) {
     height: STAGE_CARD_COVER.size,
   };
   return (
-    <div className={styles.card}>
+    <div
+      className={styles.card}
+      data-card-top={tops.top ?? undefined}
+      data-card-bottom={tops.bottom ?? undefined}
+    >
       {tops.cover !== null && <DialCover box={coverBox} guard={72} />}
       {tops.meta !== null && (
         <div
