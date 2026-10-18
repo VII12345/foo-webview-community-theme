@@ -2,6 +2,7 @@ import { useAtomValueRawSync, useStore } from 'jotai/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { colorSchemeAtom } from '../../theme/colorScheme.ts';
 import { PaperDecor } from '../decor/PaperDecor.tsx';
+import type { DecorArc } from '../decor/paperDecor.ts';
 import { useDecorGuards } from '../decor/useDecorGuards.ts';
 import { immersiveTerrainAtom, immersiveWashAtom } from '../page/immersivePrefs.ts';
 import { ALPHA_FAR } from '../terrain/terrain.ts';
@@ -36,6 +37,19 @@ export interface PaperSceneProps {
   readonly variant?: PaperVariant;
 }
 
+/** 歌词视图的罗盘整组在左半区居中：full 舞台从 380 移到 480，compact 从 250 移到 256。 */
+function lyricsDialOffset(variant: PaperVariant, tier: string): number {
+  if (variant !== 'lyrics') return 0;
+  if (tier === 'full') return 100;
+  if (tier === 'compact') return 6;
+  return 0;
+}
+
+function shiftDialArc(arcs: readonly DecorArc[], delta: number): readonly DecorArc[] {
+  if (!delta || !arcs[0]) return arcs;
+  return [{ ...arcs[0], cx: arcs[0].cx + delta }, ...arcs.slice(1)];
+}
+
 export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
   const store = useStore();
   const root = useRef<HTMLDivElement>(null);
@@ -45,13 +59,19 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
   const terrain = useAtomValueRawSync(immersiveTerrainAtom);
   // 卡片两档不分档位：一律按 full 舞台排、整幅等比缩放，小窗口只是缩得更小。
   const card = variant === 'card' || variant === 'cardLyrics';
-  const geometry = useMemo(
-    () => (card ? stageGeometry(width, height) : paperGeometry(width, height)),
-    [card, width, height],
-  );
+  const geometry = useMemo(() => {
+    const base = card ? stageGeometry(width, height) : paperGeometry(width, height);
+    const delta = lyricsDialOffset(variant, base.tier);
+    if (!delta) return base;
+    return {
+      ...base,
+      dial: base.dial ? { ...base.dial, x: base.dial.x + delta } : null,
+      arcs: shiftDialArc(base.arcs, delta),
+    };
+  }, [card, width, height, variant]);
   const { tier, origin, scale } = geometry;
   const stage = tier === 'full';
-  const guards = useDecorGuards(root, { origin, scale, tier });
+  const guards = useDecorGuards(root, { origin, scale, tier, scene: variant });
 
   // 换档只报新档，不在两档之间插一个 null：取数服务会把它当成不要了，停掉手上的解码。
   useEffect(() => {

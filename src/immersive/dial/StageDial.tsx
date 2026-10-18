@@ -53,10 +53,10 @@ function ringBox(radius: number): CSSProperties {
  * 封面（`DialCover`）与背景的封面底色共用同一份状态。封面、三格与传输键标了
  * `data-decor-guard`，生成式网格不在它们周围放装饰；传输键压在歌词卡之上。
  */
-export function StageDial() {
+export function StageDial({ offsetX = 0 }: { readonly offsetX?: number } = {}) {
   const track = useAtomValueRawSync(currentTrackAtom);
   return (
-    <div className={styles.dial}>
+    <div className={styles.dial} style={offsetX ? { left: offsetX } : undefined}>
       {STAGE_RINGS.map((radius) => (
         <span key={radius} className={styles.ring} style={ringBox(radius)} aria-hidden />
       ))}

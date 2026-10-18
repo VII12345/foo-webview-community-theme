@@ -11,6 +11,8 @@ export interface DecorPlacement {
   readonly scale: number;
   /** 档位：换档时内容层整个换了一棵，护区元素也换了，要重量、重新盯。 */
   readonly tier: PaperTier;
+  /** 场景；换场景时元素位置会变但尺寸不变，ResizeObserver 不会报，要重量一次。 */
+  readonly scene?: string;
 }
 
 const GUARD_SELECTOR = '[data-decor-guard]';
@@ -75,6 +77,7 @@ export function useDecorGuards(
     origin: { x, y },
     scale,
     tier,
+    scene,
   } = placement;
   useLayoutEffect(() => {
     const content = root.current?.querySelector<HTMLElement>('[data-paper-content]');
@@ -87,6 +90,6 @@ export function useDecorGuards(
     const observer = new ResizeObserver(measure);
     for (const element of content.querySelectorAll(GUARD_SELECTOR)) observer.observe(element);
     return () => observer.disconnect();
-  }, [root, x, y, scale, tier]);
+  }, [root, x, y, scale, tier, scene]);
   return guards;
 }

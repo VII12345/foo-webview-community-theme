@@ -46,8 +46,6 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
     variant === 'lyrics' || variant === 'card' || variant === 'cardLyrics';
   // 聚焦档的右半仍要出垫纸与仪表，只是波形与量表上移压缩，给底部的歌词腾位置。
   const focus = variant === 'focus';
-  // 右半出仪表与波形/量表/文件信息的档：图纸与聚焦。歌词与卡片三档右半只放歌词。
-  const fullColumn = variant === 'paper';
   const metered = variant === 'paper' || focus;
   // 四行字：只有卡片歌词档不出（卡片上已有曲名与艺人）。
   const showFields = variant !== 'cardLyrics';
@@ -62,7 +60,9 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
     <StageScaleContext value={scale}>
       <div className={styles.stage} data-scene={variant} style={frame} data-paper-content>
         <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} showPad={metered} />
-        {card ? <StageCard title={variant === 'cardLyrics'} /> : <StageDial />}
+        {card ? <StageCard title={variant === 'cardLyrics'} /> : (
+          <StageDial offsetX={variant === 'lyrics' ? 100 : 0} />
+        )}
         <StageFields
           stereo={<StageStereo />}
           showMeter={metered}

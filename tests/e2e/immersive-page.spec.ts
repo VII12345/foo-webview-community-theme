@@ -168,6 +168,27 @@ test('歌词视图在 full 与紧凑档的屏幕字号一致，不随舞台缩�
   expect(errors).toStrictEqual([]);
 });
 
+test('歌词视图左区罗盘在左半区居中，图纸/聚焦仍在原位', async ({ page }) => {
+  const { view, errors } = await openImmersive(page);
+  const center = () =>
+    view.locator('[data-dial-cover]').evaluate((element) => {
+      const stage = element.closest('[data-paper-content]');
+      if (!stage) throw new Error('罗盘不在舞台上');
+      const stageRect = stage.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
+      const scale = stageRect.width / 1920;
+      return Math.round((rect.left + rect.width / 2 - stageRect.left) / scale);
+    });
+  expect(await center()).toBe(380);
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '歌词视图', exact: true }).click();
+  await expect.poll(center).toBe(480);
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '聚焦视图', exact: true }).click();
+  expect(await center()).toBe(380);
+  expect(errors).toStrictEqual([]);
+});
+
 test('卡片视图：左区换成方封面卡片，背景与右栏四行字照旧；原视图仍在', async ({ page }) => {
   const { view, errors } = await openImmersive(page, {
     onHost(host) {
