@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fb } from 'foo-webview-sdk/bridge';
 import { translateAtom } from '../i18n/locale.ts';
 import type { Translate } from '../i18n/translate.ts';
+import { durationText } from '../table/cellText.ts';
 import {
   loadStats,
   type StatsData,
@@ -59,25 +60,47 @@ function Totals({ totals, previous }: { readonly totals: StatsTotals; readonly p
   );
 }
 
-/** 按天/月的柱状趋势：高度相对最大值，只画最近一屏能放下的点。 */
+/** 按天/月的柱状趋势：高度相对最大值；点少时逐柱写时长，点密时只标最高柱和首尾日期。 */
 function Trend({ points }: { readonly points: StatsPeriod['trend'] }) {
   const t = useAtomValueRawSync(translateAtom);
   if (points.length === 0) return null;
   const max = Math.max(...points.map((point) => point.seconds), 1);
+  const dense = points.length > 12;
+  const maxIndex = points.reduce(
+    (best, point, index) => (point.seconds > (points[best]?.seconds ?? 0) ? index : best),
+    0,
+  );
+  const first = points[0];
+  const last = points[points.length - 1];
   return (
     <section className={styles.section} aria-label={t('stats.trend')}>
       <h2>{t('stats.trend')}</h2>
-      <div className={styles.trend} data-stats-trend>
-        {points.map((point) => (
-          <span
-            key={point.ymd}
-            className={styles.bar}
-            data-stats-bar
-            style={{ height: `${Math.max(2, Math.round((point.seconds / max) * 100))}%` }}
-            title={`${point.ymd} · ${formatDuration(point.seconds, t)}`}
-          />
+      <div className={styles.trend} data-stats-trend data-dense={dense || undefined}>
+        {points.map((point, index) => (
+          <span key={point.ymd} className={styles.point}>
+            {(!dense || index === maxIndex) && (
+              <span className={styles['bar-value']} data-stats-bar-value>
+                {durationText(point.seconds) || '0:00'}
+              </span>
+            )}
+            <span className={styles.slot}>
+              <span
+                className={styles.bar}
+                data-stats-bar
+                style={{ height: `${Math.max(2, Math.round((point.seconds / max) * 100))}%` }}
+                title={`${point.ymd} · ${formatDuration(point.seconds, t)} · ${point.plays} ${t('stats.plays')}`}
+                aria-label={`${point.ymd} · ${formatDuration(point.seconds, t)} · ${point.plays} ${t('stats.plays')}`}
+              />
+            </span>
+          </span>
         ))}
       </div>
+      {dense && first && last && (
+        <div className={styles['trend-dates']} data-stats-trend-dates>
+          <span>{first.ymd}</span>
+          <span>{last.ymd}</span>
+        </div>
+      )}
     </section>
   );
 }

@@ -188,16 +188,50 @@
 
 .trend {
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
   gap: 2px;
-  height: 120px;
+  height: 140px;
   padding-top: var(--spacingVerticalS);
+}
+
+.point {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 2px;
+  height: 100%;
+}
+
+.slot {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  flex: 1;
+}
+
+.bar-value {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--text-muted);
+  font-size: var(--fontSizeBase100);
+  line-height: 12px;
+  white-space: nowrap;
 }
 
 .bar {
   flex: 1;
   min-width: 2px;
+  width: 100%;
   border-radius: 2px 2px 0 0;
   background: var(--accent);
   opacity: 0.75;
+}
+
+.trend-dates {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: var(--fontSizeBase100);
 }

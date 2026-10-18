@@ -7,7 +7,7 @@ import { openPlayer } from '../fixtures/playerPage.ts';
 const PROFILE = 'E:/FB2K/foobar2000/profile';
 const DB_PATH = `${PROFILE}\\foo_monthly_stats.db`;
 
-async function statsDbBase64(): Promise<string> {
+async function statsDbBase64(trendDays = 1): Promise<string> {
   const SQL = await initSqlJs();
   const db = new SQL.Database();
   db.run(`CREATE TABLE monthly_count (
@@ -16,12 +16,19 @@ async function statsDbBase64(): Promise<string> {
     playcount INTEGER NOT NULL DEFAULT 0, total_time_seconds REAL NOT NULL DEFAULT 0,
     PRIMARY KEY(ymd, track_crc));`);
   const now = new Date();
-  const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const ymd = `${month}-01`;
   db.run(
     `INSERT INTO monthly_count (ymd, track_crc, path, title, artist, playcount, total_time_seconds)
      VALUES ('${ymd}','c1','E:/Music/morning.flac','晨曲','甲、乙',3,1800),
             ('${ymd}','c2','E:/Music/night.flac','夜曲','丙',1,600);`,
   );
+  for (let day = 2; day <= trendDays; day += 1) {
+    db.run(
+      `INSERT INTO monthly_count (ymd, track_crc, path, title, artist, playcount, total_time_seconds)
+       VALUES ('${month}-${String(day).padStart(2, '0')}','d${day}','E:/Music/d${day}.flac','趋势${day}','丁',1,${day * 10})`,
+    );
+  }
   const bytes = db.export();
   db.close();
   let binary = '';
@@ -59,8 +66,31 @@ test('侧边栏打开播放统计页，读出概览、Top 榜与趋势', async (
   const topArtists = stats.locator('[data-stats-top-artists="month"]');
   await expect(topArtists.getByText('甲')).toBeVisible();
   await expect(topArtists.getByText('乙')).toBeVisible();
-  // 趋势有柱子。
+  // 趋势有柱子；只有一天时逐柱标时长。
   await expect(stats.locator('[data-stats-trend] [data-stats-bar]')).toHaveCount(1);
+  await expect(stats.locator('[data-stats-bar-value]')).toHaveCount(1);
+  await expect(stats.locator('[data-stats-bar-value]')).toHaveText('40:00');
+  expect(env.errors).toEqual([]);
+});
+
+test('趋势点多时只标最高柱与首尾日期', async ({ page }) => {
+  const base64 = await statsDbBase64(20);
+  const env = await openPlayer(page, {
+    onHost(host) {
+      host.answer('file.exists', () => ({ success: true, path: DB_PATH, exists: true }));
+      host.answer('file.read', () => ({
+        success: true,
+        content: base64,
+        size: base64.length,
+        encoding: 'base64',
+      }));
+    },
+  });
+  await page.getByRole('navigation', { name: '侧边栏' }).getByRole('button', { name: '播放统计', exact: true }).click();
+  const trend = page.locator('[data-stats-trend]');
+  await expect(trend.locator('[data-stats-bar]')).toHaveCount(20);
+  await expect(trend.locator('[data-stats-bar-value]')).toHaveCount(1);
+  await expect(page.locator('[data-stats-trend-dates]')).toBeVisible();
   expect(env.errors).toEqual([]);
 });
 
