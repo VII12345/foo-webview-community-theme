@@ -3,9 +3,9 @@
 本文记录本仓库相对原作者 `NereaFantasia/foo-webview-default-theme` 0.2.0 的全部本地提交与净改动，供维护、审查和升级时对照。
 
 - 上游基线：`b46e934`（`feat: 发布默认主题 0.2.0`，2026-10-09）
-- 本文终点：`a1c5666`（`fix: clamp headphone amp gain to -99..0 dB`，2026-10-18）
-- 提交范围：`b46e934..a1c5666`，共 55 个提交，其中 `d0ea5e2` 是本文档自身
-- 代码净差异：162 个文件，+9694 / −530 行（不含本文档）
+- 本文终点：`34bca70`（`fix: stabilize lyric dragging`，2026-10-18）
+- 提交范围：`b46e934..34bca70`，共 70 个提交，其中 `d0ea5e2`、`243da20` 是文档提交
+- 代码净差异：186 个文件，+10799 / −620 行（不含本文档）
 - `CHANGELOG.md` 由更新器解析，本文不修改该文件；本说明单独成篇。
 
 文档描述的是**最终净状态**，不是每个中间提交的逐字复述。三组「先实现、后回退、再重做」的提交在正文与附录中都会标明，避免把已回退的实现误当成现状。
@@ -219,7 +219,8 @@ LYRICS → UNSYNCED LYRICS → UNSYNCEDLYRICS → SYNCEDLYRICS → SYNCED LYRICS
 | `defaultTheme.playback.recovery` | 上次曲目、句柄、playlist GUID/行号、进度与展示信息 |
 | `defaultTheme.playback.headphoneRig` | 耳放/耳机列表与当前选择 |
 | `defaultTheme.playback.source` | 正在播放的来源（专辑/艺人/播放列表等） |
-| `defaultTheme.lyrics.priority` | 在线歌词来源优先级 |
+| `defaultTheme.lyrics.priority` | 歌词类别优先级（localWord/local/word/line/plain） |
+| `defaultTheme.lyrics.autoSaveOnlineWord` | 自动把匹配到的在线逐字歌词写进本地 `LYRICS`（默认关） |
 | `defaultTheme.lyrics.display` | 歌词字号等显示设置 |
 | `defaultTheme.lyrics.motion` | 歌词动效、对齐锚点/位置 |
 | `defaultTheme.lyrics.typography` | 歌词排版（字号等） |
@@ -359,32 +360,33 @@ M    = Vsen + 10·log10(Z / 1000)
 
 ## 12. 测试与验证
 
-本次最终状态（`bbe1f09`）已验证：
+最终状态（`34bca70`）已验证：
 
-- `npm test`：442 个测试文件、3651 条单元测试全部通过。
+- `npm test`：442 个测试文件、3658 条单元测试全部通过。
 - `npm run build`：引导页与主页面构建通过。
-- 新增 E2E：
-  - `tests/e2e/immersive-sound-pressure.spec.ts`：3 条通过；
-  - `tests/e2e/settings-sound-pressure.spec.ts`：2 条通过。
-- 相关既有 E2E：
-  - `immersive-page.spec.ts`、`immersive-tiers.spec.ts` 通过；
-  - `settings-playback.spec.ts`、`settings-immersive.spec.ts` 通过；
-  - `playback-recovery.spec.ts` 通过。
-- 新增单元测试：
-  - `tests/unit/playback/soundPressure.test.ts`：公式、单位换算、状态与格式化；
-  - `tests/unit/playback/soundPressurePrefs.test.ts`：增删改选、删除选中项、重复 id、越界、版本拒绝、写入失败。
+- 第二批相关的 E2E：
+  - `immersive-page.spec.ts`、`immersive-tiers.spec.ts`：29 条通过；
+  - `settings-page.spec.ts`：滚动恢复（宽档与窄档）通过；
+  - `stats-page.spec.ts`、`playlist-page.spec.ts`、`album-list.spec.ts` 通过；
+  - `lyrics-panel.spec.ts` 新增的优先级/自动写标签/拖动用例通过；
+  - `track-info-panel.spec.ts` 的缺失标签新增与三个动作键不越界用例通过。
+- 第二批新增单元测试：
+  - 歌词优先级 4→5 迁移、本地逐字/在线逐字选择；
+  - 自动写标签的开关、只写一次、已有本地词不写；
+  - 酷狗 duration 秒/毫秒归一化、UGC 规则、数字 id；
+  - 窄档封面列与统计老库无 path 列的回退。
 
 已知的**既有失败**（相对最近这批功能是既有问题；其中一部分在 `b46e934` 基线上同样失败，另一部分由更早的本地功能改变了 DOM，但测试未同步）：
 
 | 位置 | 期望 / 实际 | 原因 |
 |---|---|---|
 | `settings-page.spec.ts` 1280 宽卡片 | 760 / 746 | 无头 Chromium 的经典滚动条占 14px；`b46e934` 上同样失败 |
-| `settings-page.spec.ts` 滚动恢复 | 2545 / 0 或 2855 | 恢复快照写入后，挂载期的布局与焦点处理又改变了滚动位置；基线同样失败 |
 | `player-capsule.spec.ts` 两项 | 找不到 `[style*="scaleX"]` | 测试找内联 `scaleX`，实现用 CSS 变量 `--seek-progress`（`SeekBar.module.css`）；基线同样失败 |
 | `player-bar.spec.ts` 六项 | 找不到 `[data-output-panel]`，部分几何不符 | 音量浮层实际属性是 `data-volume-popover` / `data-player-surface`；测试选择器未同步；基线同样失败 |
 | `titlebar.spec.ts` 三项 | 菜单键 28×36 / 40×32；首个菜单只有「迷你播放器」 | `ToolbarButton` 的实际尺寸；主菜单首项是 `MiniPlayerMenuItem`，测试却假设首个菜单直接是 fb2k 六个根；基线同样失败 |
 | `lyrics-panel.spec.ts` 滚动恢复 | 候选的父级 `scrollTop` > 0 / 0 | 来源分组后候选属于 `[data-lyrics-source-group]`，真正滚动的是外层结果区；测试仍取直接父级。由本地分组提交 `fa606c0` 后未同步 |
-| `track-info-integration.spec.ts` 四项 | 工具栏边框 0 / 1px；菜单无「关闭面板」；更多键位置不符 | 测试仍按旧头部结构与旧菜单项断言。当前曲目信息工具栏菜单只有复制/刷新/复制标签，关闭由右侧卡菜单负责；标签编辑器加入后 DOM 顺序也变了 |
+| `track-info-integration.spec.ts` 工具栏边框/更多键位置 | 边框 0 / 1px；更多键位置不符 | 测试仍按旧头部结构断言。关闭入口已在第二批补上，窄窗关闭用例已通过；边框与更多键几何仍未同步 |
+| `playlist-page.spec.ts` 排序记号 | 外部增删后仍为 `ascending` | 在第二批开始前的 `65afbaa` 上同样失败，与列宽/行高改动无关 |
 
 这些用例在最终汇报中单独列出，未通过修改产品代码来「凑过」。
 
@@ -400,6 +402,80 @@ M    = Vsen + 10·log10(Z / 1000)
 - **沉浸舞台缩放**：卡片两档始终按 1920×1080 排版，小窗口会整体缩小，文字与浮层也跟着缩小；这是为了保持版式一致而接受的取舍。
 - **浏览器 E2E 的宿主替身没有实时 PCM**：声压的实时 Short-term 链路只能由单元测试覆盖；E2E 验证的是设备管理、状态文案、位置与持久化。
 - **播放统计依赖第三方插件数据库结构**：`foo_monthly_stats.db` 的表结构若变化，读取会落到 `failed`，不会写坏数据库。
+- **自动写标签会修改文件**：`defaultTheme.lyrics.autoSaveOnlineWord` 默认关闭；开启后只在无本地歌词、高匹配、无手选时写 `LYRICS`，但错误的自动匹配仍可能覆盖文件；只读文件不会提示。
+- **窄档小封面改变了所有表格**：容器 ≤520 时行高固定 32、封面 32；用户把封面列拖到 0 仍视为隐藏。文件夹组头按 32 档改用 2px 内边距。
+- **full 歌词字号按舞台缩放反算**：窗口越小时舞台内字号越大，换行会增多；这是“屏幕字号与设置一致”的代价。
+- **酷狗接口仍是未公开 API**：本次按当前响应的秒/毫秒与 UGC 规则修正，字段或排序变化仍可能失效。
+
+---
+
+## 14. 第二批改动（2026-10-18）
+
+### 14.1 设置页滚动恢复
+
+离开设置页再回来时，恢复快照不再在挂载提交里同步写 `scrollTop`，而是挂起后按布局令牌在 `useLayoutEffect` 中重试；`.scroller` 加 `overflow-anchor: none`，分类条的焦点与横向滚动不再带动外层竖向滚动。宽档与窄档的 E2E 都已通过。
+
+### 14.2 曲目信息面板
+
+- 「面板选项」菜单补上「关闭面板」；关闭后按当前页/上一页/队列/歌词的顺序把焦点交还给可见入口键。
+- 队列页、歌词页的菜单也补同一项。
+- 摘要里缺失的元数据标签（如 `TOTALDISCS`）现在可以从摘要行新增；编辑按钮不再因为 `sources` 为空而消失。
+- 编辑/删除/复制三个 28px 按钮原来挤在 28px 栅格里，复制图标被裁掉；第三列改为 `max-content`，三个键都在行内。
+
+### 14.3 歌词字号与布局
+
+- full 歌词视图的字号按舞台缩放反算（`1 / s`），屏幕字号与右侧卡、紧凑档一致；1280 宽时不再从 22px 缩成约 14.7px。
+- 只对 `lyrics` 场景做反算；卡片两档保持微缩卡片自己的比例。
+- 歌词视图 full 的罗盘组从 x=380 移到左半区中心 480，装饰弧同步；紧凑档圆心 250→256。
+- full 的歌词容器仍在 x=1152（右半区左五分之一）；去掉 AMLL 默认的 `--lyric-line-padding-x: 1em`，文字实际贴住这条线，而不是移动容器。
+- 卡片两档的播放键改为透明，与两侧键一致；断连时仍保留禁用底色。
+
+### 14.4 播放统计
+
+- Top 曲目在序号后加入 32px 封面。统计库有 `path` 列时直接取；老库没有这一列时回退为空路径并显示占位，不会整页失败。
+- 趋势柱加时长标签：点数 ≤12 时逐柱标注；月/年按天最多约 365 点，只标最高柱并在底部标首尾日期，完整时长与播放次数留在悬停提示。
+
+### 14.5 窄档表格
+
+- 容器宽度 ≤520 时不再隐藏封面列：保留 32px 小封面（`cover` 与 `art` 列），行高从 40 收到 32；用户主动把封面拖到 0 时仍视为隐藏。
+- 播放列表、专辑列表、文件夹、流派的组头封面内边距跟随 `--table-cover-inset`（8px → 窄档 2px）；文件夹封面尺寸不再硬编码 `coverWidth - 16`。
+
+### 14.6 歌词优先级与自动写标签
+
+优先级从 4 项扩展为 5 项：
+
+```text
+localWord → local → word → line → plain
+```
+
+- 新增预设「本地逐字优先」：`localWord → word → local → line → plain`。
+- 「在线逐字优先」：`word → localWord → local → line → plain`。
+- 「本地优先」：`localWord → local → word → line → plain`。
+- 旧存档的 4 项顺序在 `local` 前自动补 `localWord`，不会重置用户自定义顺序。
+- 本地内容按 `isWordLevel` 归入 `localWord` 或 `local`；在线的 `word/line/plain` 分类不再把本地 token 当成可满足的在线类别。
+
+自动写标签：
+
+- 新增 `defaultTheme.lyrics.autoSaveOnlineWord`，默认关闭。
+- 打开后，仅在本地文件、当前没有本地歌词（`missing`，不是读取失败）、没有手选/归档选择、在线结果逐字且匹配度 `high` 以上时，把内容写进 `LYRICS`。
+- 写入前重新核对曲目、手选与归档状态；按 `(曲目 key, 歌词版本)` 去重，写入失败也不反复重试。
+- 不自动写主题归档，避免把自动匹配当成用户选择。
+
+### 14.7 酷狗搜索
+
+用用户提供的 `离忧 / 司南`、Hash `71c314341a3a20c6167fe2b8d66f1bd3` 复现并修复：
+
+- 普通候选的 `duration` 是秒（274），UGC 候选是毫秒（274320）；旧代码一律按毫秒比较，普通候选被当成 274ms 过滤。
+- 关键词搜索的 `duration` 参数改为秒；发送毫秒会把 UGC 候选排到前面。
+- 自动搜索仍过滤 UGC；手动关键词与 Hash 搜索允许 UGC，因为用户明确在查这首歌，Hash 往往只对应 UGC。
+- `id`/`accesskey` 接受数字或字符串；`product_from` 比较忽略大小写。
+
+### 14.8 歌词拖动
+
+- 拖动时只有目标行索引变化才 seek，并合并到 `requestAnimationFrame`；首次移动也会显示预览。
+- 虚线位置在按下时冻结，只在容器尺寸变化时重算，不再随每行高度变化上下跳。
+- 拖动期间关闭 AMLL 弹簧与缩放，3 秒预览结束后才恢复；逐帧驱动在预览期间不重新接管，避免列表被播放时钟拉回。
+- `rowSpacing` 仍用行盒 `getBoundingClientRect` 差值（AMLL 行是 absolute + translate，`offsetTop` 全为 0），排除底部填充行。
 
 ---
 
@@ -462,23 +538,39 @@ M    = Vsen + 10·log10(Z / 1000)
 | `bbe1f09` | 声压 | 图纸/聚焦显示耳机输出声压估算 |
 | `d0ea5e2` | 文档 | 本文档 |
 | `a1c5666` | 声压 | 耳放增益范围改为 −99–0 dB |
+| `1f34d1b` | 设置 | 布局稳定后恢复滚动位置 |
+| `b1f1eb0` | 曲目信息 | 补「关闭面板」与焦点归还 |
+| `75fc00f` | 曲目信息 | 缺失摘要标签可新增，动作键不再被裁 |
+| `ffa0ada` | 歌词 | full 舞台字号按缩放反算 |
+| `2377f40` | 沉浸 | 歌词视图罗盘在左半区居中 |
+| `26182c2` | 沉浸 | 歌词文字贴住右区左五分之一 |
+| `0a50265` | 沉浸 | 卡片播放键透明 |
+| `8564e04` | 统计 | Top 曲目小封面 |
+| `65afbaa` | 统计 | 趋势柱时长标签 |
+| `69d9f85` | 表格 | 窄档保留 32px 小封面与 32px 行高 |
+| `613b8b2` | 歌词 | 新增本地逐字优先级与 4→5 迁移 |
+| `3cfec8e` | 歌词 | 可选自动保存在线逐字歌词 |
+| `ad6ec23` | 歌词 | 修复酷狗 duration 单位与 UGC 规则 |
+| `34bca70` | 歌词 | 稳定拖动预览与行滚动 |
 
 ---
 
 ## 附录 B：净差异
 
 ```text
-b46e934..a1c5666（不含文档）
-162 files changed, 9694 insertions(+), 530 deletions(-)
+b46e934..34bca70（不含文档）
+186 files changed, 10799 insertions(+), 620 deletions(-)
 ```
 
 主要新增目录/模块：
 
-- `src/stats/`：播放统计页与 SQLite 读取；
+- `src/stats/`：播放统计页、SQLite 读取、Top 曲目封面与趋势标签；
 - `src/immersive/sound/`：声压组件、设备浮层与实时读数组合；
 - `src/playback/soundPressure.ts`、`soundPressurePrefs.ts`：声压模型与 config 服务；
 - `src/lyrics/online/qq.ts`：QQ 音乐来源；
 - `src/shell/track-info/TagEditor.tsx`：标签编辑器；
+- `src/immersive/paper/PaperStage.tsx`、`StageDial.tsx`：歌词视图字号反算与左区居中；
+- `src/table/columns/columns.ts`、`columnsLayout.ts`：窄档小封面；
 - 沉浸视图的 `focus`、`lyrics`、`card`、`cardLyrics` 场景与相关布局修复。
 
 本文档本身（`CHANGES-SINCE-0.2.0.zh-CN.md`）是独立提交，不计入上述代码净差异。
