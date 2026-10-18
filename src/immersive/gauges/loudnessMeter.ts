@@ -60,6 +60,11 @@ export function channelWeights(channels: number): number[] {
   });
 }
 
+/** 各声道权重之和；把合并响度还原成每声道电平时用。 */
+export function channelWeightSum(channels: number): number {
+  return channelWeights(channels).reduce((sum, weight) => sum + weight, 0);
+}
+
 /** 块能量换成 LUFS；没有能量给 `null`（数学上是 −∞）。 */
 export function loudnessOf(energy: number): number | null {
   return energy > 0 ? -0.691 + 10 * Math.log10(energy) : null;

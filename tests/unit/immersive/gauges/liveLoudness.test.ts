@@ -36,7 +36,7 @@ const STEREO_48K: PcmStreamFormat = {
   capacityFrames: RATE,
   epoch: 1,
 };
-const EMPTY = { momentary: null, shortTerm: null, failed: false };
+const EMPTY = { momentary: null, shortTerm: null, channels: 2, failed: false };
 const A = makeTrack({ path: 'file://E:/Music/a.flac' });
 const B = makeTrack({ path: 'file://E:/Music/b.flac' });
 
@@ -327,7 +327,7 @@ describe('startLiveLoudness', () => {
   test('宿主不接受订阅：退订、读数没有值、标 failed；换曲不重试，停止后再有曲目才再试', async () => {
     const { fake, frames, play, stop, step, state } = await setup({ outcome: REFUSED });
     expect(fake.nth(0).unsubscribed).toBe(1);
-    expect(state()).toStrictEqual({ momentary: null, shortTerm: null, failed: true });
+    expect(state()).toStrictEqual({ ...EMPTY, failed: true });
     expect(frames.pending()).toBe(0);
     play(B);
     await flush();

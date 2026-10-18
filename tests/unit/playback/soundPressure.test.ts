@@ -44,10 +44,28 @@ describe('耳机声压估算', () => {
       rig(),
     );
     expect(reading.state).toBe('over');
-    expect(reading.voltage).toBeCloseTo(0.2166, 4);
-    expect(reading.powerMw).toBeCloseTo(0.1563, 4);
-    expect(reading.spl).toBeCloseTo(88.94, 2);
-    expect(reading.marginDb).toBeCloseTo(-8.94, 2);
+    expect(reading.voltage).toBeCloseTo(0.2, 6);
+    expect(reading.powerMw).toBeCloseTo(0.1333, 4);
+    expect(reading.spl).toBeCloseTo(88.25, 2);
+    expect(reading.marginDb).toBeCloseTo(-8.25, 2);
+  });
+
+  it('立体声直接用 LUFS；单声道按 +3.01 dB 补声道和', () => {
+    const stereo = estimateSoundPressure(
+      { shortTermLufs: -20, volumeDb: 0, muted: false, channelGainDb: 0 },
+      rig(),
+    );
+    const mono = estimateSoundPressure(
+      {
+        shortTermLufs: -23.0103,
+        volumeDb: 0,
+        muted: false,
+        channelGainDb: 10 * Math.log10(2),
+      },
+      rig(),
+    );
+    expect(mono.spl).toBeCloseTo(stereo.spl ?? 0, 6);
+    expect(mono.voltage).toBeCloseTo(stereo.voltage ?? 0, 6);
   });
 
   it('dB/V 与 dB/mW 两种灵敏度给出同一个 SPL', () => {

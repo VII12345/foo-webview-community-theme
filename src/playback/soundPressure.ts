@@ -82,6 +82,11 @@ export interface SoundPressureInput {
   /** 播放器音量增益，dB。 */
   readonly volumeDb: number;
   readonly muted: boolean;
+  /**
+   * 每声道电平相对立体声合并响度的修正，dB。立体声为 0，单声道 +3.01，5.1 约 −4.64。
+   * 由响度层按声道权重算好后传入，`soundPressure.ts` 不依赖沉浸层。
+   */
+  readonly channelGainDb?: number;
 }
 
 const clamp = (value: number, min: number, max: number) =>
@@ -253,8 +258,14 @@ export function selectedRig(rig: HeadphoneRig): RigSelection {
 /**
  * 从实时 Short-term LUFS 估算耳机的输出声压。
  *
- * Lch = S + 0.691 + volumeDb
- * V   = V0 · 10^((Lch + G) / 20)
+ * BS.1770 的定标：立体声双单声道 997 Hz 正弦在 0 dBFS 峰值读 0 LUFS（EBU Tech 3341 用 1 kHz、
+ * −23 dBFS 读 −23.0 LUFS）。功放的 `V0` 正是 0 dBFS 正弦的 RMS，所以立体声每声道相对正弦的电平
+ * 就是 `S`；单声道、5.1 等多声道内容再由 `channelGainDb = 10·log10(2/Σw)` 换算。
+ * 旧实现的 `+0.691` 把立体声高估 0.69 dB；`S − 2.32` 则把 0 dBFS 正弦 RMS 当成 0 dBFS RMS，
+ * 会低估 2.32 dB。
+ *
+ * L_ch = S + channelGainDb + volumeDb
+ * V   = V0 · 10^((L_ch + G) / 20)
  * P   = 1000 · V² / Z
  * SPL = M + 10·log10(P) = Vsen + 20·log10(V)
  */
@@ -286,7 +297,7 @@ export function estimateSoundPressure(
   if (input.shortTermLufs === null || input.shortTermLufs <= -70)
     return { state: 'no-loudness', spl: null, powerMw: null, voltage: null, marginDb: null };
 
-  const digital = input.shortTermLufs + 0.691 + input.volumeDb;
+  const digital = input.shortTermLufs + (input.channelGainDb ?? 0) + input.volumeDb;
   const voltage = amp.vrmsAt0db * 10 ** ((digital + amp.gainDb) / 20);
   const powerMw = (1000 * voltage ** 2) / headphone.impedanceOhm;
   const spl =

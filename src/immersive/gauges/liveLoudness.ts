@@ -48,6 +48,8 @@ export interface LiveLoudness {
   /** LUFS；还没有值时为 `null`。 */
   readonly momentary: number | null;
   readonly shortTerm: number | null;
+  /** 当前流的声道数；还没读到时按立体声 2。 */
+  readonly channels: number;
   /** 这次订阅宿主不接受；停止后再有曲目时再试。 */
   readonly failed: boolean;
 }
@@ -56,7 +58,7 @@ export interface LiveLoudnessService {
   dispose(): void;
 }
 
-const INITIAL: LiveLoudness = { momentary: null, shortTerm: null, failed: false };
+const INITIAL: LiveLoudness = { momentary: null, shortTerm: null, channels: 2, failed: false };
 const stateAtom = atom<LiveLoudness>(INITIAL);
 const activeAtom = atom((get) => get(playbackConnectedAtom) && get(currentTrackAtom) !== null);
 
@@ -73,10 +75,11 @@ export function startLiveLoudness(
   let stream: LiveStream | null = null;
   let meter: BlockMeter | null = null;
   let format = '';
+  let channels = 2;
   // `undefined` 是这次订阅还没读到过帧；`null` 是读到的帧不在已知的段里。
   let lastSegment: number | null | undefined;
   // 这一拍最后一块算完时的读数；这一拍没出块时为 null。
-  let latest: Pick<LiveLoudness, 'momentary' | 'shortTerm'> | null = null;
+  let latest: Pick<LiveLoudness, 'momentary' | 'shortTerm' | 'channels'> | null = null;
   let disposed = false;
 
   const patch = (next: Partial<LiveLoudness>) =>
@@ -84,7 +87,11 @@ export function startLiveLoudness(
 
   function onBlock(energy: number): void {
     recent.push(energy);
-    latest = { momentary: recent.momentary(), shortTerm: recent.shortTerm() };
+    latest = {
+      momentary: recent.momentary(),
+      shortTerm: recent.shortTerm(),
+      channels,
+    };
   }
 
   function restart(): void {
@@ -97,6 +104,7 @@ export function startLiveLoudness(
     if (!spec || read.frames === 0) return;
     const key = `${spec.sampleRate}|${read.planes.length}`;
     if (!meter || key !== format) {
+      channels = read.planes.length || 2;
       meter = createBlockMeter(spec.sampleRate, read.planes.length, onBlock);
       format = key;
       recent.clear();
@@ -146,7 +154,7 @@ export function startLiveLoudness(
     void current.ready.then((outcome) => {
       if (outcome.ok || stream !== current) return;
       teardown();
-      store.set(stateAtom, { momentary: null, shortTerm: null, failed: true });
+      store.set(stateAtom, { ...INITIAL, failed: true });
     });
     scheduler.schedule();
   }
