@@ -45,6 +45,22 @@
   text-overflow: ellipsis;
 }
 
+/* 自动模式的第二行：高/低增益与耳机名，占住 key 下面原本的空位。 */
+.key-sub {
+  margin-top: 2px;
+  font-family: var(--fontFamilyMonospace);
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--colorNeutralForeground3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cell[data-auto='on'] .value {
+  margin-top: 6px;
+}
+
 .value {
   margin-top: 12px;
   font-family: var(--fontFamilyBase);
@@ -79,6 +95,14 @@
 
 .cell[data-variant='sheet'] .average {
   display: none;
+}
+
+.cell[data-variant='sheet'] .key-sub {
+  display: none;
+}
+
+.cell[data-variant='sheet'][data-auto='on'] .value {
+  margin-top: 3px;
 }
 
 /* 版心档把三行压到 Genre 原来的小标 + 值的位置。 */

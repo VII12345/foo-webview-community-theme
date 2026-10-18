@@ -180,8 +180,14 @@ test('DX5 II 自动模式下组件显示当前输出与设备音量', async ({ p
     config: { [DX52_AUTO_KEY]: true },
   });
   const cell = view.locator('[data-field="soundPressure"]');
-  await expect(cell).toContainText('TOPPING DX5 II');
+  await expect(cell).toContainText('DX5 II');
   await expect(cell).toContainText('6.35mm');
+  expect(
+    await cell
+      .locator('button > span')
+      .first()
+      .evaluate((element) => element.scrollWidth > element.clientWidth + 1),
+  ).toBe(false);
   await cell.locator('button').first().click();
   const panel = view.locator('[data-sound-pressure-panel]');
   await expect(panel.locator('[data-sound-pressure-auto]')).toContainText(

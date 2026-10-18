@@ -92,14 +92,20 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
   const autoTitle = auto.state
     ? `${auto.state.deviceName || 'TOPPING DX5 II'}${auto.output ? ` · ${auto.output.label}` : ''}`
     : 'TOPPING DX5 II';
+  // 自动模式的 key 行要短：完整设备名 + 耳机名会超出 299px；增益档与耳机放到下一行。
+  const autoShort = auto.state
+    ? `DX5 II${auto.output ? ` · ${auto.output.label}` : ''}`
+    : 'DX5 II';
   const device = auto.enabled
-    ? auto.active
-      ? amp && headphone
-        ? `${amp.name} · ${headphone.name}`
-        : autoTitle
-      : autoTitle
+    ? autoShort
     : amp && headphone
       ? `${amp.name} · ${headphone.name}`
+      : null;
+  const keySub =
+    auto.enabled && auto.active && auto.state
+      ? `${auto.state.highGain ? t('settings.dx52HighGain') : t('settings.dx52LowGain')}${
+          headphone ? ` · ${headphone.name}` : ''
+        }`
       : null;
   const hint = auto.enabled && !auto.active ? autoHint(auto) : stateHint(reading);
   const margin =
@@ -115,6 +121,11 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
         ? t(hint)
         : '—';
   const title = device ? `SPL · ${device}` : `SPL · ${t('immersive.soundPressureUnset')}`;
+  const keyTitle = auto.enabled
+    ? `SPL · ${autoTitle}${auto.state ? ` · ${auto.state.highGain ? 'High' : 'Low'}` : ''}${
+        headphone ? ` · ${headphone.name}` : ''
+      }`
+    : title;
   const rate =
     auto.state?.sampleRate && auto.state.sampleRate >= 1000
       ? ` · ${Math.round(auto.state.sampleRate / 1000)} kHz`
@@ -131,19 +142,30 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
         : ''
     : '';
   return (
-    <div className={styles.cell} data-variant={variant} data-state={reading.state} data-field="soundPressure">
+    <div
+      className={styles.cell}
+      data-variant={variant}
+      data-state={reading.state}
+      data-auto={keySub ? 'on' : undefined}
+      data-field="soundPressure"
+    >
       <button
         ref={trigger}
         type="button"
         className={styles.trigger}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`${t('immersive.soundPressure')}: ${title}, ${formatSpl(reading.spl)} dB SPL`}
+        aria-label={`${t('immersive.soundPressure')}: ${keyTitle}, ${formatSpl(reading.spl)} dB SPL`}
         onClick={() => (open ? close() : setOpen(true))}
       >
-        <span className={styles.key} title={title}>
+        <span className={styles.key} title={keyTitle}>
           {title}
         </span>
+        {keySub && (
+          <span className={styles['key-sub']} data-sound-pressure-key-sub>
+            {keySub}
+          </span>
+        )}
         <span className={styles.value} data-sound-pressure-spl>
           {formatSpl(reading.spl)} dB SPL
         </span>
