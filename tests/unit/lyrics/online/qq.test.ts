@@ -1,3 +1,4 @@
+import { encryptQrcHex } from '@applemusic-like-lyrics/lyric';
 import { describe, expect, it } from 'vitest';
 import { createQqSource } from '../../../../src/lyrics/online/qq.ts';
 import type { LyricsCandidate, LyricsQuery } from '../../../../src/lyrics/online/lyricsSource.ts';
@@ -132,5 +133,125 @@ describe('QQ 音乐来源', () => {
         'music.musichallSong.PlayLyricInfo.GetPlayLyricInfo'
       ]?.param.songID,
     ).toBe(2048982668);
+  });
+
+  it('搜索候选带 songid 时优先取 PlayLyricInfo 的加密 QRC，不落到逐行 LRC', async () => {
+    const qrcXml =
+      '<?xml version="1.0"?><QrcInfos><LyricInfo><Lyric_1 LyricType="1" LyricContent="[1000,2000]风(0,500)到这里(500,1500)"/></LyricInfo></QrcInfos>';
+    const lyric = encryptQrcHex(qrcXml);
+    const http = installLyricsHttp({
+      [SEARCH]: json({
+        code: 0,
+        data: {
+          song: {
+            list: [
+              {
+                songmid: '000pegfy2hOiev',
+                songid: 587372667,
+                songname: '我饮人间一碗酒',
+                albummid: '001VsUgt3GlqbV',
+                albumname: '我饮人间一碗酒',
+                interval: 214,
+                singer: [{ name: '浅影阿' }],
+              },
+            ],
+          },
+        },
+      }),
+      [SONGID]: json({
+        code: 0,
+        'music.musichallSong.PlayLyricInfo.GetPlayLyricInfo': {
+          code: 0,
+          data: { lyric },
+        },
+      }),
+      [LYRIC]: json({ retcode: 0, lyric: '[00:01]不该用的逐行', trans: '' }),
+    });
+    const source = createQqSource(http.host);
+    const [found] = (await source.search(query)) as LyricsCandidate[];
+    expect(found).toMatchObject({ ref: '000pegfy2hOiev', songId: 587372667 });
+    expect(await source.fetch(found!)).toMatchObject({
+      kind: 'synced',
+      lines: [{ words: [{ word: '风' }, { word: '到这里' }] }],
+    });
+    expect(http.posts()[0]?.url.pathname).toBe('/cgi-bin/musicu.fcg');
+    expect(
+      http.requests().some((request) => request.url.pathname.includes('fcg_query_lyric_new')),
+    ).toBe(false);
+  });
+
+  it('手输 MID 先经 get_song_detail 解析成 Song ID，再取 QRC', async () => {
+    const qrcXml =
+      '<?xml version="1.0"?><QrcInfos><LyricInfo><Lyric_1 LyricType="1" LyricContent="[1000,2000]风(0,500)到这里(500,1500)"/></LyricInfo></QrcInfos>';
+    const lyric = encryptQrcHex(qrcXml);
+    const http = installLyricsHttp({
+      [SONGID]: json({
+        code: 0,
+        req_0: {
+          code: 0,
+          data: {
+            track_info: {
+              id: 587372667,
+              mid: '000pegfy2hOiev',
+              name: '我饮人间一碗酒',
+              singer: [{ name: '浅影阿' }],
+              album: { name: '我饮人间一碗酒' },
+              interval: 214,
+            },
+          },
+        },
+        'music.musichallSong.PlayLyricInfo.GetPlayLyricInfo': {
+          code: 0,
+          data: { lyric },
+        },
+      }),
+    });
+    const source = createQqSource(http.host);
+    const [mid] = (await source.search({
+      ...query,
+      id: { source: 'qq', kind: 'qqMid', value: '000pegfy2hOiev' },
+    })) as LyricsCandidate[];
+    expect(mid).toMatchObject({
+      ref: '000pegfy2hOiev',
+      idKind: 'mid',
+      songId: 587372667,
+      title: '我饮人间一碗酒',
+      artists: ['浅影阿'],
+      album: '我饮人间一碗酒',
+      durationMs: 214000,
+    });
+    expect(await source.fetch(mid!)).toMatchObject({
+      kind: 'synced',
+      lines: [{ words: [{ word: '风' }, { word: '到这里' }] }],
+    });
+    expect(http.posts()).toHaveLength(2);
+  });
+
+  it('QRC 失败或没有内容时，MID 候选回退到逐行 LRC', async () => {
+    const failed = installLyricsHttp({
+      [SONGID]: json({ code: -1 }),
+      [LYRIC]: json({ retcode: 0, lyric: '[00:01]回退的逐行', trans: '' }),
+    });
+    const source = createQqSource(failed.host);
+    const withId: LyricsCandidate = {
+      ...candidate,
+      songId: 587372667,
+    };
+    expect(await source.fetch(withId)).toMatchObject({
+      kind: 'synced',
+      lines: [{ words: [{ word: '回退的逐行' }] }],
+    });
+
+    const empty = installLyricsHttp({
+      [SONGID]: json({
+        code: 0,
+        'music.musichallSong.PlayLyricInfo.GetPlayLyricInfo': { code: 0, data: { lyric: '' } },
+      }),
+      [LYRIC]: json({ retcode: 0, lyric: '[00:01]空 QRC 也回退', trans: '' }),
+    });
+    expect(await createQqSource(empty.host).fetch(withId)).toMatchObject({
+      kind: 'synced',
+      lines: [{ words: [{ word: '空 QRC 也回退' }] }],
+    });
   });
 });

@@ -41,6 +41,8 @@ export interface LyricsCandidate {
   readonly ref: string;
   /** 来源自己认的标识类型：QQ 的数字 Song ID 与 MID 走不同取词接口。 */
   readonly idKind?: 'mid' | 'songId';
+  /** QQ 搜索应答里的数字 Song ID；有它就优先走 PlayLyricInfo 的 QRC。 */
+  readonly songId?: number;
   readonly title: string;
   /** 已按这家的写法拆成单个艺人。 */
   readonly artists: readonly string[];
