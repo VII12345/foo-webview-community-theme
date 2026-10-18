@@ -13,6 +13,14 @@ import { reducedMotionAtom } from '../motion/reducedMotion.ts';
 import { colorSchemeAtom } from '../theme/colorScheme.ts';
 import { startLyricsDriver, type LyricsClockFace, type LyricsDriver } from './lyricsDriver.ts';
 import type { LyricsMotion } from './lyricsMotion.ts';
+import {
+  clampPreviewIndex,
+  DRAG_THRESHOLD_PX,
+  PREVIEW_HOLD_MS,
+  previewShift,
+  wheelSteps,
+  type PreviewPhase,
+} from './lyricsPreview.ts';
 import { lyricsFontFamily, lyricsProcessConfig, type LyricsDisplay } from './lyricsDisplay.ts';
 import styles from './LyricsPlayer.module.css';
 
@@ -83,40 +91,21 @@ export function LyricsPlayer({
   const [previewTop, setPreviewTop] = useState<number | null>(null);
   // 从按下到 3 秒预览结束都算预览：期间不重开逐帧驱动，也不恢复弹簧/缩放。
   const [previewing, setPreviewing] = useState(false);
+  const previewingRef = useRef(false);
+  const phase = useRef<PreviewPhase>('idle');
   const drag = useRef<{ startY: number; baseIndex: number; lineHeight: number } | null>(null);
   const lastPoint = useRef<{ clientY: number } | null>(null);
   const moveFrame = useRef<number | null>(null);
-  const lastIndex = useRef<number | null>(null);
+  const previewIndex = useRef<number | null>(null);
+  const lastAppliedIndex = useRef<number | null>(null);
+  const moved = useRef(false);
+  const wheelAccumulator = useRef(0);
+  const holdEpoch = useRef(0);
   const motionRef = useRef(motion);
   motionRef.current = motion;
   const reducedRef = useRef(reduced);
   reducedRef.current = reduced;
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  // Ctrl+滚轮 调字号、Alt+滚轮 调播放行位置：都在**捕获阶段**抢先拦下，免得 AMLL 自己也把这次滚轮当成竖向滚动。
-  // 普通滚轮原样放行，交给 AMLL 滚动歌词。Alt 优先判：Ctrl+Alt 同时按着时算调字号。
-  useEffect(() => {
-    const element = host.current;
-    if (!element || (!onZoom && !onAlignNudge)) return undefined;
-    const onWheel = (event: WheelEvent) => {
-      if (event.deltaY === 0) return;
-      const up = event.deltaY < 0;
-      if (event.ctrlKey) {
-        if (!onZoom) return;
-        event.preventDefault();
-        event.stopPropagation();
-        zoom.current?.(up ? 1 : -1);
-        return;
-      }
-      if (!event.altKey || !onAlignNudge) return;
-      event.preventDefault();
-      event.stopPropagation();
-      // Alt+上滚把播放行往下挪，视觉上跟拖歌词同一个方向（往上拖 = 往后看）。
-      nudge.current?.(up ? -1 : 1);
-    };
-    element.addEventListener('wheel', onWheel, { passive: false, capture: true });
-    return () => element.removeEventListener('wheel', onWheel, { capture: true });
-  }, [onZoom, onAlignNudge]);
 
   /** `seconds`（曲目时间）落在第几行：时间不晚于它的最后一行；首行之前是 0，末行之后封顶。 */
   const indexAt = (seconds: number): number => {
@@ -131,9 +120,22 @@ export function LyricsPlayer({
 
   /** 取消 3 秒计时并把歌词与逐帧推进还给驱动。 */
   const endPreview = useCallback(() => {
+    holdEpoch.current += 1;
     clearTimeout(hideTimer.current);
     hideTimer.current = undefined;
+    phase.current = 'idle';
+    previewingRef.current = false;
     drag.current = null;
+    moved.current = false;
+    previewIndex.current = null;
+    lastAppliedIndex.current = null;
+    lastPoint.current = null;
+    wheelAccumulator.current = 0;
+    previewRef.current = null;
+    if (moveFrame.current !== null) {
+      cancelAnimationFrame(moveFrame.current);
+      moveFrame.current = null;
+    }
     setPreview(null);
     setPreviewTop(null);
     setPreviewing(false);
@@ -169,14 +171,18 @@ export function LyricsPlayer({
     return motion.alignAnchor === 'top' ? anchor + rowHeight / 2 : anchor - rowHeight / 2;
   }, [motion.alignPosition, motion.alignAnchor]);
 
-  // 拖动预览：按住上下拖，把目标行的时间用 `setCurrentTime` 预览出来（不改播放进度）；松手留 3 秒。
+  // 拖动/滚轮预览共用一套手势状态：按下先等 4px 阈值，拖动或滚轮进入预览，松开/最后一次滚轮后保留 3 秒。
+  // Ctrl+滚轮调字号、Alt+滚轮调播放行位置与普通滚轮预览都在捕获阶段处理，避免 AMLL 再滚动一次。
   useEffect(() => {
     const element = host.current;
-    if (!element || !onSeek) return undefined;
+    if (!element) return undefined;
     const secondsAt = (index: number) =>
-      (linesRef.current[Math.min(Math.max(index, 0), linesRef.current.length - 1)]?.startTime ?? 0) /
-      1000;
-    /** 真实行距：取相邻两个歌词行的中心差；只剩一行时用它的高度。底部的填充行不是歌词行，要排掉。 */
+      (linesRef.current[clampPreviewIndex(index, linesRef.current.length)]?.startTime ?? 0) / 1000;
+    const showPreview = (seconds: number) => {
+      previewRef.current = seconds;
+      setPreview(seconds);
+    };
+    /** 真实行距：取相邻两个歌词行的中心差；只剩一行时用它的高度。底部的填充行不是歌词行。 */
     const rowSpacing = (): number => {
       const rows = [...element.querySelectorAll<HTMLElement>('[class*="lyricLineWrapper"]')].filter(
         (row) => !row.className.includes('bottomLineWrapper'),
@@ -187,82 +193,173 @@ export function LyricsPlayer({
       if (first) return Math.max(12, first.height);
       return 48;
     };
-    const onDown = (event: PointerEvent) => {
-      if (event.button !== 0 || linesRef.current.length === 0) return;
-      // 点在预览覆盖层的播放按钮上时交给按钮，不进拖动。
-      if (event.target instanceof Element && event.target.closest('[data-lyric-drag-preview]'))
-        return;
+    const armHold = () => {
+      const epoch = ++holdEpoch.current;
       clearTimeout(hideTimer.current);
-      hideTimer.current = undefined;
-      // 虚线的位置在按下时定一次，之后不再动：拖动时只有歌词在滚，读起来才像在「挪歌词」。
-      setPreviewTop(anchorTop());
+      hideTimer.current = setTimeout(() => {
+        if (holdEpoch.current !== epoch || phase.current !== 'holding') return;
+        hideTimer.current = undefined;
+        endPreview();
+      }, PREVIEW_HOLD_MS);
+    };
+    const beginPreview = (baseIndex: number) => {
+      clearTimeout(hideTimer.current);
+      holdEpoch.current += 1;
+      phase.current = 'holding';
+      previewingRef.current = true;
+      previewIndex.current = baseIndex;
+      lastAppliedIndex.current = null;
+      moved.current = false;
       setPreviewing(true);
-      lastIndex.current = null;
-      lastPoint.current = null;
-      drag.current = {
-        startY: event.clientY,
-        baseIndex: indexAt(clock.position() - offsetRef.current),
-        lineHeight: rowSpacing(),
-      };
-      // 拖动期间停掉驱动的逐帧推送，并把弹簧/缩放关掉，免得反复 seek 与动画互相拉扯。
+      setPreviewTop(anchorTop());
       driver.current?.setActive(false);
       player?.setEnableSpring(false);
       player?.setEnableScale(false);
       player?.calcLayout(LayoutReason.ConfigChange);
-      element.setPointerCapture(event.pointerId);
     };
-    const applyMove = (clientY: number) => {
-      const start = drag.current;
-      if (!start) return;
-      const shift = Math.round((start.startY - clientY) / start.lineHeight);
-      const index = Math.min(
-        Math.max(start.baseIndex + shift, 0),
-        Math.max(0, linesRef.current.length - 1),
-      );
-      if (index === lastIndex.current && previewRef.current !== null) return;
-      lastIndex.current = index;
-      const seconds = secondsAt(index);
-      setPreview(seconds);
+    const applyIndex = (index: number) => {
+      const next = clampPreviewIndex(index, linesRef.current.length);
+      if (next === lastAppliedIndex.current && previewRef.current !== null) return;
+      lastAppliedIndex.current = next;
+      previewIndex.current = next;
+      moved.current = true;
+      const seconds = secondsAt(next);
+      showPreview(seconds);
       const created = player;
       if (created) {
         created.setCurrentTime((seconds - offsetRef.current) * 1000, true);
         created.update(16);
       }
     };
+    const flushMove = (clientY: number) => {
+      const start = drag.current;
+      if (!start) return;
+      applyIndex(start.baseIndex + previewShift(start.startY, clientY, start.lineHeight));
+    };
+    const onDown = (event: PointerEvent) => {
+      if (event.button !== 0 || linesRef.current.length === 0 || !onSeek) return;
+      // 点在预览右侧的播放按钮上时交给按钮，不进拖动。
+      if (event.target instanceof Element && event.target.closest('[data-lyric-drag-preview]'))
+        return;
+      clearTimeout(hideTimer.current);
+      hideTimer.current = undefined;
+      holdEpoch.current += 1;
+      if (moveFrame.current !== null) {
+        cancelAnimationFrame(moveFrame.current);
+        moveFrame.current = null;
+      }
+      lastPoint.current = null;
+      wheelAccumulator.current = 0;
+      moved.current = false;
+      phase.current = 'pressing';
+      // 第二次拖动从当前预览行继续，而不是从实时播放位置重新起算。
+      const baseIndex =
+        previewRef.current !== null
+          ? indexAt(previewRef.current)
+          : indexAt(clock.position() - offsetRef.current);
+      drag.current = {
+        startY: event.clientY,
+        baseIndex,
+        lineHeight: rowSpacing(),
+      };
+      element.setPointerCapture(event.pointerId);
+    };
     const onMove = (event: PointerEvent) => {
-      if (!drag.current) return;
+      const start = drag.current;
+      if (!start || !onSeek) return;
+      if (phase.current === 'pressing') {
+        if (Math.abs(event.clientY - start.startY) < DRAG_THRESHOLD_PX) return;
+        beginPreview(start.baseIndex);
+        phase.current = 'dragging';
+      }
+      if (phase.current !== 'dragging') return;
       lastPoint.current = { clientY: event.clientY };
       if (moveFrame.current !== null) return;
       moveFrame.current = requestAnimationFrame(() => {
         moveFrame.current = null;
         const point = lastPoint.current;
-        if (point) applyMove(point.clientY);
+        if (point && phase.current === 'dragging') flushMove(point.clientY);
       });
     };
     const onUp = (event: PointerEvent) => {
-      if (!drag.current) return;
+      if (phase.current === 'idle') return;
       if (moveFrame.current !== null) {
         cancelAnimationFrame(moveFrame.current);
         moveFrame.current = null;
       }
       const point = lastPoint.current;
       lastPoint.current = null;
-      if (point) applyMove(point.clientY);
+      if (point && phase.current === 'dragging') flushMove(point.clientY);
       drag.current = null;
       if (element.hasPointerCapture(event.pointerId))
         element.releasePointerCapture(event.pointerId);
-      // 没真正移动过（只是按了一下）：不必留预览，直接归位。
-      if (previewRef.current === null) {
+      if (phase.current === 'pressing') {
+        // 只是点了一下：结束已有预览，不重新挂计时器。
         endPreview();
         return;
       }
-      // 松开先保留 3 秒；不点播放按钮就归位。
-      hideTimer.current = setTimeout(endPreview, 3000);
+      if (phase.current === 'dragging') {
+        phase.current = 'holding';
+        if (moved.current) armHold();
+        else endPreview();
+      }
     };
-    element.addEventListener('pointerdown', onDown);
-    element.addEventListener('pointermove', onMove);
-    element.addEventListener('pointerup', onUp);
-    element.addEventListener('pointercancel', onUp);
+    const onCancel = (event: PointerEvent) => {
+      drag.current = null;
+      if (element.hasPointerCapture(event.pointerId))
+        element.releasePointerCapture(event.pointerId);
+      endPreview();
+    };
+    if (onSeek) {
+      element.addEventListener('pointerdown', onDown);
+      element.addEventListener('pointermove', onMove);
+      element.addEventListener('pointerup', onUp);
+      element.addEventListener('pointercancel', onCancel);
+    }
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return;
+      const up = event.deltaY < 0;
+      if (event.ctrlKey) {
+        if (!onZoom) return;
+        event.preventDefault();
+        event.stopPropagation();
+        zoom.current?.(up ? 1 : -1);
+        return;
+      }
+      if (event.altKey) {
+        if (!onAlignNudge) return;
+        event.preventDefault();
+        event.stopPropagation();
+        nudge.current?.(up ? -1 : 1);
+        return;
+      }
+      if (!onSeek || phase.current === 'pressing' || phase.current === 'dragging') return;
+      event.preventDefault();
+      event.stopPropagation();
+      const { steps, remainder } = wheelSteps(
+        wheelAccumulator.current,
+        event.deltaY,
+        event.deltaMode,
+        element.clientHeight,
+      );
+      wheelAccumulator.current = remainder;
+      if (steps === 0) return;
+      if (phase.current === 'idle') {
+        const baseIndex =
+          previewRef.current !== null
+            ? indexAt(previewRef.current)
+            : indexAt(clock.position() - offsetRef.current);
+        beginPreview(baseIndex);
+      }
+      const current =
+        previewIndex.current ?? indexAt(clock.position() - offsetRef.current);
+      applyIndex(current + steps);
+      phase.current = 'holding';
+      armHold();
+    };
+    if (onSeek || onZoom || onAlignNudge) {
+      element.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    }
     return () => {
       if (moveFrame.current !== null) cancelAnimationFrame(moveFrame.current);
       moveFrame.current = null;
@@ -270,11 +367,12 @@ export function LyricsPlayer({
       element.removeEventListener('pointerdown', onDown);
       element.removeEventListener('pointermove', onMove);
       element.removeEventListener('pointerup', onUp);
-      element.removeEventListener('pointercancel', onUp);
+      element.removeEventListener('pointercancel', onCancel);
+      element.removeEventListener('wheel', onWheel, { capture: true });
     };
-  }, [player, clock, onSeek, endPreview, anchorTop]);
+  }, [player, clock, onSeek, onZoom, onAlignNudge, endPreview, anchorTop]);
 
-  useEffect(() => () => clearTimeout(hideTimer.current), []);
+  useEffect(() => () => clearTimeout(hideTimer.current), [player]);
 
   // 预览期间只跟容器大小变；拖动中每换一行不再重算锚点，否则虚线会跟着行高变化上下跳。
   useEffect(() => {
@@ -402,28 +500,36 @@ export function LyricsPlayer({
       data-romanization={display?.showRomanization === false ? 'hidden' : undefined}
     >
       {preview !== null && onSeek && (
-        // 拖动预览：被选中的行画一道虚线，右边浮一个播放按钮；点它才真正跳转。
-        <button
-          type="button"
-          className={styles.preview}
-          data-lyric-drag-preview
-          style={previewTop !== null ? { top: `${previewTop}px` } : undefined}
-          aria-label={t('lyrics.seekTo', { time: formatLyricTime(preview) })}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => {
-            // 真跳了，预览与虚线立刻收掉，不用再等那 3 秒。
-            const target = preview;
-            endPreview();
-            onSeek(target);
-          }}
-        >
-          <span className={styles['preview-time']} data-lyric-preview-time>
-            {formatLyricTime(preview)}
-          </span>
-          <span className={styles['preview-play']} aria-hidden>
-            <Play16Filled />
-          </span>
-        </button>
+        // 拖动/滚轮预览：虚线只做视觉标记，不接指针；只有右侧播放按钮可点。
+        <>
+          <div
+            className={styles['preview-line']}
+            data-lyric-drag-line
+            aria-hidden
+            style={previewTop !== null ? { top: `${previewTop}px` } : undefined}
+          />
+          <button
+            type="button"
+            className={styles['preview-chip']}
+            data-lyric-drag-preview
+            style={previewTop !== null ? { top: `${previewTop}px` } : undefined}
+            aria-label={t('lyrics.seekTo', { time: formatLyricTime(preview) })}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => {
+              // 真跳了，预览与虚线立刻收掉，不用再等那 3 秒。
+              const target = preview;
+              endPreview();
+              onSeek(target);
+            }}
+          >
+            <span className={styles['preview-time']} data-lyric-preview-time>
+              {formatLyricTime(preview)}
+            </span>
+            <span className={styles['preview-play']} aria-hidden>
+              <Play16Filled />
+            </span>
+          </button>
+        </>
       )}
     </div>
   );

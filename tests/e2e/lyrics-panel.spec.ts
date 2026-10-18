@@ -594,6 +594,66 @@ test('按住歌词上下拖动出现虚线预览与播放按钮，点它才跳�
   expect(env.errors).toEqual([]);
 });
 
+test('第一次拖动松开后立即再拖，从预览行继续而不是跳回播放位置', async ({ page }) => {
+  const LYRICS = '[00:30]一句\n[00:35]二句\n[00:40]三句\n[00:45]四句\n[00:50]五句';
+  await openLyrics(page, LYRICS);
+  const player = lyricsPlayer(page);
+  const box = await player.boundingBox();
+  if (!box) throw new Error('歌词播放器不可见');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const preview = panel(page).locator('[data-lyric-drag-preview]');
+  const time = () => preview.locator('[data-lyric-preview-time]').innerText();
+  const spacing = await player.evaluate((element) => {
+    const rows = [...element.querySelectorAll<HTMLElement>('[class*="lyricLineWrapper"]')].filter(
+      (row) => !row.className.includes('bottomLineWrapper'),
+    );
+    const first = rows[0]?.getBoundingClientRect();
+    const second = rows[1]?.getBoundingClientRect();
+    return first && second ? Math.max(12, second.top - first.top) : 40;
+  });
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + spacing, { steps: 5 });
+  await page.mouse.up();
+  await expect(preview).toBeVisible();
+  expect(await time()).toBe('00:35');
+  // 不等待 3 秒，立刻从虚线处再拖一次；应从 00:35 继续到 00:30。
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + spacing, { steps: 5 });
+  await page.mouse.up();
+  await expect(preview).toBeVisible();
+  expect(await time()).toBe('00:30');
+  // 普通点击结束预览，不会把 3 秒计时器重新挂上。
+  await page.mouse.click(x, y);
+  await expect(preview).toHaveCount(0, { timeout: 1500 });
+});
+
+test('滚轮像拖动一样换行预览，不直接 seek，3 秒后消失', async ({ page }) => {
+  const env = await openLyrics(
+    page,
+    '[00:30]一句\n[00:35]二句\n[00:40]三句\n[00:45]四句\n[00:50]五句',
+  );
+  const player = lyricsPlayer(page);
+  const box = await player.boundingBox();
+  if (!box) throw new Error('歌词播放器不可见');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.wheel(0, 40);
+  const preview = panel(page).locator('[data-lyric-drag-preview]');
+  await expect(preview).toBeVisible();
+  const time = () => preview.locator('[data-lyric-preview-time]').innerText();
+  expect(await time()).toBe('00:45');
+  expect(env.host.callsTo('playback.setPosition')).toHaveLength(0);
+  await page.mouse.wheel(0, 40);
+  await expect.poll(time).toBe('00:50');
+  expect(env.host.callsTo('playback.setPosition')).toHaveLength(0);
+  await expect(preview).toHaveCount(0, { timeout: 5000 });
+  expect(env.errors).toEqual([]);
+});
+
 test('拖动预览松开不点播放按钮，约 3 秒后自动消失', async ({ page }) => {
   const env = await openLyrics(page);
   const player = lyricsPlayer(page);
