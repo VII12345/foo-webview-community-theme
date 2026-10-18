@@ -103,11 +103,15 @@ for (const colorScheme of ['light', 'dark'] as const) {
       .filter({ has: page.locator('dt').getByText('艺人', { exact: true }) });
     const button = row.getByRole('button', { name: '复制', exact: true });
     const reveal = button.locator('..');
+    const edit = row.getByRole('button', { name: '编辑这些标签', exact: true });
+    const editReveal = edit.locator('..');
     await page.mouse.move(0, 0);
     await expect(reveal).toHaveCSS('opacity', '0');
+    await expect(editReveal).toHaveCSS('opacity', '0');
     const before = await row.boundingBox();
     await row.hover();
     await expect(reveal).toHaveCSS('opacity', '1');
+    await expect(editReveal).toHaveCSS('opacity', '1');
     expect(await row.boundingBox()).toEqual(before);
     await button.click();
     expect(host.callsTo('clipboard.write').at(-1)?.['text']).toBe('Nujabes\nCise Starr, Akin');
@@ -283,6 +287,7 @@ test('全部标签与摘要可编辑：改多值、加标签、删标签，摘�
     .locator('dl > div')
     .filter({ has: page.getByText('总碟数', { exact: true }) });
   await expect(discsRow).toContainText('未填写');
+  await discsRow.hover();
   await discsRow.getByRole('button', { name: '编辑这些标签' }).click();
   const missingEditor = page.getByRole('dialog');
   await missingEditor.getByLabel('标签值').fill('2');
@@ -327,6 +332,7 @@ test('全部标签与摘要可编辑：改多值、加标签、删标签，摘�
     .locator('dl > div')
     .filter({ has: page.getByText('标题', { exact: true }) })
     .first();
+  await titleRow.hover();
   await titleRow.getByRole('button', { name: '编辑这些标签' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('标签值').fill('New Feather');

@@ -263,31 +263,35 @@ function TagList({
                 ))}
               </dd>
               <span className={styles.actions}>
-                <Tooltip content={t('trackInfo.editTag')} relationship="label">
-                  <Button
-                    className={mergeClasses(classes.icon, controls.icon)}
-                    appearance="subtle"
-                    size="small"
-                    icon={<Edit16Regular />}
-                    aria-label={t('trackInfo.editTag')}
-                    disabled={busy}
-                    onClick={() => {
-                      setAdding(false);
-                      setEditing({ name: tag.name, values: [...tag.values] });
-                    }}
-                  />
-                </Tooltip>
-                <Tooltip content={t('trackInfo.deleteTag')} relationship="label">
-                  <Button
-                    className={mergeClasses(classes.icon, controls.icon)}
-                    appearance="subtle"
-                    size="small"
-                    icon={<Delete16Regular />}
-                    aria-label={t('trackInfo.deleteTag')}
-                    disabled={busy}
-                    onClick={() => setDeleting({ name: tag.name })}
-                  />
-                </Tooltip>
+                <span className={styles.copy}>
+                  <Tooltip content={t('trackInfo.editTag')} relationship="label">
+                    <Button
+                      className={mergeClasses(classes.icon, controls.icon)}
+                      appearance="subtle"
+                      size="small"
+                      icon={<Edit16Regular />}
+                      aria-label={t('trackInfo.editTag')}
+                      disabled={busy}
+                      onClick={() => {
+                        setAdding(false);
+                        setEditing({ name: tag.name, values: [...tag.values] });
+                      }}
+                    />
+                  </Tooltip>
+                </span>
+                <span className={styles.copy}>
+                  <Tooltip content={t('trackInfo.deleteTag')} relationship="label">
+                    <Button
+                      className={mergeClasses(classes.icon, controls.icon)}
+                      appearance="subtle"
+                      size="small"
+                      icon={<Delete16Regular />}
+                      aria-label={t('trackInfo.deleteTag')}
+                      disabled={busy}
+                      onClick={() => setDeleting({ name: tag.name })}
+                    />
+                  </Tooltip>
+                </span>
                 <CopyInfoButton text={copyInfoTags([tag])} service={service} t={t} />
               </span>
             </div>
@@ -386,19 +390,21 @@ function InfoSectionContent({
               </dd>
               <span className={styles.actions}>
                 {(sources?.length || addName) && (
-                  <Tooltip content={t('trackInfo.editTags')} relationship="label">
-                    <Button
-                      className={mergeClasses(classes.icon, controls.icon)}
-                      appearance="subtle"
-                      size="small"
-                      icon={<Edit16Regular />}
-                      aria-label={t('trackInfo.editTags')}
-                      disabled={state.saving}
-                      onClick={() =>
-                        setEditingRow({ label, values, missing, sources, addName })
-                      }
-                    />
-                  </Tooltip>
+                  <span className={styles.copy}>
+                    <Tooltip content={t('trackInfo.editTags')} relationship="label">
+                      <Button
+                        className={mergeClasses(classes.icon, controls.icon)}
+                        appearance="subtle"
+                        size="small"
+                        icon={<Edit16Regular />}
+                        aria-label={t('trackInfo.editTags')}
+                        disabled={state.saving}
+                        onClick={() =>
+                          setEditingRow({ label, values, missing, sources, addName })
+                        }
+                      />
+                    </Tooltip>
+                  </span>
                 )}
                 <CopyInfoButton
                   text={values.join('\n')}
