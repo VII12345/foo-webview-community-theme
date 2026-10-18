@@ -35,6 +35,11 @@ export const immersiveZhCN: Record<keyof typeof immersiveEn, string> = {
   'immersive.soundPressureAverageHint':
     '从曲首开始按已播放片段做能量平均；换曲清零，seek 继续累计。',
   'immersive.soundPressureCurrent': '当前',
+  'immersive.dx52Auto': '自动',
+  'immersive.dx52Output': '输出',
+  'immersive.dx52Gain': '增益',
+  'immersive.dx52DeviceVolume': '设备音量',
+  'immersive.dx52SampleRate': '采样率',
   'immersive.soundPressureClose': '关闭',
   'immersive.soundPressurePickAmp': '耳放',
   'immersive.soundPressurePickHeadphone': '耳机',

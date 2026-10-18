@@ -33,6 +33,11 @@ export const immersiveEn = {
   'immersive.soundPressureAverageHint':
     'Energy average of the played part since the start of the track; cleared on track change, kept across seeks.',
   'immersive.soundPressureCurrent': 'Now',
+  'immersive.dx52Auto': 'Auto',
+  'immersive.dx52Output': 'Output',
+  'immersive.dx52Gain': 'Gain',
+  'immersive.dx52DeviceVolume': 'Device volume',
+  'immersive.dx52SampleRate': 'Sample rate',
   'immersive.soundPressureClose': 'Close',
   'immersive.soundPressurePickAmp': 'Amplifier',
   'immersive.soundPressurePickHeadphone': 'Headphones',

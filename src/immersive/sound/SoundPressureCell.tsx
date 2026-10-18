@@ -10,7 +10,7 @@ import {
   formatVoltage,
   type SoundPressureReading,
 } from '../../playback/soundPressure.ts';
-import { soundPressureViewAtom } from './soundPressureReading.ts';
+import { soundPressureViewAtom, type SoundPressureAuto } from './soundPressureReading.ts';
 import { SoundPressurePanel } from './SoundPressurePanel.tsx';
 import styles from './SoundPressureCell.module.css';
 
@@ -34,17 +34,42 @@ function stateHint(reading: SoundPressureReading): MessageKey | null {
   }
 }
 
-/**
- * 右栏里的耳机输出声压：SPL、功率、电压与到 80 dB 的安全余量，实时跟着 Short-term LUFS 与音量走。
- * 只在图纸与聚焦视图替换 Genre 的位置；点开是设备浮层，选择立即生效。
- */
+function autoHint(auto: SoundPressureAuto): MessageKey | null {
+  switch (auto.reason) {
+    case 'unsupported':
+      return 'settings.dx52Unsupported';
+    case 'unauthorized':
+      return 'settings.dx52Unauthorized';
+    case 'connecting':
+      return 'settings.dx52Connecting';
+    case 'busy':
+      return 'settings.dx52Busy';
+    case 'error':
+      return 'settings.dx52Error';
+    case 'not-usb':
+      return 'settings.dx52NotUsb';
+    case 'line':
+      return 'settings.dx52LineOutput';
+    case 'wrong-output':
+      return 'settings.dx52WrongOutput';
+    case 'off':
+      return 'settings.dx52PoweredOff';
+    default:
+      return null;
+  }
+}
+
 /** 平均 LUFS 的显示：负数用排版减号，与余量一致。 */
 const lufsText = (value: number | null): string =>
   value === null ? '—' : value.toFixed(1).replace('-', '−');
 
+/**
+ * 右栏里的耳机输出声压：SPL、功率、电压与到 80 dB 的安全余量，实时跟着 Short-term LUFS 与音量走。
+ * 只在图纸与聚焦视图替换 Genre 的位置；点开是设备浮层，选择立即生效。
+ */
 export function SoundPressureCell({ variant }: SoundPressureCellProps) {
   const t = useAtomValueRawSync(translateAtom);
-  const { rig, amp, headphone, reading, averageReading, averageLufs } =
+  const { rig, amp, headphone, reading, averageReading, averageLufs, auto } =
     useAtomValueRawSync(soundPressureViewAtom);
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -66,8 +91,19 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
     setOpen(false);
     requestAnimationFrame(() => trigger.current?.focus());
   };
-  const device = amp && headphone ? `${amp.name} · ${headphone.name}` : null;
-  const hint = stateHint(reading);
+  const autoTitle = auto.state
+    ? `${auto.state.deviceName || 'TOPPING DX5 II'}${auto.output ? ` · ${auto.output.label}` : ''}`
+    : 'TOPPING DX5 II';
+  const device = auto.enabled
+    ? auto.active
+      ? amp && headphone
+        ? `${amp.name} · ${headphone.name}`
+        : autoTitle
+      : autoTitle
+    : amp && headphone
+      ? `${amp.name} · ${headphone.name}`
+      : null;
+  const hint = auto.enabled && !auto.active ? autoHint(auto) : stateHint(reading);
   const margin =
     reading.marginDb === null
       ? null
@@ -81,6 +117,19 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
         ? t(hint)
         : '—';
   const title = device ? `SPL · ${device}` : `SPL · ${t('immersive.soundPressureUnset')}`;
+  const rate =
+    auto.state?.sampleRate && auto.state.sampleRate >= 1000
+      ? ` · ${Math.round(auto.state.sampleRate / 1000)} kHz`
+      : '';
+  const autoDetail = auto.enabled
+    ? auto.active && auto.state && auto.output
+      ? `${t('immersive.dx52Auto')} · ${auto.state.deviceName || 'TOPPING DX5 II'} · ${auto.output.label} · ${
+          auto.state.highGain ? t('settings.dx52HighGain') : t('settings.dx52LowGain')
+        } · ${t('immersive.dx52DeviceVolume')} ${auto.state.volumeDb.toFixed(1)} dB${rate}`
+      : hint
+        ? t(hint)
+        : ''
+    : '';
   return (
     <div className={styles.cell} data-variant={variant} data-state={reading.state} data-field="soundPressure">
       <button
@@ -116,6 +165,7 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
           reading={reading}
           averageReading={averageReading}
           averageLufs={averageLufs}
+          autoDetail={autoDetail}
           panelSide="below"
           variant={variant}
           onClose={close}

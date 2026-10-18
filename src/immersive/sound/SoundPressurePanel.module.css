@@ -82,6 +82,10 @@
   line-height: 15px;
 }
 
+.auto {
+  color: var(--colorNeutralForeground1);
+}
+
 .list {
   display: flex;
   flex-direction: column;

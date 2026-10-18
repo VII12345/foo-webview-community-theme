@@ -60,6 +60,7 @@ export interface SoundPressurePanelProps {
   readonly reading: SoundPressureReading;
   readonly averageReading: SoundPressureReading;
   readonly averageLufs: number | null;
+  readonly autoDetail?: string;
   readonly panelSide: 'below' | 'above';
   readonly variant: 'stage' | 'sheet';
   readonly onClose: () => void;
@@ -76,6 +77,7 @@ export function SoundPressurePanel({
   reading,
   averageReading,
   averageLufs,
+  autoDetail,
   panelSide,
   variant,
   onClose,
@@ -225,6 +227,11 @@ export function SoundPressurePanel({
         </button>
       </div>
       <div className={styles.readout} data-sound-pressure-readout>
+        {autoDetail && (
+          <span className={styles.auto} data-sound-pressure-auto>
+            {autoDetail}
+          </span>
+        )}
         <span>
           {t('immersive.soundPressureCurrent')} {formatSpl(reading.spl)} dB SPL
         </span>

@@ -19,6 +19,12 @@
   gap: 2px;
 }
 
+.dx52Actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingHorizontalS);
+}
+
 .form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

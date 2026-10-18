@@ -1,4 +1,4 @@
-import { Button, Input } from '@fluentui/react-components';
+import { Button, Input, Switch, Tooltip } from '@fluentui/react-components';
 import {
   Add16Regular,
   Delete16Regular,
@@ -29,6 +29,8 @@ import {
   type SensitivityUnit,
 } from '../playback/soundPressure.ts';
 import { soundPressureKey } from '../playback/soundPressurePrefs.ts';
+import { dx52OutputInfo, type Dx52Jack } from '../playback/dx52.ts';
+import { DX52_AUTO_KEY, DX52_JACK_KEY, dx52Key } from '../playback/dx52Prefs.ts';
 import { SettingsExpander } from './SettingsExpander.tsx';
 import { SettingsRow } from './SettingsRow.tsx';
 import { SettingsSaveNotice } from './SettingsSaveNotice.tsx';
@@ -211,7 +213,12 @@ function HeadphoneForm({
 export function SoundPressureSection() {
   const t = useAtomValueRawSync(translateAtom);
   const service = useService(soundPressureKey);
+  const dx52 = useService(dx52Key);
   const rig = useAtomValueRawSync(service.rig);
+  const dx52Enabled = useAtomValueRawSync(dx52.enabled);
+  const dx52Jack = useAtomValueRawSync(dx52.jack);
+  const dx52Status = useAtomValueRawSync(dx52.status);
+  const dx52State = useAtomValueRawSync(dx52.state);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -305,22 +312,89 @@ export function SoundPressureSection() {
       }`,
     })),
   ];
+  const jackOptions = [
+    { value: 'auto', label: t('settings.dx52JackAuto') },
+    { value: 'single', label: t('settings.dx52JackSingle') },
+    { value: 'balanced', label: t('settings.dx52JackBalanced') },
+  ];
+  const dx52Description = (() => {
+    if (!dx52Enabled) return t('settings.dx52OffHint');
+    if (dx52Status.kind === 'unsupported') return t('settings.dx52Unsupported');
+    if (dx52Status.kind === 'unauthorized') return t('settings.dx52Unauthorized');
+    if (dx52Status.kind === 'connecting') return t('settings.dx52Connecting');
+    if (dx52Status.kind === 'busy') return t('settings.dx52Busy');
+    if (dx52Status.kind === 'error') return t('settings.dx52Error');
+    if (!dx52State) return t('settings.dx52Connecting');
+    if (!dx52State.powered) return t('settings.dx52PoweredOff');
+    if (dx52State.input !== 'usb') return t('settings.dx52NotUsb');
+    const output = dx52OutputInfo(dx52State.route, dx52Jack);
+    if (!output.headphone) return t('settings.dx52LineOutput');
+    const gain = dx52State.highGain ? t('settings.dx52HighGain') : t('settings.dx52LowGain');
+    const rate =
+      dx52State.sampleRate && dx52State.sampleRate >= 1000
+        ? ` · ${Math.round(dx52State.sampleRate / 1000)} kHz`
+        : '';
+    return `${dx52State.deviceName || 'TOPPING DX5 II'} · ${output.label} · ${gain} · ${dx52State.volumeDb.toFixed(1)} dB${rate}`;
+  })();
+  const dx52CanAuthorize =
+    dx52Enabled &&
+    (dx52Status.kind === 'unauthorized' ||
+      dx52Status.kind === 'busy' ||
+      dx52Status.kind === 'error');
   return (
     <SettingsExpander
       icon={<Headphones20Regular />}
       title={t('settings.soundPressure')}
       description={t('settings.soundPressureHint')}
       feedback={
-        <SettingsSaveNotice
-          persistence={service.persistence}
-          keys={[HEADPHONE_RIG_KEY]}
-        />
+        <>
+          <SettingsSaveNotice
+            persistence={service.persistence}
+            keys={[HEADPHONE_RIG_KEY]}
+          />
+          <SettingsSaveNotice
+            persistence={dx52.persistence}
+            keys={[DX52_AUTO_KEY, DX52_JACK_KEY]}
+          />
+        </>
       }
     >
+      <SettingsRow title={t('settings.dx52Auto')} description={dx52Description} field>
+        {(ids) => (
+          <div className={styles.dx52Actions}>
+            <Tooltip content={t('settings.dx52AutoHint')} relationship="description">
+              <Switch
+                aria-labelledby={ids.labelId}
+                aria-describedby={ids.descriptionId}
+                checked={dx52Enabled}
+                onChange={(_, data) => dx52.setEnabled(data.checked)}
+              />
+            </Tooltip>
+            {dx52CanAuthorize && (
+              <Button size="small" onClick={() => dx52.authorize()}>
+                {t('settings.dx52Authorize')}
+              </Button>
+            )}
+          </div>
+        )}
+      </SettingsRow>
+      {dx52Enabled && (
+        <SettingsRow title={t('settings.dx52Jack')} field>
+          {(ids) => (
+            <SettingsSelect
+              {...ids}
+              options={jackOptions}
+              value={dx52Jack}
+              onChange={(value) => dx52.setJack(value as Dx52Jack)}
+            />
+          )}
+        </SettingsRow>
+      )}
       <SettingsRow title={t('settings.currentAmp')} field>
         {(ids) => (
           <SettingsSelect
             {...ids}
+            disabled={dx52Enabled}
             options={ampOptions}
             value={rig.selectedAmpId ?? ''}
             onChange={(value) => service.selectAmp(value || null)}

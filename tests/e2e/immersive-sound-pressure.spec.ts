@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { DX52_AUTO_KEY } from '../../src/playback/dx52Prefs.ts';
 import { HEADPHONE_RIG_KEY } from '../../src/playback/soundPressure.ts';
+import { outputDevice, outputEntry } from '../fixtures/hostAnswers.ts';
 import { openImmersive } from '../fixtures/immersivePage.ts';
 
 // 耳机声压：只替换图纸与聚焦视图里的 Genre；设备浮层选完立即生效，窄档不补。
@@ -99,6 +101,113 @@ test('版心档的图纸与聚焦也有声压，窄档没有', async ({ page }) 
   await page.setViewportSize({ width: 390, height: 700 });
   await expect(view.locator('[data-tier]')).toHaveAttribute('data-tier', 'narrow');
   await expect(view.locator('[data-field="soundPressure"]')).toHaveCount(0);
+  expect(errors).toStrictEqual([]);
+});
+
+test('DX5 II 自动模式下组件显示当前输出与设备音量', async ({ page }) => {
+  await page.addInitScript(() => {
+    const crc16 = (bytes: Uint8Array): number => {
+      let value = 0xffff;
+      for (const byte of bytes) {
+        value ^= byte;
+        for (let bit = 0; bit < 8; bit += 1)
+          value = value & 1 ? (value >> 1) ^ 0xa001 : value >> 1;
+      }
+      return value & 0xffff;
+    };
+    const frame = (cmd: number, data: number, proto: number, total: number, cur: number) => {
+      const bytes = new Uint8Array(16);
+      bytes[0] = 0x22;
+      bytes[1] = 0x33;
+      bytes[2] = proto;
+      bytes[3] = total;
+      bytes[4] = cur;
+      bytes[5] = (cmd >> 8) & 0xff;
+      bytes[6] = cmd & 0xff;
+      bytes[7] = (data >>> 24) & 0xff;
+      bytes[8] = (data >>> 16) & 0xff;
+      bytes[9] = (data >>> 8) & 0xff;
+      bytes[10] = data & 0xff;
+      const crc = crc16(bytes.subarray(2, 11));
+      bytes[11] = crc >> 8;
+      bytes[12] = crc & 0xff;
+      bytes[13] = 0x66;
+      bytes[14] = 0x77;
+      return bytes;
+    };
+    class FakeDevice extends EventTarget {
+      opened = false;
+      productName = 'TOPPING DX5 II';
+      async open() {
+        this.opened = true;
+      }
+      async close() {
+        this.opened = false;
+      }
+      async sendReport(_reportId: number, data: BufferSource) {
+        const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
+        const cmd = ((bytes[5] ?? 0) << 8) | (bytes[6] ?? 0);
+        if (cmd !== 0x710c) return;
+        const words = new Array<number>(45).fill(0);
+        words[0] = 1;
+        words[9] = 20;
+        words[12] = 3;
+        words[27] = 96000;
+        words.forEach((word, index) => {
+          setTimeout(() => {
+            const bytes = frame(0x710c, word, 0x11, words.length, index + 1);
+            this.dispatchEvent(
+              Object.assign(new Event('inputreport'), {
+                data: new DataView(bytes.buffer),
+              }),
+            );
+          }, 0);
+        });
+      }
+    }
+    const device = new FakeDevice();
+    class FakeHid extends EventTarget {
+      async getDevices() {
+        return [device];
+      }
+      async requestDevice() {
+        return [device];
+      }
+    }
+    Object.defineProperty(navigator, 'hid', { configurable: true, value: new FakeHid() });
+  });
+
+  const { view, errors } = await openImmersive(page, {
+    config: { [DX52_AUTO_KEY]: true },
+    onHost(host) {
+      host.answer('config.getOutputDevices', {
+        success: true,
+        devices: [
+          outputDevice(
+            '{00000000-0000-0000-0000-000000000001}',
+            '{00000000-0000-0000-0000-000000000002}',
+            'Speakers (TOPPING DX5 II)',
+            true,
+          ),
+        ],
+        count: 1,
+      });
+      host.answer('output.getEntries', {
+        success: true,
+        entries: [
+          outputEntry('{00000000-0000-0000-0000-000000000001}', 'DirectSound'),
+        ],
+      });
+    },
+  });
+  const cell = view.locator('[data-field="soundPressure"]');
+  await expect(cell).toContainText('TOPPING DX5 II');
+  await expect(cell).toContainText('6.35mm');
+  await cell.locator('button').first().click();
+  const panel = view.locator('[data-sound-pressure-panel]');
+  await expect(panel.locator('[data-sound-pressure-auto]')).toContainText(
+    '设备音量 -10.0 dB',
+  );
   expect(errors).toStrictEqual([]);
 });
 

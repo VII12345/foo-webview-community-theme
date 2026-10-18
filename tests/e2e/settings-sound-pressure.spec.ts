@@ -4,6 +4,31 @@ import { enterSettings, openSettings } from '../fixtures/settingsPage.ts';
 
 // 「耳机」设置组：耳放与耳机分开维护，当前设备用下拉切换；改动写宿主 config，刷新后还在。
 
+test('DX52 自动读取开关与提示', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'hid', {
+      configurable: true,
+      value: {
+        getDevices: async () => [],
+        requestDevice: async () => [],
+        addEventListener() {},
+        removeEventListener() {},
+      },
+    });
+  });
+  const settings = await openSettings(page);
+  const expander = settings.expander('耳机输出估算');
+  const toggle = expander.getByRole('switch', { name: '自动读取解码/耳放信息', exact: true });
+  await expect(toggle).toBeVisible();
+  await toggle.hover();
+  await expect(page.getByRole('tooltip')).toContainText('仅适用于拓品DX52');
+  await toggle.click();
+  await expect(expander.getByText(/未授权/)).toBeVisible();
+  await expect(settings.select('输出接口')).toBeVisible();
+  await expect(settings.select('当前耳放')).toBeDisabled();
+  expect(settings.errors).toEqual([]);
+});
+
 test('设置页增删改耳放与耳机，切换当前设备并持久化', async ({ page }) => {
   const settings = await openSettings(page);
   const nav = settings.nav.getByRole('button', { name: '耳机', exact: true });

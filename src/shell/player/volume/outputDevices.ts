@@ -4,6 +4,7 @@ import { hostCommand, settle } from '../../../host/hostCall.ts';
 import { waitForHost, type HostReadyFace } from '../../../host/waitForHost.ts';
 import type { Store } from '../../../kit/store.ts';
 import { serviceKey } from '../../../kit/serviceKey.ts';
+import { currentOutputDeviceNameAtom } from '../../../playback/outputDeviceName.ts';
 
 /**
  * 输出设备：fb2k 各输出模块下的全部设备、当前生效的那一个，以及切换。
@@ -108,6 +109,7 @@ export function startOutputDevices(
   host: OutputDevicesFace = fb,
 ): OutputDevicesService {
   store.set(stateAtom, INITIAL);
+  store.set(currentOutputDeviceNameAtom, undefined);
   let disposed = false;
   let connected = false;
   let reads = 0;
@@ -138,6 +140,7 @@ export function startOutputDevices(
     if (mine !== reads) return;
     if (!answer || answer.success === false) {
       update({ status: 'failed' });
+      store.set(currentOutputDeviceNameAtom, undefined);
       return;
     }
     const names = modules;
@@ -148,7 +151,9 @@ export function startOutputDevices(
       outputName: names?.get(device.outputId) ?? '',
     }));
     const at = answer.devices.findIndex((device) => device.isCurrent);
-    update({ status: 'ready', devices, current: devices[at] ?? null });
+    const current = devices[at] ?? null;
+    update({ status: 'ready', devices, current });
+    store.set(currentOutputDeviceNameAtom, current?.name);
   }
 
   async function drain(): Promise<void> {
