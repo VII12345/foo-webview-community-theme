@@ -37,6 +37,8 @@ export interface PaperFieldsProps {
   readonly slots: PaperFieldSlots;
   /** 歌词场景：只留 From / 标题 / By / Quality，横线以下的仪表、频谱、波形、文件信息、脚注全不出。 */
   readonly lyricsOnly?: boolean;
+  /** 当前视图/布局隐藏的模块。 */
+  readonly hidden?: ReadonlySet<string>;
 }
 
 /**
@@ -51,7 +53,13 @@ export interface PaperFieldsProps {
  * 长标题先降字号（48 → 36），仍放不下就循环滚动与擦除（`useTitleScroll`），减弱动效下留省略号。
  * From 行与 By 行标了 `data-decor-guard`，各外扩 36、正好在标题中间接上：生成式网格不在标题块周围放装饰。
  */
-export function PaperFields({ placement, height, slots, lyricsOnly = false }: PaperFieldsProps) {
+export function PaperFields({
+  placement,
+  height,
+  slots,
+  lyricsOnly = false,
+  hidden = new Set<string>(),
+}: PaperFieldsProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const title = track?.title || MISSING;
   const quality = qualityLine(track?.bitrate, track?.sampleRate);
@@ -59,6 +67,7 @@ export function PaperFields({ placement, height, slots, lyricsOnly = false }: Pa
   const titleText = useRef<HTMLSpanElement>(null);
   const { rolling } = useTitleScroll(titleBox, titleText, title, TITLE_SCROLL);
   const { mode } = placement;
+  const show = (id: string) => !hidden.has(id);
   const box: CSSProperties = {
     left: placement.x,
     top: placement.y,
@@ -67,64 +76,74 @@ export function PaperFields({ placement, height, slots, lyricsOnly = false }: Pa
   };
   return (
     <div className={styles.fields} data-paper-fields={mode} style={box}>
-      <div className={styles.from} data-decor-guard="36">
-        <span className={styles['hot-square']} aria-hidden />
-        <span>From:</span>
-        <span className={styles['from-album']} data-field="album">
-          {track?.album || MISSING}
-        </span>
-        <span className={styles['hot-line']} aria-hidden />
-      </div>
-      <h1
-        ref={titleBox}
-        className={styles.title}
-        data-rolling={rolling || undefined}
-        data-field="title"
-      >
-        <span ref={titleText} className={styles['title-text']}>
-          {title}
-        </span>
-      </h1>
-      <div className={styles.byline} data-decor-guard="36">
-        <div>
-          <span className={styles.key}>By</span>
-          <div className={styles.artist} data-field="artist">
-            {track?.artist || MISSING}
+      {show('right.header') && (
+        <>
+          <div className={styles.from} data-decor-guard="36">
+            <span className={styles['hot-square']} aria-hidden />
+            <span>From:</span>
+            <span className={styles['from-album']} data-field="album">
+              {track?.album || MISSING}
+            </span>
+            <span className={styles['hot-line']} aria-hidden />
           </div>
-        </div>
-        {quality && mode !== 'narrow' && (
-          <div className={styles.quality}>
-            <span className={styles.key}>Quality</span>
-            <div className={styles['quality-value']} data-field="quality">
-              {quality}
+          <h1
+            ref={titleBox}
+            className={styles.title}
+            data-rolling={rolling || undefined}
+            data-field="title"
+          >
+            <span ref={titleText} className={styles['title-text']}>
+              {title}
+            </span>
+          </h1>
+          <div className={styles.byline} data-decor-guard="36">
+            <div>
+              <span className={styles.key}>By</span>
+              <div className={styles.artist} data-field="artist">
+                {track?.artist || MISSING}
+              </div>
             </div>
+            {quality && mode !== 'narrow' && (
+              <div className={styles.quality}>
+                <span className={styles.key}>Quality</span>
+                <div className={styles['quality-value']} data-field="quality">
+                  {quality}
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <hr className={styles.rule} />
-      {!lyricsOnly && mode !== 'narrow' && (
+          <hr className={styles.rule} />
+        </>
+      )}
+      {!lyricsOnly && mode !== 'narrow' && show('right.meta') && (
         <PaperMetaRow
           compact={mode === 'compact'}
           stereo={slots.stereo}
           soundPressure={slots.soundPressure}
         />
       )}
-      {!lyricsOnly && slots.spectrum !== null && (
-        <div className={styles.spectrum}>{slots.spectrum}</div>
+      {!lyricsOnly && slots.spectrum !== null && show('right.spectrum') && (
+        <div className={styles.spectrum} data-field-slot="spectrum">{slots.spectrum}</div>
       )}
-      {!lyricsOnly && <div className={styles.waveform}>{slots.waveform}</div>}
-      {!lyricsOnly && mode !== 'narrow' && (
-        <>
+      {!lyricsOnly && show('right.waveform') && (
+        <div className={styles.waveform}>{slots.waveform}</div>
+      )}
+      {!lyricsOnly &&
+        mode !== 'narrow' &&
+        (show('right.gauges') || (mode === 'full' && show('right.fileInfo'))) && (
           <div className={styles['row-file']}>
-            <div className={styles.gauges}>{slots.gauges}</div>
-            {mode === 'full' && <PaperFileInfo />}
+            {show('right.gauges') && <div className={styles.gauges}>{slots.gauges}</div>}
+            {mode === 'full' && show('right.fileInfo') && <PaperFileInfo />}
           </div>
-          <p className={styles.footnote}>{FOOTNOTE}</p>
-        </>
+        )}
+      {!lyricsOnly && mode !== 'narrow' && show('right.footnote') && (
+        <p className={styles.footnote}>{FOOTNOTE}</p>
       )}
-      <div className={styles.lyrics} data-lyrics-slot>
-        {slots.lyrics}
-      </div>
+      {show('right.lyrics') && (
+        <div className={styles.lyrics} data-lyrics-slot>
+          {slots.lyrics}
+        </div>
+      )}
     </div>
   );
 }

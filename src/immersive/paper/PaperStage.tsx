@@ -11,6 +11,7 @@ import { PaperSpectrum } from '../spectrum/PaperSpectrum.tsx';
 import { StageStereo } from '../stereo/StageStereo.tsx';
 import { PaperWaveform } from '../waveform/PaperWaveform.tsx';
 import { STAGE_CROSSES, STAGE_HEIGHT, STAGE_PAD, STAGE_WIDTH } from './paperStage.ts';
+import { cardTops, stageRightTops } from './paperComponentLayout.ts';
 import { PaperMarks } from './PaperMarks.tsx';
 import styles from './PaperStage.module.css';
 import { StageScaleContext } from './stageScale.ts';
@@ -22,6 +23,8 @@ export interface PaperStageProps {
   /** 舞台左上角在场景里的位置，CSS 像素。 */
   readonly origin: { readonly x: number; readonly y: number };
   readonly variant?: PaperVariant;
+  /** 当前视图/布局隐藏的模块。 */
+  readonly hidden?: ReadonlySet<string>;
 }
 
 /**
@@ -39,7 +42,7 @@ export interface PaperStageProps {
  * | `card` | 卡片 | 四行字 | 动画歌词（同歌词视图） |
  * | `cardLyrics` | 卡片（带曲名/艺人） | — | 动画歌词 |
  */
-export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps) {
+export function PaperStage({ scale, origin, variant = 'paper', hidden = new Set<string>() }: PaperStageProps) {
   const card = variant === 'card' || variant === 'cardLyrics';
   // 右半整块放动画歌词的三档：歌词、卡片、卡片歌词。
   const animatedLyrics =
@@ -49,6 +52,9 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
   const metered = variant === 'paper' || focus;
   // 四行字：只有卡片歌词档不出（卡片上已有曲名与艺人）。
   const showFields = variant !== 'cardLyrics';
+  const show = (id: string) => !hidden.has(id);
+  const rightTops = stageRightTops(variant, 'full', hidden);
+  const cardLayout = card ? cardTops(variant, hidden) : null;
   const frame: CSSProperties = {
     left: origin.x,
     top: origin.y,
@@ -59,38 +65,73 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
   return (
     <StageScaleContext value={scale}>
       <div className={styles.stage} data-scene={variant} style={frame} data-paper-content>
-        <PaperMarks crosses={STAGE_CROSSES} pad={STAGE_PAD} showPad={metered} />
-        {card ? <StageCard title={variant === 'cardLyrics'} /> : (
-          <StageDial offsetX={variant === 'lyrics' ? 100 : 0} />
+        <PaperMarks
+          crosses={STAGE_CROSSES}
+          pad={STAGE_PAD}
+          showCrosses={show('marks')}
+          showPad={metered && show('pad')}
+        />
+        {card ? (
+          <StageCard
+            title={variant === 'cardLyrics'}
+            hidden={hidden}
+            tops={cardLayout ?? { cover: null, meta: null, seek: null, transport: null, cells: null }}
+          />
+        ) : (
+          <StageDial offsetX={variant === 'lyrics' ? 100 : 0} hidden={hidden} />
         )}
         <StageFields
           stereo={<StageStereo />}
-          showMeter={metered}
+          showMeter={metered && show('right.meter')}
           showFields={showFields}
+          showHeader={show('right.header')}
+          headerTop={rightTops.header}
+          meterTop={rightTops.meter}
           lyrics={focus ? <FocusLyricLog /> : undefined}
+          showLyrics={show('right.lyrics')}
+          lyricsTop={rightTops.lyrics}
         />
-        {variant === 'paper' && (
-          <div className={`${styles.slot} ${styles.spectrum}`} data-field-slot="spectrum">
+        {variant === 'paper' && show('right.spectrum') && rightTops.spectrum !== null && (
+          <div
+            className={`${styles.slot} ${styles.spectrum}`}
+            style={{ top: rightTops.spectrum }}
+            data-field-slot="spectrum"
+          >
             <PaperSpectrum />
           </div>
         )}
         {metered && (
           <>
-            <div className={`${styles.slot} ${styles.waveform}`}>
-              <PaperWaveform />
-            </div>
-            <div className={`${styles.slot} ${styles.gauges}`}>
-              <PaperGauges />
-            </div>
-            <div className={`${styles.slot} ${styles['file-info']}`}>
-              <PaperFileInfo />
-            </div>
+            {show('right.waveform') && rightTops.waveform !== null && (
+              <div
+                className={`${styles.slot} ${styles.waveform}`}
+                style={{ top: rightTops.waveform }}
+              >
+                <PaperWaveform />
+              </div>
+            )}
+            {show('right.gauges') && rightTops.gauges !== null && (
+              <div className={`${styles.slot} ${styles.gauges}`} style={{ top: rightTops.gauges }}>
+                <PaperGauges />
+              </div>
+            )}
+            {show('right.fileInfo') && rightTops.fileInfo !== null && (
+              <div
+                className={`${styles.slot} ${styles['file-info']}`}
+                style={{ top: rightTops.fileInfo }}
+              >
+                <PaperFileInfo />
+              </div>
+            )}
           </>
         )}
-        {variant === 'paper' && <LyricCard />}
-        {animatedLyrics && (
+        {variant === 'paper' && show('right.lyrics') && (
+          <LyricCard top={rightTops.lyrics} />
+        )}
+        {animatedLyrics && show('right.lyrics') && (
           <ImmersiveLyricsPlayer
             fontScale={scale > 0 ? 1 / scale : 1}
+            top={rightTops.lyrics}
             edgeAligned
           />
         )}

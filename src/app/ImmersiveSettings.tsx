@@ -1,6 +1,7 @@
 import { Switch } from '@fluentui/react-components';
 import {
   FullScreenMaximize20Regular,
+  Grid20Regular,
   Image20Regular,
   Gauge20Regular,
   SoundWaveCircle20Regular,
@@ -35,12 +36,24 @@ import {
   PERF_OVERLAY_STORAGE_KEY,
 } from '../immersive/perf/perfOverlay.ts';
 import { WAVEFORM_MODES, type WaveformMode } from '../immersive/waveform/waveformModes.ts';
+import {
+  chooseImmersiveComponent,
+  hiddenModulesFor,
+  IMMERSIVE_COMPONENTS_KEY,
+  IMMERSIVE_LAYOUTS,
+  IMMERSIVE_PANEL_GROUPS,
+  IMMERSIVE_PANEL_LABELS,
+  immersiveComponentsAtom,
+  panelsFor,
+} from '../immersive/page/immersiveComponents.ts';
+import type { PaperTier } from '../immersive/paper/paperTiers.ts';
 import { SettingsCard } from '../settings/SettingsCard.tsx';
 import { SettingsExpander } from '../settings/SettingsExpander.tsx';
 import { SettingsRow } from '../settings/SettingsRow.tsx';
 import { SettingsSelect } from '../settings/SettingsSelect.tsx';
 import { LocalSaveNotice } from '../settings/SettingsSaveNotice.tsx';
 import { initializeImmersivePrefs } from './immersivePrefs.ts';
+import styles from './ImmersiveSettings.module.css';
 
 const WASH_LABELS: Readonly<Record<WashChoice, MessageKey>> = {
   flow: 'settings.immersiveWashFlow',
@@ -61,6 +74,14 @@ const SCENE_LABELS: Readonly<Record<ImmersiveScene, MessageKey>> = {
   card: 'settings.immersiveViewCard',
   cardLyrics: 'settings.immersiveViewCardLyrics',
 };
+const LAYOUT_LABELS: Readonly<Record<PaperTier, MessageKey>> = {
+  full: 'settings.immersiveLayoutFull',
+  compact: 'settings.immersiveLayoutCompact',
+  narrow: 'settings.immersiveLayoutNarrow',
+  portrait: 'settings.immersiveLayoutPortrait',
+  'portrait-compact': 'settings.immersiveLayoutPortraitCompact',
+  'portrait-narrow': 'settings.immersiveLayoutPortraitNarrow',
+};
 
 /** 设置插槽只加载偏好；进入沉浸视图时仍由对应页面建立资源与全屏控制。 */
 export function ImmersiveSettings() {
@@ -74,6 +95,18 @@ export function ImmersiveSettings() {
   const scene = useAtomValueRawSync(immersiveSceneAtom);
   const fps = useAtomValueRawSync(immersiveFpsCapAtom);
   const overlay = useAtomValueRawSync(perfOverlayEnabledAtom);
+  const components = useAtomValueRawSync(immersiveComponentsAtom);
+  const [panelView, setPanelView] = useState<ImmersiveScene>(scene);
+  const [panelLayout, setPanelLayout] = useState<PaperTier>('full');
+  const layouts =
+    panelView === 'card' || panelView === 'cardLyrics'
+      ? (['full'] as const)
+      : IMMERSIVE_LAYOUTS;
+  const layout = (layouts as readonly PaperTier[]).includes(panelLayout)
+    ? panelLayout
+    : 'full';
+  const hidden = hiddenModulesFor(components, panelView, layout);
+  const available = panelsFor(panelView, layout);
   useLayoutEffect(() => {
     initializeImmersivePrefs(store);
     setReady(true);
@@ -123,6 +156,77 @@ export function ImmersiveSettings() {
             />
           )}
         </SettingsRow>
+      </SettingsExpander>
+      <SettingsExpander
+        icon={<Grid20Regular />}
+        title={t('settings.immersiveComponents')}
+        description={t('settings.immersiveComponentsHint')}
+        defaultOpen={false}
+        feedback={<LocalSaveNotice keys={[IMMERSIVE_COMPONENTS_KEY]} />}
+      >
+        <SettingsRow title={t('settings.immersiveComponentsView')} field>
+          {(ids) => (
+            <SettingsSelect
+              {...ids}
+              value={panelView}
+              options={IMMERSIVE_SCENES.map((value) => ({
+                value,
+                label: t(SCENE_LABELS[value]),
+              }))}
+              onChange={(value) => {
+                const next = IMMERSIVE_SCENES.find((item) => item === value);
+                if (!next) return;
+                setPanelView(next);
+                if (next === 'card' || next === 'cardLyrics') setPanelLayout('full');
+              }}
+            />
+          )}
+        </SettingsRow>
+        <SettingsRow title={t('settings.immersiveComponentsLayout')} field>
+          {(ids) => (
+            <SettingsSelect
+              {...ids}
+              value={layout}
+              options={layouts.map((value) => ({
+                value,
+                label: t(LAYOUT_LABELS[value]),
+              }))}
+              onChange={(value) => {
+                const next = IMMERSIVE_LAYOUTS.find((item) => item === value);
+                if (next) setPanelLayout(next);
+              }}
+            />
+          )}
+        </SettingsRow>
+        {IMMERSIVE_PANEL_GROUPS.map((group) => {
+          const panels = group.panels.filter((id) => available.has(id));
+          if (panels.length === 0) return null;
+          return (
+            <section key={group.id} className={styles.group}>
+              <h3 className={styles['group-title']}>{t(group.label)}</h3>
+              {panels.map((id) => (
+                <SettingsRow key={id} title={t(IMMERSIVE_PANEL_LABELS[id])}>
+                  {({ labelId, descriptionId }) => (
+                    <Switch
+                      aria-labelledby={labelId}
+                      aria-describedby={descriptionId}
+                      checked={!hidden.has(id)}
+                      onChange={(_, data) =>
+                        chooseImmersiveComponent(
+                          store,
+                          panelView,
+                          layout,
+                          id,
+                          data.checked,
+                        )
+                      }
+                    />
+                  )}
+                </SettingsRow>
+              ))}
+            </section>
+          );
+        })}
       </SettingsExpander>
       <SettingsCard
         icon={<Image20Regular />}

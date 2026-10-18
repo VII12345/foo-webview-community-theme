@@ -4,6 +4,7 @@ import { colorSchemeAtom } from '../../theme/colorScheme.ts';
 import { PaperDecor } from '../decor/PaperDecor.tsx';
 import type { DecorArc } from '../decor/paperDecor.ts';
 import { useDecorGuards } from '../decor/useDecorGuards.ts';
+import { immersiveComponentsAtom, hiddenModulesFor } from '../page/immersiveComponents.ts';
 import { immersiveTerrainAtom, immersiveWashAtom } from '../page/immersivePrefs.ts';
 import { ALPHA_FAR } from '../terrain/terrain.ts';
 import { TerrainCanvas } from '../terrain/TerrainCanvas.tsx';
@@ -71,7 +72,15 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
   }, [card, width, height, variant]);
   const { tier, origin, scale } = geometry;
   const stage = tier === 'full';
-  const guards = useDecorGuards(root, { origin, scale, tier, scene: variant });
+  const components = useAtomValueRawSync(immersiveComponentsAtom);
+  const hidden = hiddenModulesFor(components, variant, tier);
+  const guards = useDecorGuards(root, {
+    origin,
+    scale,
+    tier,
+    scene: variant,
+    moduleKey: `${variant}/${tier}:${[...hidden].sort().join(',')}`,
+  });
 
   // 换档只报新档，不在两档之间插一个 null：取数服务会把它当成不要了，停掉手上的解码。
   useEffect(() => {
@@ -81,27 +90,29 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
 
   return (
     <div ref={root} className={styles.paper} data-tier={tier} data-scene={variant} data-dark={dark || undefined}>
-      {wash && <PaperCoverWash />}
-      {terrain && (
+      {wash && !hidden.has('wash') && <PaperCoverWash />}
+      {terrain && !hidden.has('terrain') && (
         <TerrainCanvas
           className={geometry.sunkTerrain ? styles.sunk : undefined}
           alphaNear={ALPHA_FAR}
           alphaFar={ALPHA_FAR}
         />
       )}
-      <PaperDecor
-        guards={guards}
-        origin={origin}
-        sheet={geometry.sheet}
-        arcs={geometry.arcs}
-        scale={scale}
-        unit={stage ? scale : undefined}
-      />
-      {terrain && stage && <TerrainRuler />}
+      {!hidden.has('decor') && (
+        <PaperDecor
+          guards={guards}
+          origin={origin}
+          sheet={geometry.sheet}
+          arcs={geometry.arcs}
+          scale={scale}
+          unit={stage ? scale : undefined}
+        />
+      )}
+      {terrain && stage && !hidden.has('ruler') && <TerrainRuler />}
       {stage ? (
-        <PaperStage scale={scale} origin={origin} variant={variant} />
+        <PaperStage scale={scale} origin={origin} variant={variant} hidden={hidden} />
       ) : (
-        <PaperSheet geometry={geometry} variant={variant} />
+        <PaperSheet geometry={geometry} variant={variant} hidden={hidden} />
       )}
     </div>
   );

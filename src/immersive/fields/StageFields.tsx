@@ -23,6 +23,12 @@ export interface StageFieldsProps {
   readonly showFields?: boolean;
   /** 右栏底部那块歌词；不给就不占位（卡片歌词档由右半区自己排歌词）。 */
   readonly lyrics?: ReactNode;
+  /** 四行字/仪表的模块开关；默认都显示。 */
+  readonly showHeader?: boolean;
+  readonly headerTop?: number | null;
+  readonly meterTop?: number | null;
+  readonly showLyrics?: boolean;
+  readonly lyricsTop?: number | null;
 }
 
 /**
@@ -39,6 +45,11 @@ export function StageFields({
   showMeter = true,
   showFields = true,
   lyrics,
+  showHeader = true,
+  headerTop = 82,
+  meterTop = 296,
+  showLyrics = true,
+  lyricsTop = 700,
 }: StageFieldsProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const extras = useAtomValueRawSync(trackExtrasAtom);
@@ -55,8 +66,11 @@ export function StageFields({
 
   return (
     <div className={styles.fields}>
-      {showFields && (
-        <>
+      {showFields && showHeader && headerTop !== null && (
+        <div
+          className={styles.headerBlock}
+          style={headerTop !== 82 ? { transform: `translateY(${headerTop - 82}px)` } : undefined}
+        >
           <span className={styles['hot-square']} aria-hidden />
           <div className={`${styles.base} ${styles.from}`} data-decor-guard="40">
             <span>From:</span> <span data-field="album">{track?.album || MISSING}</span>
@@ -86,11 +100,17 @@ export function StageFields({
               </div>
             </>
           )}
-        </>
+        </div>
       )}
-      {showMeter && <StageMeterRow stereo={stereo} />}
-      {lyrics && (
-        <div className={styles.lyrics} data-stage-lyrics-slot>
+      {showMeter && meterTop !== null && (
+        <StageMeterRow stereo={stereo} offsetY={meterTop - 296} />
+      )}
+      {lyrics && showLyrics && (
+        <div
+          className={styles.lyrics}
+          style={lyricsTop !== null ? { top: lyricsTop } : undefined}
+          data-stage-lyrics-slot
+        >
           {lyrics}
         </div>
       )}

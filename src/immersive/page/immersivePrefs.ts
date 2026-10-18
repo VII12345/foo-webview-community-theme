@@ -10,6 +10,7 @@ import {
 import type { Store } from '../../kit/store.ts';
 import { setPaintFpsCap } from '../frame/frameScheduler.ts';
 import { isWaveformMode, type WaveformMode } from '../waveform/waveformModes.ts';
+import { loadImmersiveComponents } from './immersiveComponents.ts';
 
 /**
  * 沉浸视图的几项偏好：背景山脊图、封面底色、进视图时宿主全屏、重画帧率上限、整轨波形画法与场景。
@@ -139,4 +140,5 @@ export function loadImmersivePrefs(
   applyFpsCap(fpsCap.load(store, storage));
   waveformMode.load(store, storage);
   scene.load(store, storage);
+  loadImmersiveComponents(store, storage);
 }

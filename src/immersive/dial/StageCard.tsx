@@ -12,6 +12,7 @@ import { SeekBar } from '../../shell/player/SeekBar.tsx';
 import { DialCells } from './DialCells.tsx';
 import { DialCover } from './DialCover.tsx';
 import { STAGE_CARD_COVER, STAGE_CARD_SCALE } from './stageCard.ts';
+import type { CardTops } from '../paper/paperComponentLayout.ts';
 import styles from './StageCard.module.css';
 import { PaperTransport } from './PaperTransport.tsx';
 
@@ -25,6 +26,8 @@ import { PaperTransport } from './PaperTransport.tsx';
 export interface StageCardProps {
   /** 卡片要不要自带曲名与艺人。 */
   readonly title: boolean;
+  readonly hidden: ReadonlySet<string>;
+  readonly tops: CardTops;
 }
 
 const useStyles = makeStyles({
@@ -33,57 +36,74 @@ const useStyles = makeStyles({
   },
 });
 
-export function StageCard({ title }: StageCardProps) {
+export function StageCard({ title, hidden, tops }: StageCardProps) {
   const t = useAtomValueRawSync(translateAtom);
   const track = useAtomValueRawSync(currentTrackAtom);
   const menu = useNowPlayingMenu(track);
   const classes = useStyles();
+  const show = (id: string) => !hidden.has(id);
   const coverBox: CSSProperties = {
     left: STAGE_CARD_COVER.x,
-    top: STAGE_CARD_COVER.y,
+    top: tops.cover ?? STAGE_CARD_COVER.y,
     width: STAGE_CARD_COVER.size,
     height: STAGE_CARD_COVER.size,
   };
   return (
     <div className={styles.card}>
-      <DialCover box={coverBox} guard={72} />
-      <div className={styles.meta} data-card-meta {...menu.trigger}>
-        {title && (
-          <div className={styles.text} data-card-text>
-            <div className={styles.title} data-field="cardTitle">
-              {track ? displayTitle(track) : t('player.idle')}
-            </div>
-            {track?.artist && (
-              <div className={styles.artist} data-field="cardArtist">
-                {track.artist}
+      {tops.cover !== null && <DialCover box={coverBox} guard={72} />}
+      {tops.meta !== null && (
+        <div
+          className={styles.meta}
+          style={{ top: tops.meta }}
+          data-card-meta
+          {...menu.trigger}
+        >
+          {title && show('card.title') && (
+            <div className={styles.text} data-card-text>
+              <div className={styles.title} data-field="cardTitle">
+                {track ? displayTitle(track) : t('player.idle')}
               </div>
-            )}
-          </div>
-        )}
-        <div className={styles.actions}>
-          <NowPlayingRating size="card" track={track} />
-          <Tooltip content={t('player.more')} relationship="label">
-            <Button
-              appearance="subtle"
-              size="large"
-              className={classes.more}
-              icon={<MoreHorizontal24Regular />}
-              aria-label={t('player.more')}
-              {...menu.more}
-            />
-          </Tooltip>
+              {track?.artist && (
+                <div className={styles.artist} data-field="cardArtist">
+                  {track.artist}
+                </div>
+              )}
+            </div>
+          )}
+          {(show('card.rating') || show('card.more')) && (
+            <div className={styles.actions}>
+              {show('card.rating') && <NowPlayingRating size="card" track={track} />}
+              {show('card.more') && (
+                <Tooltip content={t('player.more')} relationship="label">
+                  <Button
+                    appearance="subtle"
+                    size="large"
+                    className={classes.more}
+                    icon={<MoreHorizontal24Regular />}
+                    aria-label={t('player.more')}
+                    {...menu.more}
+                  />
+                </Tooltip>
+              )}
+            </div>
+          )}
         </div>
-      </div>
-      <div className={styles.seek} data-card-seek>
-        <SeekBar interactive thickness={6} thumb clock />
-      </div>
-      <PaperTransport
-        className={styles.transport}
-        guard={60}
-        scale={STAGE_CARD_SCALE}
-        extras
-      />
-      <DialCells card style={{ left: 250, top: 930 }} />
+      )}
+      {tops.seek !== null && (
+        <div className={styles.seek} style={{ top: tops.seek }} data-card-seek>
+          <SeekBar interactive thickness={6} thumb clock />
+        </div>
+      )}
+      {tops.transport !== null && (
+        <PaperTransport
+          className={styles.transport}
+          guard={60}
+          scale={STAGE_CARD_SCALE}
+          style={{ top: tops.transport }}
+          extras
+        />
+      )}
+      {tops.cells !== null && <DialCells card style={{ left: 250, top: tops.cells }} />}
       <NowPlayingMenu at={menu.at} onClose={menu.close} />
     </div>
   );

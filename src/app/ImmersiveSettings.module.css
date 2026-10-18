@@ -1,0 +1,10 @@
+.group {
+  padding: 4px 0 8px;
+}
+
+.group-title {
+  margin: 10px 0 2px;
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+  font-weight: var(--fontWeightSemibold);
+}

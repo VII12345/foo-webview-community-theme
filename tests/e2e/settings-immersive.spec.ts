@@ -1,6 +1,38 @@
 import { expect, test } from '@playwright/test';
 import { openSettings, enterSettings } from '../fixtures/settingsPage.ts';
 
+test('组件显示按视图与布局保存，只列当前档位可用的模块', async ({ page }) => {
+  const settings = await openSettings(page);
+  await settings.expand('组件显示');
+  await expect(settings.select('视图')).toHaveText('图纸舞台');
+  await expect(settings.select('布局')).toHaveText('完整舞台');
+  await expect(page.getByRole('switch', { name: '频谱', exact: true })).toBeVisible();
+
+  await settings.choose('视图', '聚焦视图');
+  await expect(page.getByRole('switch', { name: '频谱', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('switch', { name: '文件信息', exact: true })).toBeVisible();
+  await settings.choose('布局', '紧凑');
+  await expect(page.getByRole('switch', { name: '文件信息', exact: true })).toHaveCount(0);
+
+  await settings.choose('视图', '卡片视图');
+  await expect(settings.select('布局')).toHaveText('完整舞台');
+  await expect(page.getByRole('switch', { name: '曲名与艺人', exact: true })).toHaveCount(0);
+
+  await settings.choose('视图', '图纸舞台');
+  await settings.choose('布局', '完整舞台');
+  const spectrum = page.getByRole('switch', { name: '频谱', exact: true });
+  await spectrum.click();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('default-theme.immersive.components.v1')))
+    .toBe(JSON.stringify({ version: 1, hidden: { 'paper/full': ['right.spectrum'] } }));
+
+  await page.reload();
+  await enterSettings(page);
+  await settings.expand('组件显示');
+  await expect(page.getByRole('switch', { name: '频谱', exact: true })).not.toBeChecked();
+  expect(settings.errors).toEqual([]);
+});
+
 test('进入设置先读沉浸偏好，修改可保存且不启动可视化服务', async ({ page }) => {
   await page.addInitScript(() => {
     if (localStorage.getItem('default-theme.immersive.wash.v1') === null) {

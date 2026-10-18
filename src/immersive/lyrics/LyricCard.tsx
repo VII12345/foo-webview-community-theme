@@ -50,7 +50,7 @@ function cardWidth(main: HTMLElement | null, sub: HTMLElement | null): number {
  * 卡宽随字：两行里较宽的一行加左内边距 46 与右内边距 46 + 34，夹在 420…1520 之间；字宽超过 1394 时
  * 按比例降字号（主行最低 20、副行最低 16），仍超就尾部省略。
  */
-export function LyricCard() {
+export function LyricCard({ top }: { readonly top?: number } = {}) {
   const t = useAtomValueRawSync(translateAtom);
   const displayService = useService(lyricsDisplayKey);
   const display = useAtomValueRawSync(displayService.display);
@@ -112,7 +112,10 @@ export function LyricCard() {
     <div
       className={styles.card}
       data-two-line={twoLine || undefined}
-      style={{ width: `${fit.width}px` }}
+      style={{
+        width: `${fit.width}px`,
+        ...(top !== undefined ? { top: `${top + (twoLine ? 0 : 36)}px` } : {}),
+      }}
       data-field="lyric-card"
     >
       {synced ? (

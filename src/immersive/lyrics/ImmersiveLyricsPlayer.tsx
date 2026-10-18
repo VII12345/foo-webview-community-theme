@@ -13,10 +13,13 @@ import styles from './ImmersiveLyricsPlayer.module.css';
 export function ImmersiveLyricsPlayer({
   fontScale = 1,
   edgeAligned = false,
+  top,
 }: {
   readonly fontScale?: number;
   /** full 舞台的动画歌词贴住右区左缘，不用 AMLL 默认的 1em 行内边距。 */
   readonly edgeAligned?: boolean;
+  /** 可见模块变化后的纵向位置，舞台坐标。 */
+  readonly top?: number;
 } = {}) {
   const services = useViewServices();
   const lyrics = useService(lyricsKey);
@@ -31,6 +34,7 @@ export function ImmersiveLyricsPlayer({
   return (
     <div
       className={styles.root}
+      style={top !== undefined ? { top } : undefined}
       data-immersive-lyrics-player
       data-edge-aligned={edgeAligned || undefined}
     >

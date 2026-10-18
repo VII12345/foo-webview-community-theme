@@ -8,6 +8,12 @@
   color: var(--colorNeutralForeground1);
 }
 
+/* 四行字整块可随可见性上下移动；子件仍按舞台坐标排，块本身不改变尺寸。 */
+.headerBlock {
+  position: absolute;
+  inset: 0;
+}
+
 /* 按基线落位：字盒底边裁到字母基线，`top` 写的就是基线。 */
 .base {
   position: absolute;

@@ -29,6 +29,8 @@ function DurationCell() {
 export interface StageMeterRowProps {
   /** 左格里的声场件。 */
   readonly stereo: ReactNode;
+  /** 整行相对舞台的纵向位移；可见模块变化时由布局算。 */
+  readonly offsetY?: number;
 }
 
 /**
@@ -37,12 +39,15 @@ export interface StageMeterRowProps {
  * 或为空时不出）| Duration（附行剩余时间）。本身是铺满舞台的定位层，各件按舞台坐标绝对定位，字按基线落位。
  * 缺值写 `—`，键名保留。
  */
-export function StageMeterRow({ stereo }: StageMeterRowProps) {
+export function StageMeterRow({ stereo, offsetY = 0 }: StageMeterRowProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const albumArtist =
     track?.albumArtist && track.albumArtist !== track.artist ? track.albumArtist : '';
   return (
-    <div className={styles.meter}>
+    <div
+      className={styles.meter}
+      style={offsetY !== 0 ? { transform: `translateY(${offsetY}px)` } : undefined}
+    >
       <div className={styles['stereo-cell']}>{stereo}</div>
       <span className={`${styles.divider} ${styles.first}`} aria-hidden />
       <StageBpm />

@@ -6,16 +6,23 @@ export interface PaperMarksProps {
   readonly crosses: readonly (readonly [number, number])[];
   /** 右栏仪表垫纸，坐标同上。 */
   readonly pad: Rect;
+  readonly showCrosses?: boolean;
   readonly showPad?: boolean;
 }
 
 /** 图纸内容层最底下的两样记号：13 px 的定位十字与右栏仪表垫纸。纯装饰，不接指针。 */
-export function PaperMarks({ crosses, pad, showPad = true }: PaperMarksProps) {
+export function PaperMarks({
+  crosses,
+  pad,
+  showCrosses = true,
+  showPad = true,
+}: PaperMarksProps) {
   return (
     <>
-      {crosses.map(([x, y]) => (
-        <span key={`${x}-${y}`} className={styles.cross} style={{ left: x, top: y }} aria-hidden />
-      ))}
+      {showCrosses &&
+        crosses.map(([x, y]) => (
+          <span key={`${x}-${y}`} className={styles.cross} style={{ left: x, top: y }} aria-hidden />
+        ))}
       {showPad !== false && (
         <div
           className={styles.pad}

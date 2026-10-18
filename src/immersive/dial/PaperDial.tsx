@@ -104,6 +104,7 @@ export interface PaperDialProps {
   readonly dial: DialPlacement | null;
   /** 单栏的左缘与宽，narrow 档排封面那一行用。 */
   readonly column: { readonly x: number; readonly width: number };
+  readonly hidden?: ReadonlySet<string>;
 }
 
 /**
@@ -116,8 +117,9 @@ export interface PaperDialProps {
  *
  * 封面标了 `data-decor-guard`：图纸的生成式网格不在它周围放装饰。
  */
-export function PaperDial({ dial, column }: PaperDialProps) {
+export function PaperDial({ dial, column, hidden = new Set<string>() }: PaperDialProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
+  const show = (id: string) => !hidden.has(id);
   const layout = useMemo(() => (dial ? dialLayout(dial) : narrowLayout(column)), [dial, column]);
   const { left, top, size } = layout.cover;
   const coverBox: CSSProperties = { left, top, width: size, height: size };
@@ -128,30 +130,38 @@ export function PaperDial({ dial, column }: PaperDialProps) {
   };
   return (
     <div className={dial ? styles.dial : `${styles.dial} ${styles.narrow}`}>
-      {layout.rings.map((ring) => (
-        <span
-          key={ring.radius}
-          className={styles.ring}
-          style={ring.style}
-          data-dial-ring
-          aria-hidden
-        />
-      ))}
-      {dial && <PaperOrbit center={dial} scale={dial.scale} />}
-      {layout.ticks.map((tick) => (
-        <span key={tick.text} className={styles.tick} style={tick.style} aria-hidden>
-          {tick.text}
-        </span>
-      ))}
-      <div className={`${styles.text} ${styles.album}`} style={layout.album} data-field="dialAlbum">
-        {track?.album ?? ''}
-      </div>
-      <DialCover box={coverBox} guard={47} />
-      <PaperBrackets box={bracketBox} arm={BRACKET_ARM} />
-      <div className={styles.text} style={layout.trackNo} data-field="trackNo">
-        {formatTrackNo(track?.trackNumber)}
-      </div>
-      <PaperTransport className={styles.transport} scale={layout.scale} style={layout.transport} />
+      {show('dial.rings') &&
+        layout.rings.map((ring) => (
+          <span
+            key={ring.radius}
+            className={styles.ring}
+            style={ring.style}
+            data-dial-ring
+            aria-hidden
+          />
+        ))}
+      {dial && show('dial.orbit') && <PaperOrbit center={dial} scale={dial.scale} />}
+      {show('dial.ticks') &&
+        layout.ticks.map((tick) => (
+          <span key={tick.text} className={styles.tick} style={tick.style} aria-hidden>
+            {tick.text}
+          </span>
+        ))}
+      {show('dial.album') && (
+        <div className={`${styles.text} ${styles.album}`} style={layout.album} data-field="dialAlbum">
+          {track?.album ?? ''}
+        </div>
+      )}
+      {show('dial.cover') && <DialCover box={coverBox} guard={47} />}
+      {show('dial.brackets') && <PaperBrackets box={bracketBox} arm={BRACKET_ARM} />}
+      {show('dial.album') && (
+        <div className={styles.text} style={layout.trackNo} data-field="trackNo">
+          {formatTrackNo(track?.trackNumber)}
+        </div>
+      )}
+      {show('dial.transport') && (
+        <PaperTransport className={styles.transport} scale={layout.scale} style={layout.transport} />
+      )}
     </div>
   );
 }

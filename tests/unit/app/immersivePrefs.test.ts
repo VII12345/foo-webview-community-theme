@@ -16,6 +16,7 @@ import {
   immersiveWashAtom,
   waveformModeAtom,
 } from '../../../src/immersive/page/immersivePrefs.ts';
+import { immersiveComponentsAtom } from '../../../src/immersive/page/immersiveComponents.ts';
 import {
   choosePerfOverlay,
   perfOverlayEnabledAtom,
@@ -31,6 +32,10 @@ const saved = {
   'default-theme.immersive.waveformMode.v1': 'lanes',
   'default-theme.immersive.scene.v1': 'paper',
   'default-theme.immersive.perfOverlay.v1': 'on',
+  'default-theme.immersive.components.v1': JSON.stringify({
+    version: 1,
+    hidden: { 'paper/full': ['right.spectrum'] },
+  }),
 };
 
 function prefs(store: Store) {
@@ -42,6 +47,7 @@ function prefs(store: Store) {
     waveform: store.get(waveformModeAtom),
     scene: store.get(immersiveSceneAtom),
     perf: store.get(perfOverlayEnabledAtom),
+    components: store.get(immersiveComponentsAtom).hidden,
   };
 }
 
@@ -67,17 +73,18 @@ it('沿用七个存储键，按 store 初始化一次，新 store 独立加载',
     waveform: 'lanes',
     scene: 'paper',
     perf: true,
+    components: { 'paper/full': ['right.spectrum'] },
   });
   expect(new Set(getItem.mock.calls.map(([key]) => key))).toEqual(new Set(Object.keys(saved)));
-  expect(getItem).toHaveBeenCalledTimes(7);
+  expect(getItem).toHaveBeenCalledTimes(8);
   expect(setItem).not.toHaveBeenCalled();
   expect(paintFpsCap()).toBe(60);
   initializeImmersivePrefs(store);
-  expect(getItem).toHaveBeenCalledTimes(7);
+  expect(getItem).toHaveBeenCalledTimes(8);
   const another = createStore();
   initializeImmersivePrefs(another);
   expect(prefs(another)).toEqual(prefs(store));
-  expect(getItem).toHaveBeenCalledTimes(14);
+  expect(getItem).toHaveBeenCalledTimes(16);
 });
 
 it('先改设置但存储写入失败，再初始化不能用旧存档覆盖当前值', () => {
@@ -106,8 +113,9 @@ it('先改设置但存储写入失败，再初始化不能用旧存档覆盖当�
     waveform: 'weighted',
     scene: 'paper',
     perf: false,
+    components: { 'paper/full': ['right.spectrum'] },
   });
-  expect(getItem).toHaveBeenCalledTimes(7);
+  expect(getItem).toHaveBeenCalledTimes(8);
   expect(paintFpsCap()).toBe(144);
 });
 

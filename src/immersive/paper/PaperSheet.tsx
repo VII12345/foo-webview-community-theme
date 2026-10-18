@@ -17,6 +17,7 @@ export interface PaperSheetProps {
   /** 这一档的版心尺寸、位置与里面各块的排法（`paperTiers.ts`）。 */
   readonly geometry: PaperGeometry;
   readonly variant?: PaperVariant;
+  readonly hidden?: ReadonlySet<string>;
 }
 
 /**
@@ -26,7 +27,7 @@ export interface PaperSheetProps {
  *
  * 卡片两档不走这里：它们在 `PaperScene` 里固定按 full 舞台几何排（`stageGeometry`），小窗口只是整体缩小。
  */
-export function PaperSheet({ geometry, variant = 'paper' }: PaperSheetProps) {
+export function PaperSheet({ geometry, variant = 'paper', hidden = new Set<string>() }: PaperSheetProps) {
   const { origin, sheet, fields } = geometry;
   const lyricsOnly = variant === 'lyrics';
   return (
@@ -36,12 +37,18 @@ export function PaperSheet({ geometry, variant = 'paper' }: PaperSheetProps) {
       data-paper-content
       data-scene={variant}
     >
-      <PaperMarks crosses={geometry.crosses} pad={geometry.pad} showPad={!lyricsOnly} />
-      <PaperDial dial={geometry.dial} column={fields} />
+      <PaperMarks
+        crosses={geometry.crosses}
+        pad={geometry.pad}
+        showCrosses={!hidden.has('marks')}
+        showPad={!lyricsOnly && !hidden.has('pad')}
+      />
+      <PaperDial dial={geometry.dial} column={fields} hidden={hidden} />
       <PaperFields
         placement={fields}
         height={sheet.height - fields.y}
         lyricsOnly={lyricsOnly}
+        hidden={hidden}
         slots={{
           stereo: <PaperStereo />,
           soundPressure: <SoundPressureCell variant="sheet" />,

@@ -53,36 +53,49 @@ function ringBox(radius: number): CSSProperties {
  * 封面（`DialCover`）与背景的封面底色共用同一份状态。封面、三格与传输键标了
  * `data-decor-guard`，生成式网格不在它们周围放装饰；传输键压在歌词卡之上。
  */
-export function StageDial({ offsetX = 0 }: { readonly offsetX?: number } = {}) {
+export function StageDial({
+  offsetX = 0,
+  hidden = new Set<string>(),
+}: {
+  readonly offsetX?: number;
+  readonly hidden?: ReadonlySet<string>;
+} = {}) {
   const track = useAtomValueRawSync(currentTrackAtom);
+  const show = (id: string) => !hidden.has(id);
   return (
     <div className={styles.dial} style={offsetX ? { left: offsetX } : undefined}>
-      {STAGE_RINGS.map((radius) => (
-        <span key={radius} className={styles.ring} style={ringBox(radius)} aria-hidden />
-      ))}
-      <PaperOrbit center={STAGE_DIAL} scale={1} spec={STAGE_ORBIT} />
-      {STAGE_TICKS.map((tick) => (
-        <span
-          key={tick.text}
-          className={tick.hot ? HOT_TICK_CLASS : TICK_CLASS}
-          style={{ left: tick.x, top: tick.base }}
-          aria-hidden
-        >
-          {tick.text}
-        </span>
-      ))}
-      <div className={`${styles.base} ${styles.album}`} data-field="dialAlbum">
-        {track?.album ?? ''}
-      </div>
-      <DialCover box={COVER_BOX} guard={72} />
-      <PaperBrackets box={BRACKET_BOX} arm={BRACKET_ARM} />
-      <DialCells />
-      <PaperTransport
-        className={styles.transport}
-        size={TRANSPORT_SIZE}
-        guard={60}
-        style={TRANSPORT_BOX}
-      />
+      {show('dial.rings') &&
+        STAGE_RINGS.map((radius) => (
+          <span key={radius} className={styles.ring} style={ringBox(radius)} aria-hidden />
+        ))}
+      {show('dial.orbit') && <PaperOrbit center={STAGE_DIAL} scale={1} spec={STAGE_ORBIT} />}
+      {show('dial.ticks') &&
+        STAGE_TICKS.map((tick) => (
+          <span
+            key={tick.text}
+            className={tick.hot ? HOT_TICK_CLASS : TICK_CLASS}
+            style={{ left: tick.x, top: tick.base }}
+            aria-hidden
+          >
+            {tick.text}
+          </span>
+        ))}
+      {show('dial.album') && (
+        <div className={`${styles.base} ${styles.album}`} data-field="dialAlbum">
+          {track?.album ?? ''}
+        </div>
+      )}
+      {show('dial.cover') && <DialCover box={COVER_BOX} guard={72} />}
+      {show('dial.brackets') && <PaperBrackets box={BRACKET_BOX} arm={BRACKET_ARM} />}
+      {show('dial.cells') && <DialCells />}
+      {show('dial.transport') && (
+        <PaperTransport
+          className={styles.transport}
+          size={TRANSPORT_SIZE}
+          guard={60}
+          style={TRANSPORT_BOX}
+        />
+      )}
     </div>
   );
 }
