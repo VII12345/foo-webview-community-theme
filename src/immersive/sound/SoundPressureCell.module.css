@@ -65,6 +65,22 @@
   text-overflow: ellipsis;
 }
 
+/* 平均行塞进 album-artist 小标上方约 20 px 的空位；版心档不显示，避免撑破 113 px 行高。 */
+.average {
+  margin-top: 3px;
+  font-family: var(--fontFamilyMonospace);
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--colorNeutralForeground3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cell[data-variant='sheet'] .average {
+  display: none;
+}
+
 /* 版心档把三行压到 Genre 原来的小标 + 值的位置。 */
 .cell[data-variant='sheet'] .key {
   font-size: 11px;

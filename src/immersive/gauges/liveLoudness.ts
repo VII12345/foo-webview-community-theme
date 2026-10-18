@@ -6,11 +6,17 @@ import {
   type PcmStreamOutcome,
 } from 'foo-webview-sdk/bridge';
 import { atom, type Atom } from 'jotai/vanilla';
-import { currentTrackAtom } from '../../playback/playback.ts';
+import { currentTrackAtom, playbackAtom } from '../../playback/playback.ts';
 import { playbackConnectedAtom } from '../../playback/playerAtoms.ts';
 import type { Store } from '../../kit/store.ts';
 import { createFrameScheduler, type FrameClock } from '../frame/frameScheduler.ts';
-import { createBlockMeter, createLoudnessWindow, type BlockMeter } from './loudnessMeter.ts';
+import {
+  ABSOLUTE_GATE_LUFS,
+  createBlockMeter,
+  createLoudnessWindow,
+  loudnessOf,
+  type BlockMeter,
+} from './loudnessMeter.ts';
 
 /**
  * 量表的实时响度：宿主连上、有曲目时订阅宿主的实时 PCM 流（`audio.subscribeStream`），每拍读一次，
@@ -48,6 +54,8 @@ export interface LiveLoudness {
   /** LUFS；还没有值时为 `null`。 */
   readonly momentary: number | null;
   readonly shortTerm: number | null;
+  /** 本次曲目从开始观察起、已播放片段的能量平均；换曲或停止时清空。 */
+  readonly average: number | null;
   /** 当前流的声道数；还没读到时按立体声 2。 */
   readonly channels: number;
   /** 这次订阅宿主不接受；停止后再有曲目时再试。 */
@@ -58,9 +66,17 @@ export interface LiveLoudnessService {
   dispose(): void;
 }
 
-const INITIAL: LiveLoudness = { momentary: null, shortTerm: null, channels: 2, failed: false };
+const INITIAL: LiveLoudness = {
+  momentary: null,
+  shortTerm: null,
+  average: null,
+  channels: 2,
+  failed: false,
+};
 const stateAtom = atom<LiveLoudness>(INITIAL);
 const activeAtom = atom((get) => get(playbackConnectedAtom) && get(currentTrackAtom) !== null);
+/** 曲目轮次：同一首重播也会加一；平均只在轮次变化时清零，seek 不清。 */
+const trackRoundAtom = atom((get) => get(playbackAtom).trackGeneration);
 
 export const liveLoudnessAtom: Atom<LiveLoudness> = atom((get) => get(stateAtom));
 
@@ -79,17 +95,35 @@ export function startLiveLoudness(
   // `undefined` 是这次订阅还没读到过帧；`null` 是读到的帧不在已知的段里。
   let lastSegment: number | null | undefined;
   // 这一拍最后一块算完时的读数；这一拍没出块时为 null。
-  let latest: Pick<LiveLoudness, 'momentary' | 'shortTerm' | 'channels'> | null = null;
+  let latest: Pick<LiveLoudness, 'momentary' | 'shortTerm' | 'average' | 'channels'> | null = null;
   let disposed = false;
+  // 本次曲目已播放片段的能量累计；seek 不清，换曲/停止清。
+  let sumEnergy = 0;
+  let blockCount = 0;
+  let average: number | null = null;
 
   const patch = (next: Partial<LiveLoudness>) =>
     store.set(stateAtom, { ...store.get(stateAtom), ...next });
 
+  function resetAverage(): void {
+    sumEnergy = 0;
+    blockCount = 0;
+    average = null;
+  }
+
   function onBlock(energy: number): void {
     recent.push(energy);
+    const level = loudnessOf(energy);
+    // 与 Integrated 一样先过绝对门限，静音/极弱段不把平均拉低。
+    if (level !== null && level > ABSOLUTE_GATE_LUFS) {
+      sumEnergy += energy;
+      blockCount += 1;
+      average = loudnessOf(sumEnergy / blockCount);
+    }
     latest = {
       momentary: recent.momentary(),
       shortTerm: recent.shortTerm(),
+      average,
       channels,
     };
   }
@@ -142,6 +176,7 @@ export function startLiveLoudness(
     lastSegment = undefined;
     latest = null;
     recent.clear();
+    resetAverage();
     previous?.unsubscribe();
   }
 
@@ -174,7 +209,13 @@ export function startLiveLoudness(
   }
 
   // 先订阅再初读。
-  const offs = [store.sub(activeAtom, follow)];
+  const offs = [
+    store.sub(activeAtom, follow),
+    store.sub(trackRoundAtom, () => {
+      resetAverage();
+      patch({ average: null });
+    }),
+  ];
   if (options.active) offs.push(store.sub(options.active, follow));
   follow();
 

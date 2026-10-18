@@ -29,6 +29,10 @@ export const immersiveEn = {
   'immersive.soundPressureNoLoudness': 'Waiting for loudness',
   'immersive.soundPressureMargin': 'Headroom',
   'immersive.soundPressureOverLimit': 'Over',
+  'immersive.soundPressureAverage': 'Average',
+  'immersive.soundPressureAverageHint':
+    'Energy average of the played part since the start of the track; cleared on track change, kept across seeks.',
+  'immersive.soundPressureCurrent': 'Now',
   'immersive.soundPressureClose': 'Close',
   'immersive.soundPressurePickAmp': 'Amplifier',
   'immersive.soundPressurePickHeadphone': 'Headphones',

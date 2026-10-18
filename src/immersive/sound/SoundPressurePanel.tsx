@@ -17,6 +17,7 @@ import {
   AMP_VRMS_MAX,
   AMP_VRMS_MIN,
   convertSensitivity,
+  formatSpl,
   HEADPHONE_IMPEDANCE_DEFAULT,
   HEADPHONE_IMPEDANCE_MAX,
   HEADPHONE_IMPEDANCE_MIN,
@@ -27,6 +28,7 @@ import {
   HEADPHONE_SENS_DEFAULT,
   type HeadphoneRig,
   type SensitivityUnit,
+  type SoundPressureReading,
 } from '../../playback/soundPressure.ts';
 import { soundPressureKey } from '../../playback/soundPressurePrefs.ts';
 import styles from './SoundPressurePanel.module.css';
@@ -50,8 +52,14 @@ type HeadphoneDraft = {
 
 type Draft = AmpDraft | HeadphoneDraft;
 
+const lufsText = (value: number | null): string =>
+  value === null ? '—' : value.toFixed(1).replace('-', '−');
+
 export interface SoundPressurePanelProps {
   readonly rig: HeadphoneRig;
+  readonly reading: SoundPressureReading;
+  readonly averageReading: SoundPressureReading;
+  readonly averageLufs: number | null;
   readonly panelSide: 'below' | 'above';
   readonly variant: 'stage' | 'sheet';
   readonly onClose: () => void;
@@ -65,6 +73,9 @@ export interface SoundPressurePanelProps {
  */
 export function SoundPressurePanel({
   rig,
+  reading,
+  averageReading,
+  averageLufs,
   panelSide,
   variant,
   onClose,
@@ -212,6 +223,15 @@ export function SoundPressurePanel({
         >
           {t('immersive.soundPressurePickHeadphone')}
         </button>
+      </div>
+      <div className={styles.readout} data-sound-pressure-readout>
+        <span>
+          {t('immersive.soundPressureCurrent')} {formatSpl(reading.spl)} dB SPL
+        </span>
+        <span title={t('immersive.soundPressureAverageHint')}>
+          {t('immersive.soundPressureAverage')} {formatSpl(averageReading.spl)} dB SPL ·{' '}
+          {lufsText(averageLufs)} LUFS
+        </span>
       </div>
       {draft ? (
         <div className={styles.form} data-sound-pressure-form={draft.kind}>

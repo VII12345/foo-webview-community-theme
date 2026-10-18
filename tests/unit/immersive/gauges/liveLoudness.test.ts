@@ -36,7 +36,13 @@ const STEREO_48K: PcmStreamFormat = {
   capacityFrames: RATE,
   epoch: 1,
 };
-const EMPTY = { momentary: null, shortTerm: null, channels: 2, failed: false };
+const EMPTY = {
+  momentary: null,
+  shortTerm: null,
+  average: null,
+  channels: 2,
+  failed: false,
+};
 const A = makeTrack({ path: 'file://E:/Music/a.flac' });
 const B = makeTrack({ path: 'file://E:/Music/b.flac' });
 
@@ -177,6 +183,27 @@ describe('startLiveLoudness', () => {
     expectNear(state().momentary, -23, 0.1, 'Momentary');
     expectNear(state().shortTerm, -23, 0.1, 'Short-term');
     expect(state().failed).toBe(false);
+  });
+
+  test('平均按已播放块累计：seek 不清，换曲清零', async () => {
+    const { fake, play, step, state } = await setup();
+    const stream = fake.nth(0);
+    stream.reads.push(readOf(sine(1, -20)));
+    await step();
+    expectNear(state().average, -20, 0.2, '曲首平均');
+    // seek：短时窗清零，长期平均继续累计已播放的两段。
+    stream.reads.push(readOf(sine(1, -30), [segment(0, 2)]));
+    await step();
+    expectNear(state().shortTerm, -30, 0.2, 'seek 后的短时');
+    expect(state().average ?? -99).toBeLessThan(-20);
+    expect(state().average ?? -99).toBeGreaterThan(-30);
+    // 换曲：平均清零，从新曲第一块重新累计。
+    play(B);
+    await flush();
+    expect(state().average).toBeNull();
+    stream.reads.push(readOf(sine(1, -40), [segment(0, 3)]));
+    await step();
+    expectNear(state().average, -40, 0.2, '换曲后重新累计');
   });
 
   test('先订阅再初读：起来时没有曲目不订阅，宿主报了曲目才订阅；换曲不重订', async () => {

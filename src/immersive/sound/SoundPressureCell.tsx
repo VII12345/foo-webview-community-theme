@@ -38,9 +38,14 @@ function stateHint(reading: SoundPressureReading): MessageKey | null {
  * 右栏里的耳机输出声压：SPL、功率、电压与到 80 dB 的安全余量，实时跟着 Short-term LUFS 与音量走。
  * 只在图纸与聚焦视图替换 Genre 的位置；点开是设备浮层，选择立即生效。
  */
+/** 平均 LUFS 的显示：负数用排版减号，与余量一致。 */
+const lufsText = (value: number | null): string =>
+  value === null ? '—' : value.toFixed(1).replace('-', '−');
+
 export function SoundPressureCell({ variant }: SoundPressureCellProps) {
   const t = useAtomValueRawSync(translateAtom);
-  const { rig, amp, headphone, reading } = useAtomValueRawSync(soundPressureViewAtom);
+  const { rig, amp, headphone, reading, averageReading, averageLufs } =
+    useAtomValueRawSync(soundPressureViewAtom);
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -94,10 +99,23 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
           {formatSpl(reading.spl)} dB SPL
         </span>
         <span className={styles.detail}>{detail}</span>
+        {variant === 'stage' && (
+          <span
+            className={styles.average}
+            data-sound-pressure-average
+            title={t('immersive.soundPressureAverageHint')}
+          >
+            {t('immersive.soundPressureAverage')} {formatSpl(averageReading.spl)} dB SPL ·{' '}
+            {lufsText(averageLufs)} LUFS
+          </span>
+        )}
       </button>
       {open && (
         <SoundPressurePanel
           rig={rig}
+          reading={reading}
+          averageReading={averageReading}
+          averageLufs={averageLufs}
           panelSide="below"
           variant={variant}
           onClose={close}

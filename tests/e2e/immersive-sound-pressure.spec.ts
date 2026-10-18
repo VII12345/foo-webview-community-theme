@@ -29,12 +29,15 @@ test('图纸与聚焦显示声压，歌词与卡片三档不显示；设备浮�
   await expect(cell).toHaveAttribute('data-state', 'no-loudness');
   await expect(cell).toContainText('Desktop DAC · Open 300');
   await expect(cell).toContainText('— dB SPL');
+  await expect(cell.locator('[data-sound-pressure-average]')).toContainText('平均 — dB SPL');
 
   // 点开浮层：两页设备、当前选中项打勾；没有实时 PCM 时仍是等待响度。
   await cell.locator('button').first().click();
   const panel = view.locator('[data-sound-pressure-panel]');
   await expect(panel).toBeVisible();
   await expect(panel).toBeFocused();
+  await expect(panel.locator('[data-sound-pressure-readout]')).toContainText('当前');
+  await expect(panel.locator('[data-sound-pressure-readout]')).toContainText('平均');
   await expect(panel.getByRole('tab', { name: '耳放', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -78,6 +81,7 @@ test('版心档的图纸与聚焦也有声压，窄档没有', async ({ page }) 
   await expect(view.locator('[data-tier]')).toHaveAttribute('data-tier', 'compact');
   const compact = view.locator('[data-field="soundPressure"]');
   await expect(compact).toBeVisible();
+  await expect(compact.locator('[data-sound-pressure-average]')).toHaveCount(0);
   await compact.locator('button').first().click();
   const panel = view.locator('[data-sound-pressure-panel]');
   await expect(panel).toBeVisible();

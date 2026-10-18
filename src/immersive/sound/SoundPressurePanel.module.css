@@ -69,6 +69,19 @@
   box-shadow: var(--shadow2);
 }
 
+.readout {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: var(--borderRadiusSmall);
+  background: var(--colorNeutralBackground2);
+  color: var(--colorNeutralForeground2);
+  font-family: var(--fontFamilyMonospace);
+  font-size: 11px;
+  line-height: 15px;
+}
+
 .list {
   display: flex;
   flex-direction: column;
