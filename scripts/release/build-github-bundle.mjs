@@ -191,10 +191,16 @@ for (const asset of assets) {
     description: asset.description,
   });
 }
-writeFileSync(
-  join(outDir, 'SHA256SUMS.txt'),
-  manifest.map((asset) => `${asset.sha256}  ${asset.name}`).join('\n') + '\n',
-);
+const sumsText = manifest.map((asset) => `${asset.sha256}  ${asset.name}`).join('\n') + '\n';
+const sumsBytes = new TextEncoder().encode(sumsText);
+writeFileSync(join(outDir, 'SHA256SUMS.txt'), sumsBytes);
+manifest.push({
+  name: 'SHA256SUMS.txt',
+  path: 'SHA256SUMS.txt',
+  size: sumsBytes.length,
+  sha256: sha256(sumsBytes),
+  description: 'SHA-256 checksums of the zip assets',
+});
 writeFileSync(
   join(outDir, 'release.json'),
   JSON.stringify({ version, tag: `v${version}`, assets: manifest }, null, 2) + '\n',
