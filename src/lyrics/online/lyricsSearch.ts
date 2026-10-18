@@ -1,4 +1,4 @@
-import { LYRICS_PRIORITY, type LyricsPriority } from '../lyricsPrefs.ts';
+import { LYRICS_PRIORITY, isLocalPriority, type LyricsPriority } from '../lyricsPrefs.ts';
 import { isWordLevel, type LyricsContent } from '../lyricsText.ts';
 import { levelRank, rankCandidates, type MatchLevel, type MatchResult } from './lyricsMatch.ts';
 import type { LyricsCandidate, LyricsQuery, LyricsSource, LyricsSourceId } from './lyricsSource.ts';
@@ -54,7 +54,9 @@ const lineTexts = (content: LyricsContent): string[] =>
 const censoredCount = (content: LyricsContent) =>
   lineTexts(content).reduce((sum, text) => sum + (text.match(/\*/g)?.length ?? 0), 0);
 
-export const lyricsCategory = (content: LyricsContent): Exclude<LyricsPriority, 'local'> =>
+export const lyricsCategory = (
+  content: LyricsContent,
+): Exclude<LyricsPriority, 'local' | 'localWord'> =>
   isWordLevel(content) ? 'word' : content.kind === 'synced' ? 'line' : 'plain';
 
 const hasTranslation = (content: LyricsContent) =>
@@ -91,7 +93,7 @@ export function pickLyrics(
 
 /** 按顺序找时，取到首选在线类别且没有屏蔽字，就不再问后面的来源。 */
 const satisfies = (item: FoundLyrics, priority: readonly LyricsPriority[]) =>
-  lyricsCategory(item.content) === priority.find((value) => value !== 'local') &&
+  lyricsCategory(item.content) === priority.find((value) => !isLocalPriority(value)) &&
   censoredCount(item.content) === 0;
 
 export interface OnlineSearchOptions {

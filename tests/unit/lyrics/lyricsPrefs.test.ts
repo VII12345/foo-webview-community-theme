@@ -1,6 +1,6 @@
 import { createStore } from 'jotai/vanilla';
 import { describe, expect, it, onTestFinished } from 'vitest';
-import { LYRICS_PREFS_KEY, startLyricsPrefs } from '../../../src/lyrics/lyricsPrefs.ts';
+import { LYRICS_PREFS_KEY, LYRICS_PRIORITY, parseLyricsPriority, startLyricsPrefs } from '../../../src/lyrics/lyricsPrefs.ts';
 import { createMemoryConfigWriter } from '../../fixtures/dataWriter.ts';
 import { hostFailure, type ConfigValue } from '../../fixtures/hostAnswers.ts';
 import { flush } from '../../fixtures/playingTrack.ts';
@@ -17,6 +17,24 @@ function setup(value?: ConfigValue) {
 }
 
 describe('歌词联网偏好', () => {
+  it('旧的四项优先级在 local 前补上 localWord，新的五项原样接受', () => {
+    expect(parseLyricsPriority(['local', 'word', 'line', 'plain'])).toEqual([
+      'localWord',
+      'local',
+      'word',
+      'line',
+      'plain',
+    ]);
+    expect(parseLyricsPriority(['word', 'local', 'line', 'plain'])).toEqual([
+      'word',
+      'localWord',
+      'local',
+      'line',
+      'plain',
+    ]);
+    expect(parseLyricsPriority([...LYRICS_PRIORITY])).toEqual([...LYRICS_PRIORITY]);
+    expect(parseLyricsPriority(['local', 'word', 'line', 'plain', 'extra'])).toBeUndefined();
+  });
   it('默认关闭且未选择来源；关闭不会提前套用语言预设', async () => {
     const env = setup();
     await env.service.ready;

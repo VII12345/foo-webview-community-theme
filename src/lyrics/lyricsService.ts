@@ -2,7 +2,7 @@ import { atom, type Atom } from 'jotai/vanilla';
 import type { Store } from '../kit/store.ts';
 import { serviceKey } from '../kit/serviceKey.ts';
 import type { LocalLyricsService, LocalLyricsState, LyricsTrack } from './lyricsLocal.ts';
-import { LYRICS_PRIORITY, type LyricsPrefs, type LyricsPrefsService } from './lyricsPrefs.ts';
+import { LYRICS_PRIORITY, isLocalPriority, type LyricsPrefs, type LyricsPrefsService, type LyricsPriority } from './lyricsPrefs.ts';
 import { isWordLevel } from './lyricsText.ts';
 import type { LyricsCoverAccess } from './lyricsCandidateCovers.ts';
 import { lyricsVersion, type LyricsArchive, type LyricsReady } from './lyricsArchive.ts';
@@ -164,12 +164,23 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
     }
     const prefs = store.get(deps.prefs.pref);
     const order = prefs.order ?? LYRICS_PRIORITY;
-    if (local.status === 'ready' && (!prefs.enabled || order[0] === 'local')) {
-      cancel();
-      input = '';
-      outcome = null;
-      store.set(state, local);
-      return;
+    const localCategory = (content: LyricsReady['content']): LyricsPriority =>
+      isWordLevel(content) ? 'localWord' : 'local';
+    const localRank = (content: LyricsReady['content']): number => {
+      const preferred = order.indexOf(localCategory(content));
+      const fallback = order.indexOf('local');
+      return preferred >= 0 ? preferred : fallback;
+    };
+    const firstOnline = order.findIndex((value) => !isLocalPriority(value));
+    if (local.status === 'ready') {
+      const rank = localRank(local.content);
+      if (!prefs.enabled || firstOnline < 0 || rank < firstOnline) {
+        cancel();
+        input = '';
+        outcome = null;
+        store.set(state, local);
+        return;
+      }
     }
     // 只交出查询字段，不把曲目路径或调用方附带的其他属性传进在线来源。
     const query: LyricsQuery = {
@@ -219,7 +230,8 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
           : null;
       store.set(
         state,
-        local.status === 'ready' && (!kind || order.indexOf('local') < order.indexOf(kind))
+        local.status === 'ready' &&
+          (!kind || localRank(local.content) < order.indexOf(kind))
           ? local
           : outcome,
       );

@@ -172,13 +172,13 @@ describe('当前曲目歌词', () => {
       lyrics: '本地歌词',
       synced: false,
     });
-    env.order(['line', 'local', 'word', 'plain']);
+    env.order(['line', 'localWord', 'local', 'word', 'plain']);
     env.play(target());
     await expect.poll(env.state).toMatchObject({ source: 'lrclib' });
-    env.order(['word', 'local', 'line', 'plain']);
+    env.order(['word', 'localWord', 'local', 'line', 'plain']);
     await expect.poll(env.state).toMatchObject({ source: 'embedded' });
     env.online(false);
-    env.order(['line', 'plain', 'local', 'word']);
+    env.order(['line', 'plain', 'localWord', 'local', 'word']);
     expect(env.state()).toMatchObject({ source: 'embedded' });
   });
 

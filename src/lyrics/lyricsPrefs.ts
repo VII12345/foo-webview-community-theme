@@ -10,9 +10,18 @@ import type { Store } from '../kit/store.ts';
 import { serviceKey } from '../kit/serviceKey.ts';
 import { LYRICS_SOURCE_IDS, type LyricsSourceId } from './online/lyricsSource.ts';
 
-export const LYRICS_PRIORITY = ['local', 'word', 'line', 'plain'] as const;
+export const LYRICS_PRIORITY = ['localWord', 'local', 'word', 'line', 'plain'] as const;
 export type LyricsPriority = (typeof LYRICS_PRIORITY)[number];
-export const WORD_FIRST: readonly LyricsPriority[] = ['word', 'local', 'line', 'plain'];
+export const WORD_FIRST: readonly LyricsPriority[] = ['word', 'localWord', 'local', 'line', 'plain'];
+export const LOCAL_WORD_FIRST: readonly LyricsPriority[] = [
+  'localWord',
+  'word',
+  'local',
+  'line',
+  'plain',
+];
+export const isLocalPriority = (value: LyricsPriority): boolean =>
+  value === 'local' || value === 'localWord';
 
 /**
  * 头一批就有的来源。存档里 `sources` 记的是「勾了哪些来源」，所以后来新加的来源不会自动出现在老存档里——
@@ -34,9 +43,22 @@ export function missingNewSources(sources: readonly LyricsSourceId[]): LyricsSou
 }
 
 export function parseLyricsPriority(raw: unknown): LyricsPriority[] | undefined {
-  if (!Array.isArray(raw) || raw.length !== LYRICS_PRIORITY.length) return undefined;
-  const order = raw.flatMap((value: unknown) => LYRICS_PRIORITY.filter((known) => known === value));
-  return new Set(order).size === LYRICS_PRIORITY.length ? order : undefined;
+  if (!Array.isArray(raw)) return undefined;
+  const order = raw.flatMap((value: unknown) =>
+    LYRICS_PRIORITY.filter((known) => known === value),
+  );
+  // 旧存档是 4 项（没有 localWord）；在 local 前补上，保留用户原来的相对顺序。
+  if (raw.length === 4) {
+    if (order.length !== 4 || new Set(order).size !== 4) return undefined;
+    const at = order.indexOf('local');
+    order.splice(at < 0 ? 0 : at, 0, 'localWord');
+    return order;
+  }
+  if (raw.length !== LYRICS_PRIORITY.length) return undefined;
+  return order.length === LYRICS_PRIORITY.length &&
+    new Set(order).size === LYRICS_PRIORITY.length
+    ? order
+    : undefined;
 }
 
 const PRIORITY_PREF = defineConfigPref(

@@ -9,7 +9,7 @@ import {
 import { useAtomValueRawSync } from 'jotai/react';
 import { localeAtom, translateAtom } from '../i18n/locale.ts';
 import { useService } from '../kit/useService.ts';
-import { LYRICS_PRIORITY, WORD_FIRST, lyricsPrefsKey } from '../lyrics/lyricsPrefs.ts';
+import { LYRICS_PRIORITY, LOCAL_WORD_FIRST, WORD_FIRST, lyricsPrefsKey } from '../lyrics/lyricsPrefs.ts';
 import { LYRICS_SOURCE_IDS } from '../lyrics/online/lyricsSource.ts';
 import { SettingsExpander } from './SettingsExpander.tsx';
 import { SettingsRow } from './SettingsRow.tsx';
@@ -37,9 +37,11 @@ export function LyricsPreferenceCard() {
   const preset =
     order.join() === LYRICS_PRIORITY.join()
       ? 'local'
-      : order.join() === WORD_FIRST.join()
-        ? 'word'
-        : 'custom';
+      : order.join() === LOCAL_WORD_FIRST.join()
+        ? 'localWord'
+        : order.join() === WORD_FIRST.join()
+          ? 'word'
+          : 'custom';
   const sources =
     pref.sources ??
     (locale.startsWith('zh')
@@ -62,12 +64,19 @@ export function LyricsPreferenceCard() {
             value={preset}
             options={[
               { value: 'local', label: t('lyrics.localFirst') },
+              { value: 'localWord', label: t('lyrics.localWordFirst') },
               { value: 'word', label: t('lyrics.wordFirst') },
               { value: 'custom', label: t('lyrics.preset.custom'), disabled: true },
             ]}
             onChange={(value) => {
               if (value !== 'custom')
-                void service.setOrder(value === 'local' ? LYRICS_PRIORITY : WORD_FIRST);
+                void service.setOrder(
+                  value === 'local'
+                    ? LYRICS_PRIORITY
+                    : value === 'localWord'
+                      ? LOCAL_WORD_FIRST
+                      : WORD_FIRST,
+                );
             }}
           />
         )}
