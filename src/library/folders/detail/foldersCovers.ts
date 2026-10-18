@@ -11,6 +11,25 @@ interface FolderCover {
   readonly size: number;
   readonly previous?: string;
 }
+const IMAGE_FILE = /\.(?:jpe?g|png|gif|bmp|webp)$/i;
+const IMAGE_NAME = /^(?:cover|folder|front|albumart)/i;
+
+/** 目录封面接口要目录路径；首曲 path 可能带 file://。 */
+export function folderDirectory(path: string): string {
+  const clean = path.replace(/^file:\/\//i, '').replace(/\//g, '\\');
+  const at = clean.lastIndexOf('\\');
+  return at > 0 ? clean.slice(0, at) : '';
+}
+
+/** 目录里优先 cover/folder/front 命名，其次任意图片。 */
+export function folderImagePath(
+  images: readonly { readonly name: string; readonly path: string }[],
+): string | undefined {
+  return (
+    images.find((image) => IMAGE_FILE.test(image.name) && IMAGE_NAME.test(image.name))?.path ??
+    images.find((image) => IMAGE_FILE.test(image.name))?.path
+  );
+}
 const versionAtom = atom(0);
 export const foldersCoversVersionAtom = atom((get) => get(versionAtom));
 export interface FoldersCoversService {
@@ -21,7 +40,7 @@ export interface FoldersCoversService {
   dispose(): void;
 }
 
-/** 目录以实际首曲取图，不依赖专辑标签；图片加载名额与重试共用封面闸门。 */
+/** 目录优先用目录里的 cover/folder 图片，取不到再退回实际首曲的内嵌图；图片加载名额与重试共用封面闸门。 */
 export function startFoldersCovers(
   store: Store,
   host: Pick<typeof fb, 'artwork' | 'isAvailable'> = fb,
@@ -50,12 +69,27 @@ export function startFoldersCovers(
     }
   });
   async function load(path: string, size: number, mine: number) {
-    const answer = await settle(() =>
-      host.artwork.getFb2kUrlByPath(path, 'front', { maxSize: size }),
-    );
+    const directory = folderDirectory(path);
+    const folder = directory
+      ? await settle(() => host.artwork.getFolderImages(directory))
+      : null;
     if (disposed || mine !== serial) return;
+    const images =
+      folder && folder.success !== false && Array.isArray(folder.images) ? folder.images : [];
+    const imagePath = folderImagePath(images);
+    let url = '';
+    for (const candidate of [imagePath, path]) {
+      if (!candidate) continue;
+      const answer = await settle(() =>
+        host.artwork.getFb2kUrlByPath(candidate, 'front', { maxSize: size }),
+      );
+      if (disposed || mine !== serial) return;
+      if (answer && answer.success !== false && answer.available) {
+        url = answer.dataUrl;
+        break;
+      }
+    }
     pending.delete(path);
-    const url = answer && answer.success !== false && answer.available ? answer.dataUrl : '';
     const old = cache.get(path);
     if (!url && old?.url) {
       declined.set(path, size);

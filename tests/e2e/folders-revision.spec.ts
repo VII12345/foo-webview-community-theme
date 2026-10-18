@@ -43,6 +43,35 @@ test('目录定位不改变右侧集合，范围筛选与折叠后的主播放�
     .toEqual([FOLDER_TRACKS[1]!.path]);
   expect(env.errors).toEqual([]);
 });
+test('封面视图优先使用目录里的 cover 图片', async ({ page }) => {
+  const env = await openFolders(page, (host) => {
+    host.answer('artwork.getFolderImages', {
+      success: true,
+      images: [{ name: 'cover.jpg', path: 'E:\\Music\\Alpha\\cover.jpg', size: 1 }],
+    });
+    host.answer('artwork.getFb2kUrlByPath', {
+      success: true,
+      available: true,
+      type: 'front',
+      path: 'E:\\Music\\Alpha\\cover.jpg',
+      dataUrl:
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5v8AAAAASUVORK5CYII=',
+    });
+  });
+  await env.folder('Alpha').click();
+  await env.view.getByRole('button', { name: '封面', exact: true }).click();
+  await expect(env.view.locator('[data-folder-art] img').first()).toBeVisible();
+  await expect
+    .poll(() =>
+      env.view
+        .locator('[data-folder-art] img')
+        .first()
+        .evaluate((image: HTMLImageElement) => image.naturalWidth),
+    )
+    .toBe(1);
+  expect(env.errors).toEqual([]);
+});
+
 test('封面、仅本层、密度和固定目录正常切换，叶目录不显示空封面墙', async ({ page }) => {
   const env = await openFolders(page);
   await env.folder('Alpha').click();
