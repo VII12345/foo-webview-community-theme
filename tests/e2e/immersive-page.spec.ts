@@ -505,7 +505,13 @@ test('卡片歌词：左区卡片带曲名/艺人，右栏四行字删掉、动�
         bottom: Math.round((rect.bottom - stageRect.top) / scale),
       };
     });
-  expect(geometry).toEqual({ top: 220, bottom: 978 });
+  const line = await view.locator('.amll-lyric-player').evaluate((element) => {
+    const value = getComputedStyle(element).getPropertyValue('--amll-lp-font-size');
+    return Math.round(Number.parseFloat(value) * 1.2);
+  });
+  // 卡片歌词上下各多留一行：220−line 到 978+line。
+  expect(Math.abs(geometry.top - (220 - line))).toBeLessThanOrEqual(2);
+  expect(Math.abs(geometry.bottom - (978 + line))).toBeLessThanOrEqual(2);
   // 白框、频谱、波形与量表都不在（同歌词视图）。
   await expect(view.locator('[data-pad]')).toHaveCount(0);
   await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(0);

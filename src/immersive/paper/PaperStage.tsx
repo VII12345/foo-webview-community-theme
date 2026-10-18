@@ -75,7 +75,17 @@ export function PaperStage({ scale, origin, variant = 'paper', hidden = new Set<
           <StageCard
             title={variant === 'cardLyrics'}
             hidden={hidden}
-            tops={cardLayout ?? { cover: null, meta: null, seek: null, transport: null, cells: null }}
+            tops={
+              cardLayout ?? {
+                cover: null,
+                meta: null,
+                seek: null,
+                transport: null,
+                cells: null,
+                top: null,
+                bottom: null,
+              }
+            }
           />
         ) : (
           <StageDial offsetX={variant === 'lyrics' ? 100 : 0} hidden={hidden} />
@@ -148,6 +158,7 @@ export function PaperStage({ scale, origin, variant = 'paper', hidden = new Set<
                 ? cardLayout.bottom - cardLayout.top
                 : undefined
             }
+            extendLines={variant === 'cardLyrics' ? 1 : undefined}
             edgeAligned
           />
         )}

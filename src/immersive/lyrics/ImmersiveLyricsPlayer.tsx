@@ -16,6 +16,7 @@ export function ImmersiveLyricsPlayer({
   top,
   bottom,
   height,
+  extendLines = 0,
 }: {
   readonly fontScale?: number;
   /** full 舞台的动画歌词贴住右区左缘，不用 AMLL 默认的 1em 行内边距。 */
@@ -26,6 +27,8 @@ export function ImmersiveLyricsPlayer({
   readonly bottom?: number;
   /** 卡片歌词跟左区上下对齐时用显式高度覆盖 CSS 的 660。 */
   readonly height?: number;
+  /** 上下各多留几行（AMLL 主行行高 1.2em），卡片歌词用 1。 */
+  readonly extendLines?: number;
 } = {}) {
   const services = useViewServices();
   const lyrics = useService(lyricsKey);
@@ -37,14 +40,19 @@ export function ImmersiveLyricsPlayer({
   const zoom = useLyricFontZoom();
   const nudge = useLyricAlignNudge();
   if (!services.lyrics || state.status !== 'ready' || state.content.kind !== 'synced') return null;
+  const extend = extendLines > 0 ? extendLines * display.fontSize * fontScale * 1.2 : 0;
+  const box =
+    top !== undefined || bottom !== undefined || height !== undefined
+      ? {
+          ...(top !== undefined ? { top: top - extend } : {}),
+          ...(bottom !== undefined ? { bottom: bottom - extend } : {}),
+          ...(height !== undefined ? { height: height + extend * 2 } : {}),
+        }
+      : undefined;
   return (
     <div
       className={styles.root}
-      style={
-        top !== undefined || bottom !== undefined || height !== undefined
-          ? { top, bottom, height }
-          : undefined
-      }
+      style={box}
       data-immersive-lyrics-player
       data-edge-aligned={edgeAligned || undefined}
     >
