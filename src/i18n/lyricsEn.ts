@@ -1,7 +1,7 @@
 export const lyricsEn = {
   'lyrics.onlineOff': 'Online lyrics are turned off',
   'lyrics.autoSaveOnlineWord': 'Save online word-level lyrics automatically',
-  'lyrics.autoSaveOnlineWordHint': 'When the track has no local lyrics, write a high-confidence automatically matched word-level lyric to the file’s LYRICS tag. This modifies the file.',
+  'lyrics.autoSaveOnlineWordHint': 'When the local lyrics have no word-level timing (missing, line-synced, or plain text), write a high-confidence automatically matched word-level lyric to the file’s LYRICS tag. This modifies the file.',
   'lyrics.priority': 'Lyrics preferences',
   'lyrics.localFirst': 'Local first',
   'lyrics.localWordFirst': 'Local word timing first',

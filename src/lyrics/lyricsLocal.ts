@@ -6,6 +6,7 @@ import { normalizeHostPath } from '../host/hostPath.ts';
 import type { Store } from '../kit/store.ts';
 import { lyricsTagName, serializeLyricsContent } from './lyricsSerialize.ts';
 import { parseLyricsText, type LyricsContent } from './lyricsText.ts';
+import { isWordLevel } from './lyricsText.ts';
 
 /** 取词要的那一首：由 `app/` 从正在播放的曲目换算后注入，本层不认播放服务。 */
 export interface LyricsTrack {
@@ -56,6 +57,14 @@ export const KNOWN_LYRICS_TAGS = [
   'SYNCEDLYRICS',
   'SYNCED LYRICS',
 ] as const;
+
+/** 本地没有可用的逐字时间轴：没有歌词，或只有逐行/纯文本。读取失败不算，避免覆盖读不出来的旧词。 */
+export function lacksWordLevel(state: LocalLyricsState): boolean {
+  return (
+    state.status === 'missing' ||
+    (state.status === 'ready' && !isWordLevel(state.content))
+  );
+}
 
 export interface LocalLyricsService {
   readonly state: Atom<LocalLyricsState>;

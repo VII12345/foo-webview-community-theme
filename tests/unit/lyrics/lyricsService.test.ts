@@ -38,6 +38,22 @@ const httpLyrics = (
   ]),
 });
 
+function wordHttpLyrics(title = '逐字'): Extract<HostResponse<'http.get'>, { success: true }> {
+  return {
+    ...httpLyrics(title),
+    body: JSON.stringify([
+      {
+        id: 1,
+        trackName: title,
+        artistName: '艺人',
+        albumName: '专辑',
+        duration: 120,
+        syncedLyrics: '[00:01.00]<00:01.00>Hel<00:01.40>lo<00:02.00>',
+      },
+    ]),
+  };
+}
+
 function setup(enabled = false, withArchive = false, autoSave = false) {
   const host = installFakeHost();
   host.answer('lyrics.get', { success: true, available: false, path: '' });
@@ -185,19 +201,7 @@ describe('当前曲目歌词', () => {
 
   it('开关打开时，自动匹配的在线逐字歌词写进本地标签且只写一次', async () => {
     const env = setup(true, false, true);
-    env.host.answer('http.get', {
-      ...httpLyrics('逐字'),
-      body: JSON.stringify([
-        {
-          id: 1,
-          trackName: '逐字',
-          artistName: '艺人',
-          albumName: '专辑',
-          duration: 120,
-          syncedLyrics: '[00:01.00]<00:01.00>Hel<00:01.40>lo<00:02.00>',
-        },
-      ]),
-    });
+    env.host.answer('http.get', wordHttpLyrics());
     env.play(target());
     await expect.poll(() => env.state()).toMatchObject({ status: 'ready', source: 'lrclib' });
     await expect
@@ -210,41 +214,65 @@ describe('当前曲目歌词', () => {
     expect(env.host.callsTo('lyrics.save').length).toBe(writes);
   });
 
-  it('自动写标签默认关闭；已有本地歌词时也不写', async () => {
+  it('自动写标签默认关闭；本地逐行/纯文本会写，本地逐字/流媒体/读取失败不写', async () => {
     const off = setup(true);
-    off.host.answer('http.get', {
-      ...httpLyrics('逐字'),
-      body: JSON.stringify([
-        {
-          id: 1,
-          trackName: '逐字',
-          artistName: '艺人',
-          albumName: '专辑',
-          duration: 120,
-          syncedLyrics: '[00:01.00]<00:01.00>Hel<00:01.40>lo<00:02.00>',
-        },
-      ]),
-    });
+    off.host.answer('http.get', wordHttpLyrics());
     off.play(target());
     await expect.poll(() => off.state()).toMatchObject({ status: 'ready', source: 'lrclib' });
     expect(off.host.callsTo('lyrics.save')).toHaveLength(0);
 
-    const local = setup(true, false, true);
-    local.host.answer('lyrics.get', {
+    for (const [text, synced] of [
+      ['本地纯文本', false],
+      ['[00:01]本地逐行', true],
+    ] as const) {
+      const env = setup(true, false, true);
+      env.host.answer('http.get', wordHttpLyrics());
+      env.host.answer('lyrics.get', {
+        success: true,
+        available: true,
+        source: 'embedded',
+        path: '',
+        lyrics: text,
+        synced,
+      });
+      env.play(target());
+      await expect.poll(() => env.state()).toMatchObject({ source: 'embedded' });
+      await expect
+        .poll(() => env.host.written.get('E:/Music/a.flac|subsong:1'))
+        .toContain('Hel');
+    }
+
+    const word = setup(true, false, true);
+    word.host.answer('http.get', wordHttpLyrics());
+    word.host.answer('lyrics.get', {
       success: true,
       available: true,
       source: 'embedded',
       path: '',
-      lyrics: '本地已有歌词',
-      synced: false,
+      lyrics: '[00:01.00]<00:01.00>逐<00:01.50>字<00:02.00>',
+      synced: true,
     });
-    local.play(target());
-    await expect.poll(() => local.state()).toMatchObject({ source: 'embedded' });
-    expect(local.host.callsTo('lyrics.save')).toHaveLength(0);
+    word.play(target());
+    await expect.poll(() => word.state()).toMatchObject({ source: 'embedded' });
+    expect(word.host.callsTo('lyrics.save')).toHaveLength(0);
+
+    const stream = setup(true, false, true);
+    stream.host.answer('http.get', wordHttpLyrics());
+    stream.play(target('radio', 'a', false));
+    await expect.poll(() => stream.state()).toMatchObject({ status: 'ready' });
+    expect(stream.host.callsTo('lyrics.save')).toHaveLength(0);
+
+    const failed = setup(true, false, true);
+    failed.host.answer('lyrics.get', hostFailure('OPERATION_FAILED'));
+    failed.host.answer('http.get', wordHttpLyrics());
+    failed.play(target());
+    await expect.poll(() => failed.state()).toMatchObject({ status: 'ready' });
+    expect(failed.host.callsTo('lyrics.save')).toHaveLength(0);
   });
 
   it('本地曲目的默认选择写进文件标签，重读恢复；恢复自动选择清掉', async () => {
-    const env = setup(true, true);    env.host.answer('lyrics.get', {
+    const env = setup(true, true);
+    env.host.answer('lyrics.get', {
       success: true,
       available: true,
       source: 'embedded',

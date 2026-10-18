@@ -2,6 +2,7 @@ import { atom, type Atom } from 'jotai/vanilla';
 import type { Store } from '../kit/store.ts';
 import { serviceKey } from '../kit/serviceKey.ts';
 import type { LocalLyricsService, LocalLyricsState, LyricsTrack } from './lyricsLocal.ts';
+import { lacksWordLevel } from './lyricsLocal.ts';
 import { LYRICS_PRIORITY, isLocalPriority, type LyricsPrefs, type LyricsPrefsService, type LyricsPriority } from './lyricsPrefs.ts';
 import { isWordLevel } from './lyricsText.ts';
 import type { LyricsCoverAccess } from './lyricsCandidateCovers.ts';
@@ -90,6 +91,8 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
   let manualInput = '';
   let previewInput = '';
   let selection = 0;
+  // 本地有逐行/纯文本、但开关要求写逐字时，在线搜索只作为后台写标签，不改变当前显示。
+  let backgroundSave = false;
   // 自动写入只试一次：成功、失败、只读文件都不在后续 follow 里反复重试。
   const autoSaved = new Map<string, 'pending' | 'done'>();
   const subject = atom((get) => lyricsTargetId(get(deps.track)));
@@ -117,7 +120,13 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
     const enabled = deps.prefs.autoSaveWord
       ? store.get(deps.prefs.autoSaveWord)
       : false;
-    if (!enabled || !target.local || local.status !== 'missing' || local.key !== target.key)
+    if (
+      !enabled ||
+      !target.local ||
+      !lacksWordLevel(local) ||
+      !('key' in local) ||
+      local.key !== target.key
+    )
       return;
     if (chosen) return;
     if (target.archiveKey && deps.archive && store.get(deps.archive.selected)) return;
@@ -134,7 +143,11 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
       store.get(deps.track)?.key === target.key &&
       !chosen &&
       !(target.archiveKey && deps.archive && store.get(deps.archive.selected)) &&
-      store.get(deps.local.state).status === 'missing';
+      (deps.prefs.autoSaveWord ? store.get(deps.prefs.autoSaveWord) : false) &&
+      (() => {
+        const current = store.get(deps.local.state);
+        return 'key' in current && current.key === target.key && lacksWordLevel(current);
+      })();
     if (!stillCurrent()) {
       autoSaved.delete(key);
       return;
@@ -212,9 +225,23 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
       return preferred >= 0 ? preferred : fallback;
     };
     const firstOnline = order.findIndex((value) => !isLocalPriority(value));
+    const autoSaveEnabled = deps.prefs.autoSaveWord
+      ? store.get(deps.prefs.autoSaveWord)
+      : false;
+    const archiveSelected =
+      target.archiveKey && deps.archive ? store.get(deps.archive.selected) : null;
+    const autoSaveWanted =
+      autoSaveEnabled &&
+      target.local &&
+      !chosen &&
+      !archiveSelected &&
+      local.key === target.key &&
+      lacksWordLevel(local);
     if (local.status === 'ready') {
       const rank = localRank(local.content);
-      if (!prefs.enabled || firstOnline < 0 || rank < firstOnline) {
+      // 本地逐行/纯文本会赢得显示优先级；自动写标签要在后台继续搜在线逐字，不能在这里直接返回。
+      const mustSearchForSave = autoSaveWanted && prefs.enabled && firstOnline >= 0;
+      if (!prefs.enabled || firstOnline < 0 || (rank < firstOnline && !mustSearchForSave)) {
         cancel();
         input = '';
         outcome = null;
@@ -230,7 +257,7 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
       albumArtists: [...target.query.albumArtists],
       durationMs: target.query.durationMs,
     };
-    const next = JSON.stringify([target.key, query, prefs]);
+    const next = JSON.stringify([target.key, query, prefs, autoSaveEnabled]);
     if (next !== input) {
       cancel();
       input = next;
@@ -271,8 +298,7 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
       const localWins =
         local.status === 'ready' && (!kind || localRank(local.content) < order.indexOf(kind));
       store.set(state, localWins ? local : outcome);
-      if (!localWins && outcome.status === 'ready')
-        maybeAutoSaveWord(target, outcome, local);
+      if (outcome.status === 'ready') maybeAutoSaveWord(target, outcome, local);
       return;
     }
     const previewWanted = previewInput === identity && (!deps.visible || store.get(deps.visible));
@@ -283,7 +309,10 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
     }
     if (request) return;
     request = new AbortController();
-    store.set(state, { status: 'loading', key: target.key, stage: 'online' });
+    // 本地已有一份逐行词时，在线搜索只服务自动写标签：保持本地显示，不把状态切成 loading。
+    backgroundSave = autoSaveWanted && local.status === 'ready';
+    if (!backgroundSave)
+      store.set(state, { status: 'loading', key: target.key, stage: 'online' });
     void load(target, query, prefs, local.status === 'failed', request);
   }
 
@@ -294,6 +323,7 @@ export function startLyrics(store: Store, deps: LyricsDeps): LyricsService {
     ...(deps.visible ? [store.sub(deps.visible, follow)] : []),
     store.sub(deps.local.state, follow),
     store.sub(deps.prefs.pref, follow),
+    ...(deps.prefs.autoSaveWord ? [store.sub(deps.prefs.autoSaveWord, follow)] : []),
     ...(deps.archive ? [store.sub(deps.archive.selected, follow)] : []),
   ];
   follow();
