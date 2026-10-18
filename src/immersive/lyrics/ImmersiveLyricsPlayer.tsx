@@ -10,7 +10,7 @@ import { useLyricFontZoom } from '../../lyrics/useLyricFontZoom.ts';
 import { useViewServices } from '../page/viewServices.ts';
 import styles from './ImmersiveLyricsPlayer.module.css';
 
-export function ImmersiveLyricsPlayer() {
+export function ImmersiveLyricsPlayer({ fontScale = 1 }: { readonly fontScale?: number } = {}) {
   const services = useViewServices();
   const lyrics = useService(lyricsKey);
   const display = useAtomValueRawSync(useService(lyricsDisplayKey).display);
@@ -29,6 +29,7 @@ export function ImmersiveLyricsPlayer() {
         clock={services.lyrics.clock}
         active={services.active}
         fontSize={display.fontSize}
+        fontScale={fontScale}
         display={display}
         offset={offset}
         onSeek={canSeek ? (seconds) => void services.lyrics?.seek(state.key, seconds) : undefined}

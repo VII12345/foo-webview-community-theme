@@ -53,7 +53,10 @@
 
 /* AMLL 的译文紧跟主行，音译是后一条副行；两者共用副行类名。 */
 .root :global([class*='_lyricMainLine'] + [class*='_lyricSubLine']) {
-  font-size: var(--lyrics-translation-size, max(0.5em, var(--fontSizeBase100)));
+  font-size: var(
+    --lyrics-translation-size,
+    max(0.5em, calc(var(--fontSizeBase100) * var(--lyrics-font-scale, 1)))
+  );
 }
 
 .root[data-translation='hidden'] :global([class*='_lyricMainLine'] + [class*='_lyricSubLine']),

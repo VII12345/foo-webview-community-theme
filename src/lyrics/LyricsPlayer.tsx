@@ -25,6 +25,8 @@ export interface LyricsPlayerProps {
   readonly active: boolean;
   /** 正文字号，CSS 像素。 */
   readonly fontSize: number;
+  /** 字号缩放；full 舞台按 1/舞台缩放传，让缩放后的屏幕字号与设置值一致。 */
+  readonly fontScale?: number;
   readonly display?: LyricsDisplay;
   readonly offset?: number;
   /** 点了某一行：交回那一行的开始时间，秒。 */
@@ -48,6 +50,7 @@ export function LyricsPlayer({
   clock,
   active,
   fontSize,
+  fontScale = 1,
   display,
   offset = 0,
   onSeek,
@@ -319,6 +322,7 @@ export function LyricsPlayer({
   }, [
     player,
     fontSize,
+    fontScale,
     display?.fontFamily,
     display?.translationFontSize,
     display?.showTranslation,
@@ -327,11 +331,12 @@ export function LyricsPlayer({
 
   const style: CSSProperties & Record<`--${string}`, string> = {
     fontFamily: lyricsFontFamily(display?.fontFamily ?? ''),
-    '--amll-lp-font-size': `${fontSize}px`,
+    '--amll-lp-font-size': `${fontSize * fontScale}px`,
+    '--lyrics-font-scale': String(fontScale),
     '--lyrics-transition-duration': `${reduced ? 0 : motion.transitionMs}ms`,
     '--lyrics-transition-curve': curve(motion.transitionCurve),
     ...(display?.translationFontSize != null
-      ? { '--lyrics-translation-size': `${display.translationFontSize}px` }
+      ? { '--lyrics-translation-size': `${display.translationFontSize * fontScale}px` }
       : {}),
   };
   return (

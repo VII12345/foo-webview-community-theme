@@ -134,6 +134,40 @@ test('右上角可以切换聚焦视图，隐藏频谱并保持原图纸视图�
   await expect(view.locator('[data-field-slot="spectrum"]')).toHaveCount(1);
   expect(errors).toStrictEqual([]);
 });
+test('歌词视图在 full 与紧凑档的屏幕字号一致，不随舞台缩放变小', async ({ page }) => {
+  const { view, errors } = await openImmersive(page, {
+    onHost(host) {
+      host.answer('lyrics.get', {
+        success: true,
+        available: true,
+        source: 'embedded',
+        path: '',
+        lyrics: '[00:01]字号第一句\n[00:03]字号第二句',
+        synced: true,
+      });
+    },
+  });
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '歌词视图', exact: true }).click();
+  const screenFont = async () =>
+    view.locator('.amll-lyric-player').evaluate((element) => {
+      const stage = element.closest('[data-paper-content]');
+      const width = stage?.getBoundingClientRect().width ?? 1920;
+      const tier = element.closest('[data-tier]')?.getAttribute('data-tier');
+      const scale = tier === 'full' ? width / 1920 : 1;
+      return { stage: parseFloat(getComputedStyle(element).fontSize), scale };
+    });
+  const full = await screenFont();
+  expect(full.stage * full.scale).toBeCloseTo(22, 0);
+
+  await page.setViewportSize({ width: 900, height: 700 });
+  await expect(view.locator('[data-tier]')).toHaveAttribute('data-tier', 'compact');
+  const compact = await screenFont();
+  expect(compact.scale).toBe(1);
+  expect(compact.stage).toBeCloseTo(22, 0);
+  expect(errors).toStrictEqual([]);
+});
+
 test('卡片视图：左区换成方封面卡片，背景与右栏四行字照旧；原视图仍在', async ({ page }) => {
   const { view, errors } = await openImmersive(page, {
     onHost(host) {
