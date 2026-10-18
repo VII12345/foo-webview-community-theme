@@ -12,6 +12,7 @@ import {
   type StatsTotals,
 } from './monthlyStats.ts';
 import styles from './StatsPage.module.css';
+import { StatsArt } from './StatsArt.tsx';
 
 /** 秒数写成「X 小时 Y 分」这种给人看的写法；不足一分钟写秒。 */
 function formatDuration(seconds: number, t: Translate): string {
@@ -93,6 +94,7 @@ function PeriodBlock({ title, period, topArtists }: { readonly title: string; re
             {period.tracks.slice(0, 10).map((row, index) => (
               <li key={`${row.title}\u0000${row.artist}\u0000${index}`}>
                 <span className={styles.rank}>{index + 1}</span>
+                <StatsArt path={row.path} title={row.title || t('stats.unknown')} />
                 <span className={styles.name}>
                   <span className={styles['name-main']}>{row.title || t('stats.unknown')}</span>
                   <span className={styles['name-sub']}>{row.artist}</span>

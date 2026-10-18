@@ -40,6 +40,8 @@ export interface StatsTotals {
 export interface StatsTrackRow {
   readonly title: string;
   readonly artist: string;
+  /** 统计库有 path 列时带上，用来取封面；旧库没有这一列时为空串。 */
+  readonly path: string;
   readonly seconds: number;
   readonly plays: number;
 }
@@ -88,8 +90,9 @@ const PERIOD_QUERIES = {
     `SELECT COALESCE(SUM(total_time_seconds),0) AS seconds, COALESCE(SUM(playcount),0) AS plays,
             COUNT(DISTINCT track_crc) AS tracks
      FROM monthly_count WHERE ${bound('ymd', key)}`,
-  tracks: (key: string) =>
-    `SELECT title, artist, SUM(total_time_seconds) AS seconds, SUM(playcount) AS plays
+  tracks: (key: string, hasPath: boolean) =>
+    `SELECT title, artist, ${hasPath ? 'MAX(path)' : "''"} AS path,
+            SUM(total_time_seconds) AS seconds, SUM(playcount) AS plays
      FROM monthly_count WHERE ${bound('ymd', key)}
      GROUP BY track_crc ORDER BY seconds DESC, plays DESC LIMIT 20`,
   trend: (key: string) =>
@@ -180,12 +183,19 @@ function rows(db: SqlDatabase, sql: string): Record<string, unknown>[] {
   return first.values.map((row) => Object.fromEntries(first.columns.map((c, i) => [c, row[i]])));
 }
 
-function periodOf(db: SqlDatabase, key: string, previousKey: string, label: string): StatsPeriod {
+function periodOf(
+  db: SqlDatabase,
+  key: string,
+  previousKey: string,
+  label: string,
+  hasPath: boolean,
+): StatsPeriod {
   const totals = firstRow(db, PERIOD_QUERIES.totals(key));
   const previous = firstRow(db, PERIOD_QUERIES.totals(previousKey));
-  const rawTracks = rows(db, PERIOD_QUERIES.tracks(key)).map((row) => ({
+  const rawTracks = rows(db, PERIOD_QUERIES.tracks(key, hasPath)).map((row) => ({
     title: text(row['title']),
     artist: text(row['artist']),
+    path: text(row['path']),
     seconds: num(row['seconds']),
     plays: num(row['plays']),
   }));
@@ -226,11 +236,15 @@ export async function queryStats(bytes: Uint8Array, now: Date): Promise<StatsDat
   const today = todayYmd(now);
   const month = today.slice(0, 7);
   const year = today.slice(0, 4);
+  // 老版插件的库没有 path 列；直接 SELECT 会让整页 failed，先探测再决定查询。
+  const hasPath = rows(db, 'PRAGMA table_info(monthly_count)').some(
+    (column) => text(column['name']) === 'path',
+  );
   try {
     return {
-      today: periodOf(db, today, shiftDate(today, 'day'), today),
-      month: periodOf(db, month, shiftDate(month, 'month'), month),
-      year: periodOf(db, year, shiftDate(year, 'year'), year),
+      today: periodOf(db, today, shiftDate(today, 'day'), today, hasPath),
+      month: periodOf(db, month, shiftDate(month, 'month'), month, hasPath),
+      year: periodOf(db, year, shiftDate(year, 'year'), year, hasPath),
     };
   } finally {
     db.close();

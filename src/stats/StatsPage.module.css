@@ -124,6 +124,28 @@
   gap: var(--spacingHorizontalS);
 }
 
+.list[data-stats-top-tracks] li {
+  grid-template-columns: 24px 32px minmax(0, 1fr) auto auto;
+  align-items: center;
+}
+
+.cover {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  border-radius: var(--borderRadiusSmall);
+  background: var(--colorNeutralBackground3);
+  color: var(--text-muted);
+}
+
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .rank {
   color: var(--text-muted);
   font-family: var(--fontFamilyMonospace);

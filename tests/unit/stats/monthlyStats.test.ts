@@ -43,10 +43,18 @@ async function buildDb(
     playcount INTEGER NOT NULL DEFAULT 0, total_time_seconds REAL NOT NULL DEFAULT 0,
     PRIMARY KEY(ymd, track_crc));`);
   const statement = db.prepare(
-    'INSERT INTO monthly_count (ymd, track_crc, title, artist, playcount, total_time_seconds) VALUES (?,?,?,?,?,?)',
+    'INSERT INTO monthly_count (ymd, track_crc, path, title, artist, playcount, total_time_seconds) VALUES (?,?,?,?,?,?,?)',
   );
   rows.forEach(([ymd, title, artist, seconds, plays], index) => {
-    statement.run([ymd, `crc-${index}`, title, artist, plays, seconds]);
+    statement.run([
+      ymd,
+      `crc-${index}`,
+      `E:/Music/${title}.flac`,
+      title,
+      artist,
+      plays,
+      seconds,
+    ]);
   });
   statement.free();
   const bytes = db.export();
@@ -96,6 +104,7 @@ describe('统计查询', () => {
     expect(data.month.trend.map((point) => point.ymd)).toEqual(['2026-10-05', '2026-10-17']);
     // Top 歌曲按月时长降序。
     expect(data.month.tracks.map((row) => row.title)).toEqual(['本月听', '今天听']);
+    expect(data.month.tracks[0]?.path).toBe('E:/Music/本月听.flac');
   });
 
   it('库为空时各期都是零', async () => {
@@ -105,6 +114,23 @@ describe('统计查询', () => {
     expect(data.month.tracks).toEqual([]);
     expect(data.month.artists).toEqual([]);
     expect(data.month.trend).toEqual([]);
+  });
+
+  it('老库没有 path 列时仍能读统计，封面路径为空', async () => {
+    const SQL = await initSqlJs();
+    const db = new SQL.Database();
+    db.run(`CREATE TABLE monthly_count (
+      ymd TEXT NOT NULL, track_crc TEXT NOT NULL, title TEXT, artist TEXT,
+      playcount INTEGER NOT NULL DEFAULT 0, total_time_seconds REAL NOT NULL DEFAULT 0,
+      PRIMARY KEY(ymd, track_crc));`);
+    db.run(
+      `INSERT INTO monthly_count (ymd, track_crc, title, artist, playcount, total_time_seconds)
+       VALUES ('2026-10-17','old','老库','A',1,60)`,
+    );
+    const bytes = db.export();
+    db.close();
+    const data = await queryStats(bytes, new Date(2026, 9, 17));
+    expect(data.month.tracks[0]).toMatchObject({ title: '老库', path: '' });
   });
 });
 

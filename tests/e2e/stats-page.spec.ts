@@ -18,9 +18,9 @@ async function statsDbBase64(): Promise<string> {
   const now = new Date();
   const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   db.run(
-    `INSERT INTO monthly_count (ymd, track_crc, title, artist, playcount, total_time_seconds)
-     VALUES ('${ymd}','c1','晨曲','甲、乙',3,1800),
-            ('${ymd}','c2','夜曲','丙',1,600);`,
+    `INSERT INTO monthly_count (ymd, track_crc, path, title, artist, playcount, total_time_seconds)
+     VALUES ('${ymd}','c1','E:/Music/morning.flac','晨曲','甲、乙',3,1800),
+            ('${ymd}','c2','E:/Music/night.flac','夜曲','丙',1,600);`,
   );
   const bytes = db.export();
   db.close();
@@ -54,6 +54,7 @@ test('侧边栏打开播放统计页，读出概览、Top 榜与趋势', async (
   const topTracks = stats.locator('[data-stats-top-tracks="month"]');
   await expect(topTracks.getByText('晨曲')).toBeVisible();
   await expect(topTracks.getByText('夜曲')).toBeVisible();
+  await expect(topTracks.locator('[data-stats-cover] img')).toHaveCount(2);
   // 艺人榜：合唱曲的两位艺人都记完整时长。
   const topArtists = stats.locator('[data-stats-top-artists="month"]');
   await expect(topArtists.getByText('甲')).toBeVisible();
