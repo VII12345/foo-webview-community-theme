@@ -111,7 +111,6 @@ function content(id: ColumnId, track: TableTrack, props: TrackTableRowProps): Re
   );
   switch (id) {
     case 'cover':
-      return null;
     case 'art':
       return props.artwork?.(track, props.artSize) ?? null;
     case 'status':

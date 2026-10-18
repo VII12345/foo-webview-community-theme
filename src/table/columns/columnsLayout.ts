@@ -38,6 +38,11 @@ export interface ColumnsCompact {
   readonly columns: readonly ColumnId[];
 }
 
+/** 封面列默认跨整组；`perRowCover` 时改成每行一张小图（目录列表用）。 */
+export interface ColumnsLayoutOptions {
+  readonly perRowCover?: boolean;
+}
+
 /**
  * 按状态算这一刻画哪些列、栅格怎么写。窄档只留 `NARROW_COLUMNS`，给了 `compact` 时容器不够宽先收起它那几列；
  * 封面列要等量到容器宽度才出现，宽度夹在容器宽的三分之一以内。
@@ -46,6 +51,7 @@ export function columnsLayout(
   state: ColumnsState,
   offered: readonly ColumnId[],
   compact?: ColumnsCompact,
+  options?: ColumnsLayoutOptions,
 ): ColumnsLayout {
   const measured = state.containerWidth > 0;
   const narrow = measured && state.containerWidth <= NARROW_WIDTH;
@@ -56,8 +62,11 @@ export function columnsLayout(
     !state.hidden.has(id) &&
     (!narrow || NARROW_COLUMNS.has(id)) &&
     !squeezed.includes(id);
-  const cells = state.order.filter((id) => id !== 'cover' && shown(id));
-  const cover = shown('cover') && measured;
+  const perRowCover = options?.perRowCover === true;
+  const cells = state.order.filter(
+    (id) => (perRowCover || id !== 'cover') && shown(id),
+  );
+  const cover = !perRowCover && shown('cover') && measured;
   const coverWidth = cover
     ? narrow
       ? widthOf(state.widths, 'cover') > 0
@@ -81,7 +90,12 @@ export function columnsLayout(
  * 夹在中间时原宽不动、整体跟着挪。封面列不找另一侧，只改自己；定宽列与找不到另一侧的列没有分隔条。
  */
 export function resizePartner(layout: ColumnsLayout, left: ColumnId): ColumnId | 'self' | null {
-  if (left === 'cover') return layout.header.includes('cover') ? 'self' : null;
+  if (left === 'cover')
+    return layout.cells.includes('cover')
+      ? null
+      : layout.header.includes('cover')
+        ? 'self'
+        : null;
   if (columnDef(left).fixed) return null;
   const at = layout.cells.indexOf(left);
   if (at < 0) return null;

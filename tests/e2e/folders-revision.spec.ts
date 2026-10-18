@@ -134,7 +134,7 @@ test('列表显示封面、工具栏占满内容宽度，曲目选中不显示�
   await page.addInitScript(() => {
     localStorage.setItem(
       'default-theme.preview-columns.tree.v1',
-      JSON.stringify({ widths: [0, 24, 52, 2, 1, 88, 60], hidden: ['status', 'cover'] }),
+      JSON.stringify({ widths: [80, 24, 52, 2, 1, 88, 60], hidden: ['status'] }),
     );
     localStorage.setItem('default-theme.folders.v1', JSON.stringify({ density: 'compact' }));
   });

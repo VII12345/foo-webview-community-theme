@@ -48,6 +48,9 @@ export function startFoldersCovers(
   const cache = new Map<string, FolderCover>();
   const pending = new Set<string>();
   const declined = new Map<string, number>();
+  /** 目录 → 目录封面文件路径；同一目录下的多首曲目共用一次 getFolderImages。 */
+  const folderImages = new Map<string, string | undefined>();
+  const folderRequests = new Map<string, Promise<string | undefined>>();
   let generation = store.get(foldersTreeAtom).generation;
   let serial = 0;
   let disposed = false;
@@ -58,6 +61,8 @@ export function startFoldersCovers(
     cache.clear();
     pending.clear();
     declined.clear();
+    folderImages.clear();
+    folderRequests.clear();
     gate.reset();
     bump();
   }
@@ -68,15 +73,26 @@ export function startFoldersCovers(
       reset();
     }
   });
+  function imageOf(directory: string): Promise<string | undefined> {
+    if (folderImages.has(directory)) return Promise.resolve(folderImages.get(directory));
+    const running = folderRequests.get(directory);
+    if (running) return running;
+    const request = (async () => {
+      const answer = await settle(() => host.artwork.getFolderImages(directory));
+      const images =
+        answer && answer.success !== false && Array.isArray(answer.images) ? answer.images : [];
+      const path = folderImagePath(images);
+      folderImages.set(directory, path);
+      folderRequests.delete(directory);
+      return path;
+    })();
+    folderRequests.set(directory, request);
+    return request;
+  }
   async function load(path: string, size: number, mine: number) {
     const directory = folderDirectory(path);
-    const folder = directory
-      ? await settle(() => host.artwork.getFolderImages(directory))
-      : null;
+    const imagePath = directory ? await imageOf(directory) : undefined;
     if (disposed || mine !== serial) return;
-    const images =
-      folder && folder.success !== false && Array.isArray(folder.images) ? folder.images : [];
-    const imagePath = folderImagePath(images);
     let url = '';
     for (const candidate of [imagePath, path]) {
       if (!candidate) continue;

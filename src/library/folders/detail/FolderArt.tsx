@@ -25,7 +25,7 @@ export function FolderArt({
   track,
   size,
 }: {
-  readonly track: LibraryTrack | undefined;
+  readonly track: Pick<LibraryTrack, 'path' | 'absolutePath'> | undefined;
   readonly size: number;
 }) {
   const path = folderArtworkPath(track);

@@ -31,6 +31,7 @@ export function useFoldersView(sort: TableSort | null) {
       offered: ['cover', 'status', 'number', 'title', 'artist', 'album', 'rating', 'duration'],
       hidden: ['status', 'album'],
       widths: { cover: 80 },
+      perRowCover: true,
     }),
   );
   const [selection] = useState(() => createRowSelection(store, { total: 0 }));

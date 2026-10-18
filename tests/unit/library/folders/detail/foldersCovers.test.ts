@@ -54,6 +54,25 @@ it('目录没有图片时退回实际首曲路径', async () => {
   expect(host.callsTo('artwork.getFb2kUrlByPath')[0]).toMatchObject({ path });
 });
 
+it('同一目录只请求一次目录图片，多首曲目共用结果', async () => {
+  const { host, covers } = setup();
+  host.answer('artwork.getFolderImages', { success: true, images: [] });
+  host.answer('artwork.getFb2kUrlByPath', {
+    success: true,
+    available: true,
+    type: 'front',
+    path: 'x',
+    dataUrl: 'fb2k://art/track',
+  });
+  const first = 'file://E:\\Music\\a.flac';
+  const second = 'file://E:\\Music\\b.flac';
+  covers.coverOf(first, 64);
+  covers.coverOf(second, 64);
+  await vi.waitFor(() => expect(covers.coverOf(first, 64)?.url).toBe('fb2k://art/track'));
+  await vi.waitFor(() => expect(covers.coverOf(second, 64)?.url).toBe('fb2k://art/track'));
+  expect(host.callsTo('artwork.getFolderImages')).toHaveLength(1);
+});
+
 it('直接读取首曲路径，缺少专辑元数据也能得到封面', async () => {
   const { host, covers } = setup();
   host.answer('artwork.getFb2kUrlByPath', {

@@ -45,6 +45,8 @@ export interface ColumnsOptions {
   readonly storage?: PrefStorage | null;
   /** 容器不够宽时先收起的几列，见 `ColumnsCompact`。 */
   readonly compact?: ColumnsCompact;
+  /** 封面列改成每行一张小图（目录列表），默认跨整组。 */
+  readonly perRowCover?: boolean;
 }
 
 export interface ColumnsModel {
@@ -134,7 +136,14 @@ export function createColumnsModel(store: Store, options: ColumnsOptions): Colum
   const stateAtom = atom((get) => ({ ...get(savedAtom), containerWidth: get(widthAtom) }));
   const offered = [...options.offered];
   const { compact } = options;
-  const layoutAtom = atom((get) => columnsLayout(get(stateAtom), offered, compact));
+  const layoutAtom = atom((get) =>
+    columnsLayout(
+      get(stateAtom),
+      offered,
+      compact,
+      options.perRowCover ? { perRowCover: true } : undefined,
+    ),
+  );
   const read = () => store.get(stateAtom);
   const write = (patch: Partial<Saved>) =>
     store.set(savedAtom, { ...store.get(savedAtom), ...patch });

@@ -4,13 +4,14 @@ import { useCallback, useMemo, useState, type RefObject } from 'react';
 import { translateAtom } from '../../../i18n/locale.ts';
 import { rowsOf } from '../../../table/rangeSelection.ts';
 import { trackNumberText } from '../../../table/cellText.ts';
-import type { TableLinks, TablePoint } from '../../../table/tableItems.ts';
+import type { TableArtwork, TableLinks, TablePoint } from '../../../table/tableItems.ts';
 import { TrackTable, type TrackTableHandle } from '../../../table/TrackTable.tsx';
 import type { TableSort } from '../../../table/TrackTableHeader.tsx';
 import { albumsAtom } from '../../albums.ts';
 import { albumKeyOf, trackAlbumKeyOf } from '../../../host/libraryContract.ts';
 import type { FoldersTarget } from '../actions/foldersActions.ts';
 import { FolderGroupHead } from './FolderGroupHead.tsx';
+import { FolderArt } from './FolderArt.tsx';
 import { FolderCards } from './FolderCards.tsx';
 import { FoldersConditions } from './FoldersConditions.tsx';
 import { FoldersFacets } from './FoldersFacets.tsx';
@@ -54,6 +55,10 @@ export function FoldersDetail({ model, handle, scroll, sort, onSort, onMenu }: F
     }),
     [tracks, albums, albumDetail],
   );
+  const artwork = useCallback<TableArtwork>(
+    (track, size) => <FolderArt track={track} size={size} />,
+    [],
+  );
   const target = { nodes: preview.nodes, tracks };
   const toggle = (index: number) => {
     const item = items[index];
@@ -93,6 +98,7 @@ export function FoldersDetail({ model, handle, scroll, sort, onSort, onMenu }: F
                 ratingStamp={preview.stamp}
                 numberText={trackNumberText}
                 links={links}
+                artwork={artwork}
                 sort={sort}
                 loading={results.status === 'loading'}
                 groupFocus
@@ -101,7 +107,6 @@ export function FoldersDetail({ model, handle, scroll, sort, onSort, onMenu }: F
                   <FolderGroupHead
                     item={item}
                     state={state}
-                    coverWidth={model.coverWidth}
                     full={model.full}
                     filtered={results.filtered}
                   />

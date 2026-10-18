@@ -4,7 +4,6 @@ import { translateAtom } from '../../../i18n/locale.ts';
 import type { TableGroupItem } from '../../../table/tableItems.ts';
 import type { TableGroupState } from '../../../table/TrackTable.tsx';
 import type { FolderGroup, FoldersGroupData, FoldersStructure } from './foldersStructure.ts';
-import { FolderArt } from './FolderArt.tsx';
 import styles from './FolderGroupHead.module.css';
 import { useService } from '../../../kit/useService.ts';
 import { foldersKey } from '../foldersServices.ts';
@@ -12,11 +11,10 @@ import { foldersKey } from '../foldersServices.ts';
 export interface FolderGroupHeadProps {
   readonly item: TableGroupItem<FoldersGroupData>;
   readonly state: TableGroupState;
-  readonly coverWidth: number;
   readonly full: FoldersStructure;
   readonly filtered: boolean;
 }
-export function FolderGroupHead({ item, state, coverWidth, full, filtered }: FolderGroupHeadProps) {
+export function FolderGroupHead({ item, state, full, filtered }: FolderGroupHeadProps) {
   const t = useAtomValueRawSync(translateAtom);
   const folders = useService(foldersKey);
   const { group, own } = item.data;
@@ -74,14 +72,6 @@ export function FolderGroupHead({ item, state, coverWidth, full, filtered }: Fol
           </button>
         )}
       </div>
-      {!item.collapsed && coverWidth > 0 && group.direct.length > 0 && (
-        <span className={styles.cover} data-table-group-body>
-          <FolderArt
-            track={group.direct[0]}
-            size={Math.max(0, coverWidth - 2 * (coverWidth <= 40 ? 2 : 8))}
-          />
-        </span>
-      )}
     </>
   );
 }

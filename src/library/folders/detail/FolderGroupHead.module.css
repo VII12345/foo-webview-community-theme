@@ -45,9 +45,3 @@
   font-size: var(--fontSizeBase200);
   white-space: nowrap;
 }
-.cover {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  padding: var(--table-cover-inset, 8px);
-}
