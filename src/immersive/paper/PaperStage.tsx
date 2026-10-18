@@ -90,7 +90,7 @@ export function PaperStage({ scale, origin, variant = 'paper' }: PaperStageProps
         {variant === 'paper' && <LyricCard />}
         {animatedLyrics && (
           <ImmersiveLyricsPlayer
-            fontScale={variant === 'lyrics' && scale > 0 ? 1 / scale : 1}
+            fontScale={scale > 0 ? 1 / scale : 1}
             edgeAligned
           />
         )}

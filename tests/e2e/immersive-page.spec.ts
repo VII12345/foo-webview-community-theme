@@ -165,6 +165,14 @@ test('歌词视图在 full 与紧凑档的屏幕字号一致，不随舞台缩�
   const compact = await screenFont();
   expect(compact.scale).toBe(1);
   expect(compact.stage).toBeCloseTo(22, 0);
+
+  for (const label of ['卡片视图', '卡片歌词']) {
+    await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: label, exact: true }).click();
+    await expect(view.locator('.amll-lyric-player')).toContainText('字号第一句');
+    const card = await screenFont();
+    expect(card.stage * card.scale).toBeCloseTo(22, 0);
+  }
   expect(errors).toStrictEqual([]);
 });
 
