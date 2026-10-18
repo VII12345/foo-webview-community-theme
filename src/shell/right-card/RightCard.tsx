@@ -2,6 +2,7 @@ import { createSnapshotSlot } from '../../nav/historyStack.ts';
 import {
   Button,
   Menu,
+  MenuDivider,
   MenuItem,
   MenuList,
   MenuPopover,
@@ -12,6 +13,7 @@ import {
   tokens,
 } from '@fluentui/react-components';
 import {
+  Dismiss16Regular,
   MoreHorizontal16Regular,
   Pause12Regular,
   Play12Regular,
@@ -38,6 +40,7 @@ import { useViewControlStyles } from '../../theme/controlStyles.ts';
 import { LyricsPreviewContext, useLyricsPreview } from './lyrics/useLyricsPreview.ts';
 import { TabList } from '../../motion/Surfaces.tsx';
 import { RightCardNavigation } from './RightCardNavigation.tsx';
+import { closeRightCard } from './rightCardFocus.ts';
 
 const SNAPSHOT = createSnapshotSlot<{
   scroll: number;
@@ -243,6 +246,13 @@ export function RightCard() {
                   )}
                   <MenuItem disabled={!source} onClick={() => deps.openSource()}>
                     {t('rightCard.openSource')}
+                  </MenuItem>
+                  <MenuDivider />
+                  <MenuItem
+                    icon={<Dismiss16Regular />}
+                    onClick={() => closeRightCard({ card }, page)}
+                  >
+                    {t('rightCard.close')}
                   </MenuItem>
                 </MenuList>
               </MenuPopover>

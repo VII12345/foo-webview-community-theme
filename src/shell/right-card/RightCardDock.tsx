@@ -7,6 +7,7 @@ import { SidePanel, SidePanelHost } from '../../kit/SidePanel.tsx';
 import { CONTENT_MIN, RIGHT_CARD_WIDTH } from './rightCard.ts';
 import { RightCard } from './RightCard.tsx';
 import { RIGHT_CARD_KEY_ATTR, RightCardContext } from './rightCardContext.ts';
+import { focusRightCardKey } from './rightCardFocus.ts';
 import styles from './RightCardDock.module.css';
 import type { RightCardServices } from './rightCardServices.ts';
 import { GUTTER, RightCardSplitter } from './RightCardSplitter.tsx';
@@ -49,10 +50,9 @@ export interface RightCardDockProps {
   readonly children: ReactNode;
 }
 
-/** 浮层用 Esc 收起时焦点回到开它的键上；键不在（窄窗收掉了）就交给内容卡。 */
+/** 浮层用 Esc 收起时焦点回到开它的键上；键不在（窄窗收掉了）就交给第一个可见的入口键。 */
 function returnFocus(page: string): void {
-  const key = document.querySelector<HTMLElement>(`[${RIGHT_CARD_KEY_ATTR}="${page}"]`);
-  key?.focus();
+  focusRightCardKey(page);
 }
 
 /**

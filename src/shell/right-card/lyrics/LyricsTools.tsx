@@ -1,6 +1,7 @@
 import { useViewControlStyles } from '../../../theme/controlStyles.ts';
 import {
   Button,
+  MenuDivider,
   MenuItem,
   MenuList,
   MenuPopover,
@@ -14,12 +15,19 @@ import {
   mergeClasses,
   tokens,
 } from '@fluentui/react-components';
-import { MoreHorizontal16Regular, Search16Regular, TextFont16Regular } from '@fluentui/react-icons';
+import {
+  Dismiss16Regular,
+  MoreHorizontal16Regular,
+  Search16Regular,
+  TextFont16Regular,
+} from '@fluentui/react-icons';
 import { useAtomValueRawSync } from 'jotai/react';
 import { translateAtom } from '../../../i18n/locale.ts';
 import { useService } from '../../../kit/useService.ts';
 import { lyricsDisplayKey } from '../../../lyrics/lyricsDisplay.ts';
 import { Menu, Popover } from '../../../motion/Surfaces.tsx';
+import { useRightCard } from '../rightCardContext.ts';
+import { closeRightCard } from '../rightCardFocus.ts';
 
 const useStyles = makeStyles({
   surface: {
@@ -53,6 +61,7 @@ export function LyricsTools({
   const t = useAtomValueRawSync(translateAtom);
   const service = useService(lyricsDisplayKey);
   const display = useAtomValueRawSync(service.display);
+  const rightCard = useRightCard();
   const classes = useStyles();
   const controls = useViewControlStyles();
   return (
@@ -130,6 +139,13 @@ export function LyricsTools({
               {t('lyrics.restoreAutomatic')}
             </MenuItem>
             <MenuItem onClick={onSettings}>{t('lyrics.settings')}</MenuItem>
+            <MenuDivider />
+            <MenuItem
+              icon={<Dismiss16Regular />}
+              onClick={() => closeRightCard(rightCard, 'lyrics')}
+            >
+              {t('rightCard.close')}
+            </MenuItem>
           </MenuList>
         </MenuPopover>
       </Menu>
