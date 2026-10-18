@@ -4,6 +4,7 @@
 // 改动：改写为 TypeScript；繁转简改用 OpenCC 的单字表（原版先过一遍 Microsoft 的繁简转换库）；
 // 两处原版永远不中的判断按本意改正：「群星、Various」那条改成与小写后的艺人名比较（原版拿 "Various" 比小写后的名字）；
 // 「曲名 - 注记」对「曲名 (注记)」只给改写了破折号的一边补右括号（原版两边都补，括号写法那边多出一个）。
+import { splitArtistText } from '../artistText.ts';
 import type { LyricsCandidate, LyricsQuery } from './lyricsSource.ts';
 import { TS_CHARACTER_PAIRS } from './tsCharacters.ts';
 
@@ -231,8 +232,8 @@ export function isDurationTooShort(query: LyricsQuery, candidate: LyricsCandidat
   );
 }
 
-/** 要找的那一首的艺人栏按「, 」再拆一次，同原版对本地曲目的处理。 */
-const splitQueryArtists = (names: readonly string[]) => names.flatMap((name) => name.split(', '));
+/** 要找的那一首的艺人栏再按「、」「/」「;」「, 」等拆一次，与候选侧用同一套拆分。 */
+const splitQueryArtists = (names: readonly string[]) => names.flatMap(splitArtistText);
 
 const pointsOf = (level: PartLevel | null) => (level === null ? 0 : PART_POINTS[level]);
 

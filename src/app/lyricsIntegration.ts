@@ -3,6 +3,7 @@ import { atom } from 'jotai/vanilla';
 import { serviceKey } from '../kit/serviceKey.ts';
 import { isLocalMedia } from '../immersive/analysis/localMedia.ts';
 import { startLyricLog } from '../immersive/lyrics/lyricLog.ts';
+import { splitArtistText } from '../lyrics/artistText.ts';
 import { historyAtom } from '../nav/navHistory.ts';
 import { startLocalLyrics } from '../lyrics/lyricsLocal.ts';
 import { startLyricsMotion } from '../lyrics/lyricsMotion.ts';
@@ -17,10 +18,7 @@ import { playbackCanSeekAtom, playbackConnectedAtom } from '../playback/playerAt
 import type { AppServices } from './services.ts';
 
 const artistNames = (values: readonly string[] | undefined, fallback: string | undefined) =>
-  (values?.length ? values : [fallback ?? ''])
-    .flatMap((value) => (value ?? '').split(', '))
-    .map((value) => value.trim())
-    .filter(Boolean);
+  (values?.length ? values : [fallback ?? '']).flatMap(splitArtistText);
 
 export function startLyricsIntegration(
   {

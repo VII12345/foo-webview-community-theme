@@ -77,10 +77,8 @@ export function field(value: unknown, key: string): unknown {
   return typeof value === 'object' && value !== null ? Reflect.get(value, key) : undefined;
 }
 
-/** 把写成一整串的艺人栏拆开，分隔照 Lyricify 对 LRCLIB 的处理：「, 」「 & 」「 feat. 」「 ft. 」。 */
-export function splitArtistField(text: string): string[] {
-  return text.split(/, | & | feat\. | ft\. /).filter(Boolean);
-}
+/** 把写成一整串的艺人栏拆开；分隔符与查询侧共用，见 `../artistText.ts`。 */
+export { splitArtistText as splitArtistField } from '../artistText.ts';
 
 /** 下面三个把外部值收成确定的类型，类型不对时给空值。 */
 export const asText = (value: unknown): string => (typeof value === 'string' ? value : '');

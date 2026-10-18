@@ -2,6 +2,7 @@
 // Copyright 2023 XY Wang, WXRIW）
 // 提交 53a2f81 的 Decrypter/Krc/Decrypter.cs 改写为 TypeScript，解压改用浏览器的 DecompressionStream。
 import type { LyricLine, LyricWord } from '@applemusic-like-lyrics/core';
+import { splitArtistText } from '../artistText.ts';
 import { syncedContent } from '../lyricsText.ts';
 import {
   asList,
@@ -12,6 +13,7 @@ import {
   lyricsJson,
   type LyricsHttpHost,
 } from './lyricsHttp.ts';
+import { isDurationTooShort } from './lyricsMatch.ts';
 import type { LyricsCandidate, LyricsQuery, LyricsSource } from './lyricsSource.ts';
 
 const SEARCH_URL = 'https://lyrics.kugou.com/search';
@@ -137,11 +139,16 @@ export function kugouDurationMs(value: unknown): number {
 
 /**
  * 候选的 `ref` 是下载要的 id 与 accesskey，中间用冒号隔开。酷狗的候选不带专辑，合作艺人用顿号连写。
- * 自动搜索标成 ugc 的是未经审核的用户上传，有时挂着别的歌的词，不收；用户手动按关键词或 Hash 找时
- * 允许 UGC，否则唯一有词的那条会被丢掉。
+ * 自动搜索标成 ugc 的是未经审核的用户上传，有时挂着别的歌的词，不收；自动搜索也不收 `language=伴奏`
+ * 的纯伴奏词。用户手动按关键词或 Hash 找时两者都允许，否则唯一有词的那条会被丢掉。
  */
-function candidateOf(item: unknown, allowUgc: boolean): LyricsCandidate | null {
+function candidateOf(
+  item: unknown,
+  allowUgc: boolean,
+  allowInstrumental: boolean,
+): LyricsCandidate | null {
   if (!allowUgc && asText(field(item, 'product_from')).toLowerCase() === 'ugc') return null;
+  if (!allowInstrumental && asText(field(item, 'language')) === '伴奏') return null;
   const id = idText(field(item, 'id'));
   const key = idText(field(item, 'accesskey'));
   const title = asText(field(item, 'song'));
@@ -151,7 +158,7 @@ function candidateOf(item: unknown, allowUgc: boolean): LyricsCandidate | null {
     source: 'kugou',
     ref: `${id}:${key}`,
     title,
-    artists: singer.split('、').filter(Boolean),
+    artists: splitArtistText(singer),
     album: '',
     durationMs: kugouDurationMs(field(item, 'duration')),
   };
@@ -160,21 +167,37 @@ function candidateOf(item: unknown, allowUgc: boolean): LyricsCandidate | null {
 const normalizeKeyword = (value: string) =>
   value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
 
-/** 搜索页默认是「曲名 艺人」；酷狗对这首歌的默认查询改用自动取词的写法。 */
-function keywordOf(query: LyricsQuery): { keyword: string; useDuration: boolean } {
-  const manual = query.keywords?.trim();
-  const automatic = [query.artists[0], query.title].filter(Boolean).join(' - ');
+/**
+ * 搜索页默认是「曲名 艺人」。酷狗的库按「全部艺人、顿号连写 - 曲名」才能带回长版本候选：
+ * 只用第一位艺人时，`银临 - 天和山雨雪` 一条都没有；`银临、司南 - 天和山雨雪` 能带回 244 秒官方词。
+ * 手动输入若只是这些默认写法之一，仍按规范形式重发；真正的自定义关键词原样发送，不带时长。
+ */
+function keywordOf(query: LyricsQuery): { keywords: string[]; useDuration: boolean } {
+  const artists = query.artists.map((name) => name.trim()).filter(Boolean);
+  const all = artists.join('、');
+  const automatic = all ? `${all} - ${query.title}` : query.title;
   const defaults = [
-    [query.title, query.artists[0]].filter(Boolean).join(' '),
-    [query.title, ...query.artists].filter(Boolean).join(' '),
-    [query.title, query.artists.join(', ')].filter(Boolean).join(' '),
-    automatic,
+    [query.title, artists[0]].filter(Boolean).join(' '),
+    [query.title, ...artists].filter(Boolean).join(' '),
+    [query.title, artists.join(', ')].filter(Boolean).join(' '),
+    [query.title, artists.join('、')].filter(Boolean).join(' '),
+    [query.title, artists.join('/')].filter(Boolean).join(' '),
+    [artists[0], query.title].filter(Boolean).join(' - '),
+    [artists.join(', '), query.title].filter(Boolean).join(' - '),
+    [artists.join('、'), query.title].filter(Boolean).join(' - '),
+    [artists.join('/'), query.title].filter(Boolean).join(' - '),
   ];
+  const manual = query.keywords?.trim();
   const isDefault =
     !manual || defaults.some((value) => normalizeKeyword(value) === normalizeKeyword(manual));
+  if (!isDefault) return { keywords: [manual], useDuration: false };
   return {
-    keyword: isDefault ? automatic : (manual ?? ''),
-    useDuration: isDefault && query.durationMs > 0,
+    keywords: [
+      automatic,
+      [query.title, artists[0]].filter(Boolean).join(' '),
+      query.title,
+    ].filter((value, index, list) => value && list.indexOf(value) === index),
+    useDuration: query.durationMs > 0,
   };
 }
 
@@ -205,21 +228,34 @@ export function createKugouSource(host: LyricsHttpHost): LyricsSource {
         const data = lyricsJson(answer);
         if (answer?.status !== 200 || asNumber(field(data, 'status')) !== 200) return 'failed';
         return asList(field(data, 'candidates')).flatMap(
-          (item) => candidateOf(item, true) ?? [],
+          (item) => candidateOf(item, true, true) ?? [],
         );
       }
-      const { keyword, useDuration } = keywordOf(query);
-      // 手动关键词/ID 搜索允许 UGC；播放时的自动搜索仍过滤，避免挂错词的版本。
-      const allowUgc = query.id !== undefined || query.keywords !== undefined;
-      const params = new URLSearchParams({ ver: '1', man: 'yes', client: 'pc', keyword });
-      // 酷狗搜索的 duration 是秒；发送毫秒会把 UGC 候选排到前面并让普通候选落选。
-      if (useDuration) params.set('duration', String(Math.round(query.durationMs / 1000)));
-      const answer = await lyricsGet(host, `${SEARCH_URL}?${params.toString()}`, undefined, signal);
-      const data = lyricsJson(answer);
-      if (answer?.status !== 200 || asNumber(field(data, 'status')) !== 200) return 'failed';
-      return asList(field(data, 'candidates')).flatMap(
-        (item) => candidateOf(item, allowUgc) ?? [],
-      );
+      const { keywords, useDuration } = keywordOf(query);
+      // 手动关键词/ID 搜索允许 UGC 与伴奏；播放时的自动搜索仍过滤，避免挂错词的版本。
+      const manualSearch = query.id !== undefined || query.keywords !== undefined;
+      const found: LyricsCandidate[] = [];
+      const seen = new Set<string>();
+      for (const keyword of keywords) {
+        const params = new URLSearchParams({ ver: '1', man: 'yes', client: 'pc', keyword });
+        // 酷狗搜索的 duration 是秒；发送毫秒会把 UGC 候选排到前面并让普通候选落选。
+        if (useDuration) params.set('duration', String(Math.round(query.durationMs / 1000)));
+        const answer = await lyricsGet(host, `${SEARCH_URL}?${params.toString()}`, undefined, signal);
+        const data = lyricsJson(answer);
+        if (answer?.status !== 200 || asNumber(field(data, 'status')) !== 200) {
+          if (found.length > 0) break;
+          return 'failed';
+        }
+        for (const item of asList(field(data, 'candidates'))) {
+          const candidate = candidateOf(item, manualSearch, manualSearch);
+          if (!candidate || seen.has(candidate.ref)) continue;
+          seen.add(candidate.ref);
+          found.push(candidate);
+        }
+        // 已有一条不短于曲目 30 秒的候选就不用再换关键词；短片段留给时长过滤丢。
+        if (found.some((candidate) => !isDurationTooShort(query, candidate))) break;
+      }
+      return found;
     },
     /**
      * 歌词接口不返回封面，改用歌搜索接口：按「曲名 艺人」搜，取首条的 `Image`（形如

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createKugouSource, decryptKrc, parseKrc } from '../../../../src/lyrics/online/kugou.ts';
+import { rankCandidates } from '../../../../src/lyrics/online/lyricsMatch.ts';
 import type { LyricsCandidate, LyricsQuery } from '../../../../src/lyrics/online/lyricsSource.ts';
 import { installLyricsHttp, json } from '../../../fixtures/lyricsHttp.ts';
 
@@ -175,6 +176,163 @@ describe('酷狗来源', () => {
       id: { source: 'kugou', kind: 'kugouHash', value: '71c314341a3a20c6167fe2b8d66f1bd3' },
     })) as LyricsCandidate[];
     expect(hash[0]).toMatchObject({ ref: '43426574:48793CBB', durationMs: 274320 });
+  });
+
+  it('多艺人自动搜索用「全部艺人 - 曲名」，带回 244 秒官方词并过滤 UGC/伴奏', async () => {
+    const official = {
+      id: '586206065',
+      accesskey: 'C1A389B98F927BD971B145EAD57D33AB',
+      song: '天和山雨雪',
+      singer: '银临、司南',
+      duration: 244000,
+      product_from: '官方推荐歌词',
+      language: '国语',
+    };
+    const http = installLyricsHttp({
+      [SEARCH]: json({
+        status: 200,
+        candidates: [
+          {
+            id: '549893601',
+            accesskey: 'SHORT',
+            song: '天和山雨雪',
+            singer: '银临、司南',
+            duration: 35000,
+            product_from: '第三方歌词',
+          },
+          {
+            id: '555988013',
+            accesskey: 'CLIP',
+            song: '天和山雨雪',
+            singer: '银临、司南',
+            duration: 124000,
+            product_from: '第三方歌词',
+          },
+          official,
+          { ...official, id: '555597381', accesskey: 'UGC', product_from: 'ugc' },
+          { ...official, id: '550681244', accesskey: 'INST', language: '伴奏' },
+          { ...official, id: '549019851', accesskey: 'SECOND' },
+        ],
+      }),
+    });
+    const songQuery: LyricsQuery = {
+      ...query,
+      title: '天和山雨雪',
+      artists: ['银临', '司南'],
+      durationMs: 244000,
+    };
+    const found = (await createKugouSource(http.host).search(songQuery)) as LyricsCandidate[];
+    expect(http.requests()[0]?.url.searchParams.get('keyword')).toBe(
+      '银临、司南 - 天和山雨雪',
+    );
+    expect(found.map((item) => item.ref)).toEqual([
+      '549893601:SHORT',
+      '555988013:CLIP',
+      '586206065:C1A389B98F927BD971B145EAD57D33AB',
+      '549019851:SECOND',
+    ]);
+    const ranked = rankCandidates(songQuery, found, 'high');
+    expect(ranked[0]?.candidate.ref).toBe('586206065:C1A389B98F927BD971B145EAD57D33AB');
+  });
+
+  it('用户给的 28cdf Hash 能带回官方 244 秒候选', async () => {
+    const http = installLyricsHttp({
+      [HASH_SEARCH]: json({
+        status: 200,
+        candidates: [
+          {
+            id: '586206065',
+            accesskey: 'C1A389B98F927BD971B145EAD57D33AB',
+            song: '天和山雨雪',
+            singer: '银临、司南',
+            duration: 244000,
+            product_from: '官方推荐歌词',
+            language: '国语',
+          },
+        ],
+      }),
+    });
+    const [found] = (await createKugouSource(http.host).search({
+      ...query,
+      title: '天和山雨雪',
+      artists: ['银临', '司南'],
+      durationMs: 244000,
+      id: { source: 'kugou', kind: 'kugouHash', value: '28cdf25767acfa36c3d715c5e3b643f9' },
+    })) as LyricsCandidate[];
+    expect(found).toMatchObject({
+      ref: '586206065:C1A389B98F927BD971B145EAD57D33AB',
+      title: '天和山雨雪',
+      artists: ['银临', '司南'],
+      durationMs: 244000,
+    });
+    const params = http.requests()[0]?.url.searchParams;
+    expect(params?.get('hash')).toBe('28cdf25767acfa36c3d715c5e3b643f9');
+    expect(params?.get('keyword')).toBe('');
+  });
+
+  it('手动输入的默认写法换成全部艺人规范形式，规范关键词只有短片时回退合并', async () => {
+    const canonical = installLyricsHttp({
+      [SEARCH]: json({ status: 200, candidates: [] }),
+    });
+    await createKugouSource(canonical.host).search({
+      ...query,
+      title: '天和山雨雪',
+      artists: ['银临', '司南'],
+      durationMs: 244000,
+      keywords: '天和山雨雪 银临/司南',
+    });
+    expect(canonical.requests()[0]?.url.searchParams.get('keyword')).toBe(
+      '银临、司南 - 天和山雨雪',
+    );
+    expect(canonical.requests()[0]?.url.searchParams.get('duration')).toBe('244');
+
+    const http = installLyricsHttp({
+      [SEARCH]: (url) => {
+        const keyword = url.searchParams.get('keyword');
+        if (keyword === '银临、司南 - 天和山雨雪')
+          return json({
+            status: 200,
+            candidates: [
+              {
+                id: '549893601',
+                accesskey: 'SHORT',
+                song: '天和山雨雪',
+                singer: '银临、司南',
+                duration: 35000,
+              },
+            ],
+          });
+        if (keyword === '天和山雨雪 银临')
+          return json({
+            status: 200,
+            candidates: [
+              {
+                id: '586206065',
+                accesskey: 'C1A389B98F927BD971B145EAD57D33AB',
+                song: '天和山雨雪',
+                singer: '银临、司南',
+                duration: 244000,
+                product_from: '官方推荐歌词',
+              },
+            ],
+          });
+        return json({ status: 200, candidates: [] });
+      },
+    });
+    const found = (await createKugouSource(http.host).search({
+      ...query,
+      title: '天和山雨雪',
+      artists: ['银临', '司南'],
+      durationMs: 244000,
+    })) as LyricsCandidate[];
+    expect(found.map((item) => item.ref)).toEqual([
+      '549893601:SHORT',
+      '586206065:C1A389B98F927BD971B145EAD57D33AB',
+    ]);
+    expect(http.requests().map((request) => request.url.searchParams.get('keyword'))).toEqual([
+      '银临、司南 - 天和山雨雪',
+      '天和山雨雪 银临',
+    ]);
   });
 
   it('按 ref 里的 id 与 accesskey 下载 KRC，解成逐字词', async () => {
