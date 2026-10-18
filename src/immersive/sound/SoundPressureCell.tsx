@@ -125,7 +125,9 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
     ? auto.active && auto.state && auto.output
       ? `${t('immersive.dx52Auto')} · ${auto.state.deviceName || 'TOPPING DX5 II'} · ${auto.output.label} · ${
           auto.state.highGain ? t('settings.dx52HighGain') : t('settings.dx52LowGain')
-        } · ${t('immersive.dx52DeviceVolume')} ${auto.state.volumeDb.toFixed(1)} dB${rate}`
+        } ${
+          (auto.state.highGain ? auto.output.gainDb.high : auto.output.gainDb.low).toFixed(1)
+        } dB · ${t('immersive.dx52DeviceVolume')} ${auto.state.volumeDb.toFixed(1)} dB${rate}`
       : hint
         ? t(hint)
         : ''
