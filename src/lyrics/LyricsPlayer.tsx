@@ -77,9 +77,20 @@ export function LyricsPlayer({
   linesRef.current = lines;
   // 虚线盖层选中的秒数；null 表示没在预览。渲染虚线与播放按钮。
   const [preview, setPreview] = useState<number | null>(null);
+  const previewRef = useRef(preview);
+  previewRef.current = preview;
   // 虚线的中心 Y（相对容器）；按下时量一次就定住，拖动过程中不再改。null 时样式回退到容器中线。
   const [previewTop, setPreviewTop] = useState<number | null>(null);
+  // 从按下到 3 秒预览结束都算预览：期间不重开逐帧驱动，也不恢复弹簧/缩放。
+  const [previewing, setPreviewing] = useState(false);
   const drag = useRef<{ startY: number; baseIndex: number; lineHeight: number } | null>(null);
+  const lastPoint = useRef<{ clientY: number } | null>(null);
+  const moveFrame = useRef<number | null>(null);
+  const lastIndex = useRef<number | null>(null);
+  const motionRef = useRef(motion);
+  motionRef.current = motion;
+  const reducedRef = useRef(reduced);
+  reducedRef.current = reduced;
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Ctrl+滚轮 调字号、Alt+滚轮 调播放行位置：都在**捕获阶段**抢先拦下，免得 AMLL 自己也把这次滚轮当成竖向滚动。
@@ -125,9 +136,13 @@ export function LyricsPlayer({
     drag.current = null;
     setPreview(null);
     setPreviewTop(null);
+    setPreviewing(false);
     const created = player;
     if (!created) return;
     created.setCurrentTime((clock.position() - offsetRef.current) * 1000, true);
+    created.setEnableSpring(motionRef.current.spring && !reducedRef.current);
+    created.setEnableScale(motionRef.current.scale && !reducedRef.current);
+    created.calcLayout(LayoutReason.ConfigChange);
     driver.current?.setActive(activeRef.current);
   }, [player, clock]);
 
@@ -139,18 +154,20 @@ export function LyricsPlayer({
    * 上沿、中线还是下沿），所以：锚点在中线时行的中心就是那一点；在上下沿时再让半个行高。
    * 用 `clientHeight` / `offsetHeight`，不进舞台缩放。
    */
-  const anchorTop = (): number | null => {
+  const anchorTop = useCallback((): number | null => {
     const element = host.current;
     if (!element) return null;
     const height = element.clientHeight;
     if (height <= 0) return null;
     const anchor = height * motion.alignPosition;
     if (motion.alignAnchor === 'center') return anchor;
-    const row = element.querySelector<HTMLElement>('[class*="lyricLineWrapper"]');
+    const row = [...element.querySelectorAll<HTMLElement>('[class*="lyricLineWrapper"]')].find(
+      (item) => !item.className.includes('bottomLineWrapper'),
+    );
     const rowHeight = row?.offsetHeight ?? 0;
     if (rowHeight <= 0) return anchor;
     return motion.alignAnchor === 'top' ? anchor + rowHeight / 2 : anchor - rowHeight / 2;
-  };
+  }, [motion.alignPosition, motion.alignAnchor]);
 
   // 拖动预览：按住上下拖，把目标行的时间用 `setCurrentTime` 预览出来（不改播放进度）；松手留 3 秒。
   useEffect(() => {
@@ -179,20 +196,32 @@ export function LyricsPlayer({
       hideTimer.current = undefined;
       // 虚线的位置在按下时定一次，之后不再动：拖动时只有歌词在滚，读起来才像在「挪歌词」。
       setPreviewTop(anchorTop());
+      setPreviewing(true);
+      lastIndex.current = null;
+      lastPoint.current = null;
       drag.current = {
         startY: event.clientY,
         baseIndex: indexAt(clock.position() - offsetRef.current),
         lineHeight: rowSpacing(),
       };
-      // 拖动期间停掉驱动的逐帧推送，免得它把高亮拉回当前播放位置。
+      // 拖动期间停掉驱动的逐帧推送，并把弹簧/缩放关掉，免得反复 seek 与动画互相拉扯。
       driver.current?.setActive(false);
+      player?.setEnableSpring(false);
+      player?.setEnableScale(false);
+      player?.calcLayout(LayoutReason.ConfigChange);
       element.setPointerCapture(event.pointerId);
     };
-    const onMove = (event: PointerEvent) => {
+    const applyMove = (clientY: number) => {
       const start = drag.current;
       if (!start) return;
-      const shift = Math.round((start.startY - event.clientY) / start.lineHeight);
-      const seconds = secondsAt(start.baseIndex + shift);
+      const shift = Math.round((start.startY - clientY) / start.lineHeight);
+      const index = Math.min(
+        Math.max(start.baseIndex + shift, 0),
+        Math.max(0, linesRef.current.length - 1),
+      );
+      if (index === lastIndex.current && previewRef.current !== null) return;
+      lastIndex.current = index;
+      const seconds = secondsAt(index);
       setPreview(seconds);
       const created = player;
       if (created) {
@@ -200,11 +229,33 @@ export function LyricsPlayer({
         created.update(16);
       }
     };
+    const onMove = (event: PointerEvent) => {
+      if (!drag.current) return;
+      lastPoint.current = { clientY: event.clientY };
+      if (moveFrame.current !== null) return;
+      moveFrame.current = requestAnimationFrame(() => {
+        moveFrame.current = null;
+        const point = lastPoint.current;
+        if (point) applyMove(point.clientY);
+      });
+    };
     const onUp = (event: PointerEvent) => {
       if (!drag.current) return;
+      if (moveFrame.current !== null) {
+        cancelAnimationFrame(moveFrame.current);
+        moveFrame.current = null;
+      }
+      const point = lastPoint.current;
+      lastPoint.current = null;
+      if (point) applyMove(point.clientY);
       drag.current = null;
       if (element.hasPointerCapture(event.pointerId))
         element.releasePointerCapture(event.pointerId);
+      // 没真正移动过（只是按了一下）：不必留预览，直接归位。
+      if (previewRef.current === null) {
+        endPreview();
+        return;
+      }
       // 松开先保留 3 秒；不点播放按钮就归位。
       hideTimer.current = setTimeout(endPreview, 3000);
     };
@@ -213,29 +264,29 @@ export function LyricsPlayer({
     element.addEventListener('pointerup', onUp);
     element.addEventListener('pointercancel', onUp);
     return () => {
+      if (moveFrame.current !== null) cancelAnimationFrame(moveFrame.current);
+      moveFrame.current = null;
+      lastPoint.current = null;
       element.removeEventListener('pointerdown', onDown);
       element.removeEventListener('pointermove', onMove);
       element.removeEventListener('pointerup', onUp);
       element.removeEventListener('pointercancel', onUp);
     };
-  }, [player, clock, onSeek, endPreview]);
+  }, [player, clock, onSeek, endPreview, anchorTop]);
 
   useEffect(() => () => clearTimeout(hideTimer.current), []);
 
-  // 预览期间按同一套规则重算锚点：拖动的重排与松开后弹簧还在动，行要几秒才停稳；
-  // 位置只由容器高与 `alignPosition` 决定，算出来就是停稳后的位置，不必等行安定。
-  // 规则与按下时那一次相同，所以虚线在整个预览期间一动不动。
+  // 预览期间只跟容器大小变；拖动中每换一行不再重算锚点，否则虚线会跟着行高变化上下跳。
   useEffect(() => {
-    if (preview === null) return undefined;
-    const sync = () => setPreviewTop(anchorTop());
-    sync();
-    // 容器大小变了（窗口缩放、换档）才需要重算；行怎么滚都不影响。
+    if (!previewing) return undefined;
     const element = host.current;
+    if (!element) return undefined;
+    const sync = () => setPreviewTop(anchorTop());
     const observer =
-      typeof ResizeObserver === 'undefined' || !element ? null : new ResizeObserver(sync);
-    if (element) observer?.observe(element);
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(sync);
+    observer?.observe(element);
     return () => observer?.disconnect();
-  }, [preview, motion.alignPosition, motion.alignAnchor]);
+  }, [previewing, motion.alignPosition, motion.alignAnchor, anchorTop]);
 
   useLayoutEffect(() => {
     const parent = host.current;
@@ -306,8 +357,8 @@ export function LyricsPlayer({
   }, [player, offset, lines]);
 
   useEffect(() => {
-    driver.current?.setActive(active && player !== null);
-  }, [player, active]);
+    driver.current?.setActive(active && player !== null && !previewing);
+  }, [player, active, previewing]);
 
   useLayoutEffect(() => {
     if (!player) return;

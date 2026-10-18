@@ -541,6 +541,32 @@ test('老存档自动补上 QQ 音乐来源，设置里可见且写回', async (
   expect(env.errors).toEqual([]);
 });
 
+test('播放行对齐在顶/底时拖动，虚线也不跟着行高上下跳', async ({ page }) => {
+  const LYRICS = '[00:30]第一句\n[00:40]第二句\n[00:45]第三句';
+  await openLyrics(page, LYRICS, 1280, {
+    'defaultTheme.lyrics.motion': { alignAnchor: 'bottom', alignPosition: 0.6 },
+  });
+  const player = lyricsPlayer(page);
+  const box = await player.boundingBox();
+  if (!box) throw new Error('歌词播放器不可见');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 40, { steps: 4 });
+  const preview = panel(page).locator('[data-lyric-drag-preview]');
+  await expect(preview).toBeVisible();
+  const lineY = () =>
+    preview.evaluate((element) => Math.round(element.getBoundingClientRect().top));
+  const parked = await lineY();
+  await page.mouse.move(x, y + 90, { steps: 6 });
+  await page.waitForTimeout(350);
+  await page.mouse.move(x, y - 50, { steps: 6 });
+  await page.waitForTimeout(350);
+  expect(await lineY()).toBe(parked);
+  await page.mouse.up();
+});
+
 test('按住歌词上下拖动出现虚线预览与播放按钮，点它才跳转', async ({ page }) => {
   const env = await openLyrics(page);
   const player = lyricsPlayer(page);
