@@ -29,6 +29,26 @@
   - `src/playback/volumeScale.ts`：音量条的听感曲线。
   - `src/playlist/sortPatterns.ts`：排序用的标题格式化串，取自 `jsplaylist.js`。
 
+## 随包提供的 foobar2000 组件
+
+这些组件不是本主题的源码，但会随 GitHub release 的组件包一起分发。修改版的状态、哈希与官方来源见
+[`docs/COMPONENTS.md`](docs/COMPONENTS.md)。
+
+### foo_ui_webview2
+
+- 项目：https://github.com/NereaFantasia/foo_ui_webview2
+- 许可：GNU General Public License v3.0
+- 随包内容：`foo_ui_webview2.dll` 的**修改版**；`WebView2Loader.dll` 为 Microsoft 官方
+  1.0.3719.77，未修改（Microsoft WebView2 SDK 的再分发条款适用）。
+- 修改版仅用于配合本主题，版权归原作者；官方源码与发行以项目页为准。
+
+### foo_monthly_stats
+
+- 项目：https://github.com/shirafukayayoi/foo_monthly_stats
+- 许可：原仓库未声明标准 SPDX 许可（GitHub 显示 Other / NOASSERTION），以原仓库说明为准。
+- 随包内容：`foo_monthly_stats.dll` 的**修改版**，增加播放统计页使用的时长字段与替代版本回退。
+- 修改版仅随本主题发行，版权归原作者；如原作者要求会从后续发行中移除。
+
 ## Apache License 2.0
 
 ```text

@@ -1,0 +1,92 @@
+name: Bug report
+description: Report a problem with the community edition theme
+title: '[Bug] '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请尽量附上复现步骤、截图和日志。提交前先确认问题能在最新 release 上复现。
+  - type: input
+    id: theme-version
+    attributes:
+      label: Theme version
+      description: 设置 → 关于里显示的版本，或 release 标签（例如 0.3.0）
+      placeholder: 0.3.0
+    validations:
+      required: true
+  - type: input
+    id: foobar-version
+    attributes:
+      label: foobar2000 version
+      placeholder: 2.x x64
+    validations:
+      required: true
+  - type: input
+    id: host-version
+    attributes:
+      label: foo_ui_webview2 version
+      description: 是否使用 release 里的修改版组件？
+      placeholder: 2.0.0 modified / official 2.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: page
+    attributes:
+      label: Where does it happen?
+      multiple: true
+      options:
+        - Home / library
+        - Playlist
+        - Now Playing
+        - Immersive · Paper stage
+        - Immersive · Focus
+        - Immersive · Lyrics
+        - Immersive · Card
+        - Immersive · Card lyrics
+        - Lyrics search / candidates
+        - Track info / tags
+        - Playback statistics
+        - Headphone SPL
+        - Settings
+        - Mini player
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Screenshots / logs
+      description: 可拖入图片；日志可贴 `webview_lifecycle.log` 的相关片段。
+      render: text
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: 我使用的是本仓库 release 里的主题与组件
+          required: true
+        - label: 我确认没有安装上游主题更新覆盖本分支
+          required: true

@@ -1,65 +1,148 @@
 [English](./README.md) | 中文
 
 <p align="center">
-  <img src=".github/assets/readme-banner.jpg" alt="Default Theme：WinUI 3 的设计，装着一颗 foobar2000 的心" width="100%" />
+  <img src=".github/assets/readme-banner.jpg" alt="Default Theme 社区增强版：WinUI 3 的设计，装着一颗 foobar2000 的心" width="100%" />
 </p>
 
-# foo-webview-default-theme
+# foo-webview-default-theme · 社区增强版
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/NereaFantasia/foo-webview-default-theme)](https://github.com/NereaFantasia/foo-webview-default-theme/releases)
+[![Release](https://img.shields.io/github/v/release/VII12345/foo-webview-default-theme)](https://github.com/VII12345/foo-webview-default-theme/releases)
 [![foo_ui_webview2](https://img.shields.io/badge/foo__ui__webview2-2.0.0%2B-informational)](https://github.com/NereaFantasia/foo_ui_webview2)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey)]()
 
-Default Theme 是 [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webview2) 的默认主题，为 foobar2000 提供 WinUI 3 风格的界面。使用 React 19 与 Fluent UI React v9 构建，经 [foo-webview-sdk](https://www.npmjs.com/package/foo-webview-sdk) 调用foobar2000。
-
-- 许可证: AGPL-3.0-only
-- 界面语言: 简体中文、英文
+> 这是 [NereaFantasia/foo-webview-default-theme](https://github.com/NereaFantasia/foo-webview-default-theme) 的社区增强分支，基于上游 **0.2.0**。原版的界面、页面结构与更新器都保留，改动集中在播放、沉浸视图、歌词、统计与设置。完整逐项差异见 [CHANGES-SINCE-0.2.0.zh-CN.md](./CHANGES-SINCE-0.2.0.zh-CN.md)。
 
 ---
 
-## 特性
+## 这是什么
 
-- 封面取色 - 配色随封面而变
-- 沉浸视图 - 频谱、声场、波形实时呈现
-- 歌词 - 逐字高亮，双语对照
-- 迷你播放器 - 两种形态，随心选择
-- 在线更新 - 一键升级，失败自动回退
+Default Theme 是 [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webview2) 的默认主题，为 foobar2000 提供 WinUI 3 风格的独立窗口界面。本分支在原作者 0.2.0 的基础上继续开发，使用 React 19、Fluent UI React v9、Jotai 与 Vite 构建，所有播放器操作仍经 [foo-webview-sdk](https://www.npmjs.com/package/foo-webview-sdk) 完成。
 
----
+- 许可证：AGPL-3.0-only
+- 界面语言：简体中文、英文
+- 平台：Windows 10/11 **x64**；需要 foobar2000 2.x 与 foo_ui_webview2 2.0.0+
+
+## 和原版有什么区别
+
+| 方面 | 上游 0.2.0 | 本分支 |
+|---|---|---|
+| 沉浸视图 | 图纸舞台、聚焦视图 | 五种场景：图纸、聚焦、歌词、卡片、卡片歌词；每个视图 × 布局档可单独隐藏组件并自动重排 |
+| 歌词 | 逐行/逐字高亮 | 逐字高亮、多来源在线搜索、本地逐字优先、拖动/滚轮预览跳转、自动把在线逐字写回标签 |
+| 播放 | 默认播放体验 | 关闭再打开恢复曲目/播放列表/进度；卡片两档的传输键、音量与进度条重新排布 |
+| 曲目信息 | 只读信息 | 编辑标签、补建缺失标签、Credits、行内编辑/复制 |
+| 播放统计 | 无 | 从 `foo_monthly_stats` 读取今日/月/年、Top 曲目/艺人、趋势图与封面 |
+| 耳机 | 无 | 按耳放/耳机参数与实时 Short-term LUFS 估算输出 SPL、功率、电压、80 dB 余量与已播放平均 |
+| 窄窗口 | 表格无封面 | 所有表格在窄档保留 32 px 小封面，行高收紧 |
+
+## 功能
+
+### 播放与恢复
+
+- 封面取色的播放页；关闭窗口后再打开，恢复上次的曲目、播放列表与进度。
+- 底部播放栏恢复时保留封面；迷你播放器有封面与紧凑两种形态。
+- 卡片视图/卡片歌词的五颗传输键居中排列，顺序与音量键外框透明。
+
+### 沉浸视图
+
+- **图纸舞台**：1920 × 1080 版式，频谱、声场、整轨波形、量表、歌词卡与耳机声压。
+- **聚焦视图**：更紧凑的仪表与大幅歌词。
+- **歌词视图**：左侧罗盘 + 右侧逐字歌词。
+- **卡片视图** / **卡片歌词**：封面、标题、星级、更多按钮、进度条与传输键。
+- 设置 → 组件显示：按视图与布局档（完整、紧凑、竖版等）逐项隐藏背景、罗盘、卡片、右栏模块；隐藏后剩余内容重新排布，后台分析服务不中断。
+
+### 歌词
+
+- 本地标签/侧载歌词、LRCLIB、网易云、酷狗、QQ 音乐、AMLL TTML DB、lrcmux；支持按来源 ID/Hash 手动查询。
+- 逐字高亮、翻译/音译、候选分组与时长/封面展示。
+- 歌词优先级可拖动排序：本地逐字 → 在线逐字 → 本地其他 → 在线逐行 → 纯文本。
+- 拖动或滚轮进入虚线预览，点预览上的播放键才真正跳转；3 秒后自动收起。
+- 可选“本地没有逐字时自动把在线逐字写回 `LYRICS` 标签”；写入后仍显示本地，标签回读成逐字后再切换。
+- 酷狗自动搜索使用全部艺人（如 `银临、司南 - 天和山雨雪`），并过滤 UGC/伴奏短片段；QQ 搜索与 MID 查询优先取加密 QRC 逐字词。
+
+### 曲目信息与标签
+
+- 曲目信息面板支持编辑、删除、复制标签；缺失的 summary 标签可以直接补建。
+- 行内按钮悬停或键盘聚焦时显示，避免挤占标签名。
+- Credits 页列出主题使用的开源组件。
+
+### 播放统计
+
+- 今日/本月/本年播放次数与时长、Top 曲目/艺人、月度趋势图。
+- Top 曲目带 32 px 小封面；趋势图显示时长数字，密集视图自动省略部分标签。
+- 需要随包提供的修改版 `foo_monthly_stats`（官方 v1.6 缺少统计页需要的时长字段）。
+
+### 耳机输出声压估算
+
+- 在图纸/聚焦视图替换原来的 Genre 位置，实时显示 dB SPL、功率、电压与 80 dB 安全余量。
+- 支持多耳放/多耳机、分别选择、即时切换；参数在设置 → 耳机中维护。
+- 声压按 BS.1770 的立体声定标计算；单声道/5.1 按声道权重修正。组件底部显示“曲首至今已播放片段”的平均 SPL 与平均 LUFS。
+
+## 截图
+
+> 截图位已预留，图片将放在 `docs/screenshots/`。完整拍摄清单见 [docs/screenshots/README.md](./docs/screenshots/README.md)。
+
+| 场景 | 文件 |
+|---|---|
+| 首页 / 播放列表 | `docs/screenshots/01-home.png` |
+| 播放页 | `docs/screenshots/02-now-playing.png` |
+| 沉浸 · 图纸舞台 | `docs/screenshots/03-immersive-paper.png` |
+| 沉浸 · 聚焦视图 | `docs/screenshots/04-immersive-focus.png` |
+| 沉浸 · 歌词视图 | `docs/screenshots/05-immersive-lyrics.png` |
+| 沉浸 · 卡片视图 | `docs/screenshots/06-immersive-card.png` |
+| 沉浸 · 卡片歌词 | `docs/screenshots/07-immersive-card-lyrics.png` |
+| 歌词搜索与候选 | `docs/screenshots/08-lyrics-search.png` |
+| 播放统计 | `docs/screenshots/09-stats.png` |
+| 耳机声压组件 | `docs/screenshots/10-headphones.png` |
+| 设置 · 组件显示 | `docs/screenshots/11-settings-components.png` |
+| 曲目信息编辑 | `docs/screenshots/12-track-info.png` |
+| 迷你播放器 | `docs/screenshots/13-mini-player.png` |
+| 歌词优先级 | `docs/screenshots/14-lyrics-priority.png` |
 
 ## 安装
 
-需要 foo_ui_webview2 2.0.0 或更高版本，并以独立窗口运行（默认用户界面选 `Webview2 UI`）。在 DUI、CUI 面板中，主题只显示不支持面板的说明。
+需要 foobar2000 2.x x64、foo_ui_webview2 2.0.0 或更高版本，并以独立窗口运行（默认用户界面选 `Webview2 UI`）。DUI/CUI 面板中只显示不支持面板的说明。
 
-1. 从 [Releases](https://github.com/NereaFantasia/foo-webview-default-theme/releases) 或 [CNB 镜像](https://cnb.cool/foo-ui-webview2/default-theme/-/releases)下载 `foo-webview-default-theme-<版本>.zip`。
-2. 解压到 `<profile>\webview-ui\<模板名>\`，`index.html` 应直接位于该目录。
-3. 在 foo_ui_webview2 的首选项页选择该模板，重启 foobar2000。
+### 一键包
 
-初次设置与常用功能见[使用教程](./GUIDE.zh-CN.md)。
+1. 从 [Releases](https://github.com/VII12345/foo-webview-default-theme/releases) 下载 `foo-webview-default-theme-0.3.0-full.zip`。
+2. 关闭 foobar2000。
+3. 把 `components/foo_ui_webview2/` 与 `components/foo_monthly_stats/` 复制到 `<profile>\user-components-x64\`。
+   - 便携版：`<foobar2000 目录>\profile\user-components-x64\`
+   - 安装版：`%APPDATA%\foobar2000-v2\user-components-x64\`
+4. 把 `theme/` 里的内容解压到 `<profile>\webview-ui\<模板名>\`，`index.html` 必须直接位于该目录。
+5. 启动 foobar2000，在 foo_ui_webview2 首选项选择该模板，应用并重启。
 
-> [CNB 仓库](https://cnb.cool/foo-ui-webview2/default-theme)只用于分发：存放发行包与在线更新读取的清单，不含源码。源码、问题反馈与合并请求都在 GitHub 本仓库。
+### 只更新主题
 
-## 在线更新
+已有组件时，下载 `foo-webview-default-theme-0.3.0.zip`，把内容解压到模板目录覆盖即可。`foo-webview-components-0.3.0.zip` 是单独的组件包。
 
-在主题设置的 **关于** 中选择更新方式，默认为 **手动检查**。
+> **不要用在线更新安装上游主题。** 主题内置的更新器仍指向上游仓库；安装上游版本会覆盖本分支的功能。请在设置 → 关于中保持“手动检查”，或只手动替换模板目录。
 
-| 方式 | 行为 |
-|----|------|
-| 手动检查 | 不自动检查 |
-| 仅提醒 | 发现新版本时提醒，由你决定是否安装 |
-| 自动下载并安装 | 在后台下载并安装新版本 |
+## 修改版组件说明
 
-新版本在下次启动 foobar2000 时生效。下载内容都会校验签名与哈希；新版本连续三次未能启动时，自动回退到上一版。主题不会自行重启 foobar2000，也不会更新组件或 foobar2000 本体。
+完整哈希、来源与安装路径见 [docs/COMPONENTS.md](./docs/COMPONENTS.md)。
 
-所有版本都无法启动时，在引导页点击 **重置启动计数并重试**；仍无法恢复时，把完整安装包解压到一个新目录，再在首选项中改选该目录。
+| 组件 | 状态 | 说明 |
+|---|---|---|
+| `foo_ui_webview2/foo_ui_webview2.dll` | **修改版（非官方）** | 配合本主题的构建，与官方 v2.0.0 的 DLL 哈希不同 |
+| `foo_ui_webview2/WebView2Loader.dll` | 官方 Microsoft | WebView2Loader 1.0.3719.77，未修改 |
+| `foo_monthly_stats/foo_monthly_stats.dll` | **修改版（非官方）** | 增加统计页需要的时长字段与替代版本回退；与官方 v1.6 哈希不同 |
 
----
+修改版组件只随本发行包提供，版权归原作者。若原作者提出要求，会从后续发行中移除。
+
+## 已知问题与反馈
+
+- 在线歌词、艺人简介依赖公开接口，接口变更时可能暂时失效。
+- 耳机声压是**估算**，不建模输出阻抗、耳机阻抗曲线、耳道耦合与头相关传输；80 dB 只是产品内的安全参考线。
+- 修改版 DLL 可能被杀毒软件误报；源链接与哈希见组件说明。
+- 问题反馈请开 [GitHub Issue](https://github.com/VII12345/foo-webview-default-theme/issues)，附 foobar2000 版本、组件版本、复现步骤与截图。
 
 ## 从源码构建
 
-> 仅开发主题本身时需要本节。普通用户直接安装发行包即可 —— 见上方「安装」。
+> 普通用户不需要本节。
 
-### 环境要求
+### 环境
 
 - Node.js 24、npm 11
 - Microsoft Edge（浏览器测试）
@@ -74,14 +157,21 @@ npm test           # 单元测试 (Vitest)
 npm run test:e2e   # 浏览器测试 (Playwright)
 ```
 
-使用foobar2000调试时，在 foo_ui_webview2 首选项的「开发者」页打开「使用开发服务器」，地址填 `http://127.0.0.1:5190`。
+使用 foobar2000 调试时，在 foo_ui_webview2 首选项的「开发者」页打开「使用开发服务器」，地址填 `http://127.0.0.1:5190`。
+
+生成 GitHub 发行包（需要本机的修改版组件目录）：
+
+```powershell
+npm run build
+npm run release:bundle -- --components "C:\Program Files\foobar2000\profile\user-components-x64"
+```
 
 `vendor/foo-webview-sdk.tgz` 是 foo-webview-sdk 的预发布包，版本与校验值记在 `vendor/foo-webview-sdk.json`。
 
 ### 技术栈
 
 | 层 | 技术 |
-|----|------|
+|---|---|
 | 界面 | React 19、Fluent UI React v9 |
 | 状态 | Jotai |
 | 构建 | Vite 8、TypeScript 5.9 |
@@ -92,45 +182,38 @@ npm run test:e2e   # 浏览器测试 (Playwright)
 
 ### 项目结构
 
-```
-foo-webview-default-theme/
-├── src/
-│   ├── boot/               # 引导页：选版、启动确认、回退
-│   ├── app/                # 服务装配、页面表、Provider
-│   ├── shell/              # 窗口外壳：标题栏、侧边栏、播放栏、右侧卡
-│   ├── library/            # 媒体库各地点：首页、专辑、艺人、流派、歌曲、文件夹、搜索
-│   ├── playlist/           # 播放列表
-│   ├── immersive/          # 沉浸视图
-│   ├── video/              # 视频播放
-│   ├── settings/           # 设置页
-│   ├── update/             # 在线更新器
-│   ├── playback/ track/ table/ covers/ nav/ lyrics/   # 共享领域模块
-│   └── host/ i18n/ theme/ motion/ styles/ kit/        # 基础层
-├── public/                 # 静态资源
-├── tests/
-│   ├── unit/               # 单元测试 (Vitest)，目录镜像 src/
-│   ├── e2e/                # 浏览器测试 (Playwright)
-│   └── fixtures/           # 宿主替身
-├── scripts/release/        # 发行包、清单与签名
-├── vendor/                 # foo-webview-sdk 包
-├── vite.config.ts          # 应用构建
-└── vite.boot.config.ts     # 引导页构建
+```text
+src/
+├── app/          # 服务装配、页面表、Provider
+├── boot/         # 引导页：选版、启动确认、回退
+├── shell/        # 标题栏、侧边栏、播放栏、右侧卡
+├── library/      # 首页、专辑、艺人、流派、歌曲、文件夹、搜索、简介
+├── playlist/     # 播放列表
+├── immersive/    # 五种沉浸场景、组件可见性、声压与仪表
+├── lyrics/       # 本地/在线歌词、优先级、拖动预览、标签写入
+├── stats/        # 播放统计
+├── settings/     # 设置页
+├── playback/ track/ table/ covers/ nav/   # 共享领域模块
+└── host/ i18n/ theme/ motion/ styles/ kit/ # 基础层
+docs/             # 组件说明、发行说明、截图清单
+scripts/release/  # 发行打包与 GitHub 发布
+tests/            # Vitest + Playwright
 ```
 
 ---
 
 ## 许可证
 
-本主题采用 **GNU Affero General Public License v3.0 only** (AGPL-3.0-only)，完整条款见 [LICENSE](LICENSE)。
+本主题采用 **GNU Affero General Public License v3.0 only**（AGPL-3.0-only），完整条款见 [LICENSE](LICENSE)。上游版权归 NereaFantasia；本分支的修改同样以 AGPL-3.0-only 发布。
 
-第三方代码保留各自的许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-
----
+第三方代码与组件保留各自的许可，见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
 
 ## 致谢
 
+- 原仓库：[NereaFantasia/foo-webview-default-theme](https://github.com/NereaFantasia/foo-webview-default-theme)
 - [foobar2000](https://www.foobar2000.org/)
 - [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webview2)
+- [foo_monthly_stats](https://github.com/shirafukayayoi/foo_monthly_stats)
 - [Fluent UI React](https://github.com/microsoft/fluentui)
 - [Apple Music-like Lyrics](https://github.com/amll-dev/applemusic-like-lyrics)
 - [Material Color Utilities](https://github.com/material-foundation/material-color-utilities)

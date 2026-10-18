@@ -2,7 +2,9 @@ English | [中文](./GUIDE.zh-CN.md)
 
 # Default Theme User Guide
 
-Default Theme is the default theme for [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webview2), providing a standalone window interface for foobar2000. This guide covers theme version 0.2.0.
+Default Theme is the default theme for [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webview2), providing a standalone window interface for foobar2000. This guide covers the community edition 0.3.0.
+
+> This is a community-enhanced fork of [the upstream repository](https://github.com/NereaFantasia/foo-webview-default-theme) 0.2.0. The added immersive scenes, lyric priority, statistics and headphone SPL are described in the [README](./README.md) and [CHANGES-SINCE-0.2.0.zh-CN.md](./CHANGES-SINCE-0.2.0.zh-CN.md); the rest of this guide matches upstream.
 
 ## Installation
 
@@ -14,14 +16,16 @@ After installing the plugin, select `Webview2 UI` as the user interface in fooba
 
 ### Install the theme
 
-1. Download `foo-webview-default-theme-0.2.0.zip` from [GitHub Releases](https://github.com/NereaFantasia/foo-webview-default-theme/releases) or the [CNB mirror](https://cnb.cool/foo-ui-webview2/default-theme/-/releases).
+1. Download `foo-webview-default-theme-0.3.0.zip` from [GitHub Releases](https://github.com/VII12345/foo-webview-default-theme/releases).
 2. Open `File > Preferences > Display > WebView2 UI`. Use template management to create a new template for the theme, then open its folder.
 3. Extract the installation package into that folder, replacing the new template's placeholder page. Keep `index.html` directly inside the template folder, not an extra subfolder.
 4. Select that template in preferences, apply the settings and restart foobar2000.
 
 Template folders are stored under `<profile>\webview-ui\<template>\`. Opening the folder from the plugin preferences helps avoid placing files in another foobar2000 installation's profile.
 
-`fe-0.2.0.zip` contains the frontend update, `be-0.2.0.zip` contains the local service, and runtime parts provide its execution environment. The updater handles these files; they are not first-install packages. GitHub's `Source code` archives are not installable themes either.
+`fe-0.3.0.zip` contains the frontend update, `be-0.3.0.zip` contains the local service, and runtime parts provide its execution environment. The updater handles these files; they are not first-install packages. GitHub's `Source code` archives are not installable themes either.
+
+> The built-in online updater still points at the upstream repository and would overwrite this fork's features. Keep the update mode on “manual check” or replace the template folder by hand.
 
 ## First Launch
 
@@ -137,7 +141,7 @@ Do not share one theme folder between multiple foobar2000 instances. Automatic u
 
 ### Local service
 
-After 0.2.0 starts, it downloads the Node runtime and matching local-service files from CNB as needed, verifies them and starts the service. You do not need to install Node or npm yourself. Installed files that pass verification can be reused offline. Preparing these components is separate from checking for theme updates; **Check manually** does not disable component preparation.
+After 0.3.0 starts, it downloads the Node runtime and matching local-service files from CNB as needed, verifies them and starts the service. You do not need to install Node or npm yourself. Installed files that pass verification can be reused offline. Preparing these components is separate from checking for theme updates; **Check manually** does not disable component preparation.
 
 Check the status under **Settings > About > Local service**. If it is not ready, view diagnostic details or retry; music playback and the theme remain available. No new plugin version accompanies this release, and the theme does not replace the plugin or foobar2000 automatically.
 

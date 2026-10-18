@@ -2,7 +2,9 @@
 
 # Default Theme 使用教程
 
-Default Theme 是 [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webview2) 的默认主题，为 foobar2000 提供独立窗口界面。本教程适用于主题 0.2.0。
+Default Theme 是 [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webview2) 的默认主题，为 foobar2000 提供独立窗口界面。本教程适用于社区增强版 0.3.0。
+
+> 这是 [原仓库](https://github.com/NereaFantasia/foo-webview-default-theme) 0.2.0 的社区增强分支。新增的沉浸场景、歌词优先级、播放统计、耳机声压等功能见 [README](./README.zh-CN.md) 与 [CHANGES-SINCE-0.2.0.zh-CN.md](./CHANGES-SINCE-0.2.0.zh-CN.md)；本教程其余部分与原版一致。
 
 ## 安装
 
@@ -14,14 +16,16 @@ Default Theme 是 [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webv
 
 ### 安装主题
 
-1. 从 [GitHub Releases](https://github.com/NereaFantasia/foo-webview-default-theme/releases) 或 [CNB 镜像](https://cnb.cool/foo-ui-webview2/default-theme/-/releases)下载 `foo-webview-default-theme-0.2.0.zip`。
+1. 从 [GitHub Releases](https://github.com/VII12345/foo-webview-default-theme/releases) 下载 `foo-webview-default-theme-0.3.0.zip`。
 2. 打开 `File > Preferences > Display > WebView2 UI`，在模板管理中为主题新建一个模板，再打开它的文件夹。
 3. 将安装包内容解压到该文件夹，覆盖新建模板的占位页。`index.html` 必须直接位于模板文件夹内，不要多套一层文件夹。
 4. 在首选项中确认选中该模板，应用设置，重启 foobar2000。
 
 模板目录位于 `<profile>\webview-ui\<模板名>\`。从组件首选项打开文件夹，可避免把文件放进另一份 foobar2000 的配置目录。
 
-`fe-0.2.0.zip` 是前端更新包，`be-0.2.0.zip` 是本地服务包，运行时分块用于准备运行环境；这些文件均由更新器处理，不用于首次安装。GitHub 的 `Source code` 归档也不是可直接安装的主题。
+`fe-0.3.0.zip` 是前端更新包，`be-0.3.0.zip` 是本地服务包，运行时分块用于准备运行环境；这些文件均由更新器处理，不用于首次安装。GitHub 的 `Source code` 归档也不是可直接安装的主题。
+
+> 本分支的在线更新仍指向上游仓库，安装上游主题更新会覆盖本地功能。建议保持“手动检查”，或只手动替换模板目录。
 
 ## 第一次启动
 
@@ -137,7 +141,7 @@ Last.fm API 密钥不是读取网页简介的必需项。可以在在线内容�
 
 ### 本地服务
 
-0.2.0 启动后会按需从 CNB 下载 Node 运行环境和同版本的本地服务文件，校验后启动。无需自行安装 Node 或 npm，已安装且校验通过的文件可以离线复用。首次补装与是否自动检查主题更新是两件事，选择「手动检查」不会关闭本版所需组件的补装。
+0.3.0 启动后会按需从 CNB 下载 Node 运行环境和同版本的本地服务文件，校验后启动。无需自行安装 Node 或 npm，已安装且校验通过的文件可以离线复用。首次补装与是否自动检查主题更新是两件事，选择「手动检查」不会关闭本版所需组件的补装。
 
 在 **设置 > 关于 > 本地服务** 查看状态；未就绪时可查看诊断详情并重试。音乐播放和主题界面仍可使用。本版发布时没有新的插件版本；主题不会自动替换插件或 foobar2000 本体。
 
