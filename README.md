@@ -32,7 +32,7 @@ Default Theme is the default theme for [foo_ui_webview2](https://github.com/Nere
 | Playback | Stock experience | Restore track/playlist/position after closing and reopening; reworked card transport keys, volume and seek bar |
 | Track info | Read-only | Tag editing, create missing summary tags, Credits, inline edit/copy actions |
 | Statistics | None | Today/month/year, top tracks/artists, trend chart and covers from `foo_monthly_stats` |
-| Headphones | None | Real-time SPL, power, voltage, 80 dB headroom and played-part average from the amp/headphone rig and Short-term LUFS |
+| Headphones | None | Real-time SPL, power, voltage, 80 dB headroom and played-part average from the amp/headphone rig and Short-term LUFS; optional automatic TOPPING DX5 II jack/gain/volume reading |
 | Narrow layouts | Tables without covers | All tables keep a 32 px cover with tighter rows |
 
 ## Features
@@ -54,7 +54,7 @@ Default Theme is the default theme for [foo_ui_webview2](https://github.com/Nere
 ### Lyrics
 
 - Local embedded/sidecar lyrics, LRCLIB, NetEase, Kugou, QQ Music, AMLL TTML DB and lrcmux; manual lookup by source ID/hash.
-- Word-level highlighting, translations/romanisation, grouped candidates with duration and cover.
+- Word-level highlighting, translations/romanisation, grouped candidates with duration and cover; words already sung in the active line follow the current accent color.
 - Reorderable priority: local word → online word → local other → online line → plain.
 - Drag or mouse wheel enters a dashed preview; only the play chip seeks. The preview disappears after 3 seconds.
 - Optional “save online word lyrics to the `LYRICS` tag when the local file has no word timing”; the local display stays until the tag is read back.
@@ -77,6 +77,7 @@ Default Theme is the default theme for [foo_ui_webview2](https://github.com/Nere
 - Replaces Genre in paper/focus views with live dB SPL, power, voltage and 80 dB headroom.
 - Multiple amplifiers/headphones, selected independently, switched immediately; managed in Settings → Headphones.
 - Calibrated to the BS.1770 stereo reference with mono/5.1 channel-weight correction. The cell shows the average SPL and LUFS of the played part since the start of the track.
+- Optional “Read DAC/amp automatically” (tooltip: “Topping DX52 only”): authorize WebHID once on the switch, then read the DX5 II output jack, high/low gain, device volume, mute and sample rate. Device volume and foobar volume are independent and both apply. The cell shows the current output (e.g. `4.4mm XLR · High`) and the popover lists the device state. With the switch off, no DX5 II-specific information is shown and the manual amplifier profile is used.
 
 ## Screenshots
 
