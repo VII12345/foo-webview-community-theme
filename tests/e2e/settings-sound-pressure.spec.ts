@@ -18,12 +18,12 @@ test('设置页增删改耳放与耳机，切换当前设备并持久化', async
   const ampForm = expander.locator('[data-sound-pressure-form="amp"]');
   await ampForm.getByLabel('名称').fill('USB DAC');
   await ampForm.getByLabel('0 dBFS 输出（Vrms）').fill('2');
-  await ampForm.getByLabel('增益（dB）').fill('6');
+  await ampForm.getByLabel('增益（dB）').fill('-6');
   await ampForm.getByRole('button', { name: '保存', exact: true }).click();
   await expect(settings.row('USB DAC')).toBeVisible();
   await expect
     .poll(() => settings.host.config.get(HEADPHONE_RIG_KEY))
-    .toMatchObject({ amps: [{ name: 'USB DAC', vrmsAt0db: 2, gainDb: 6 }] });
+    .toMatchObject({ amps: [{ name: 'USB DAC', vrmsAt0db: 2, gainDb: -6 }] });
 
   // 添加耳机，单位先用 dB/mW，再切到 dB/V 检查换算后仍是同一灵敏度。
   await expander.getByRole('button', { name: '添加耳机', exact: true }).click();
@@ -96,6 +96,6 @@ test('设置页拒绝空名称，输入越界时夹回区间', async ({ page }) 
   await expect(settings.row('Hot')).toBeVisible();
   await expect
     .poll(() => settings.host.config.get(HEADPHONE_RIG_KEY))
-    .toMatchObject({ amps: [{ name: 'Hot', vrmsAt0db: 10, gainDb: -20 }] });
+    .toMatchObject({ amps: [{ name: 'Hot', vrmsAt0db: 10, gainDb: -99 }] });
   expect(settings.errors).toEqual([]);
 });

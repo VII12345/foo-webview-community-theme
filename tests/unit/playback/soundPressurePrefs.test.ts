@@ -48,7 +48,7 @@ describe('耳机设备的偏好服务', () => {
   it('增删改选都写进 config，删除选中项时同一次写入清掉选择', async () => {
     const env = setup();
     await ready(env.service);
-    const amp = env.service.addAmp({ name: '  Desktop  ', vrmsAt0db: 2, gainDb: 6 });
+    const amp = env.service.addAmp({ name: '  Desktop  ', vrmsAt0db: 2, gainDb: -6 });
     const headphone = env.service.addHeadphone({
       name: 'Open',
       impedanceOhm: 300,
@@ -83,7 +83,7 @@ describe('耳机设备的偏好服务', () => {
     await ready(env.service);
     env.service.addAmp({ name: 'Loud', vrmsAt0db: 99, gainDb: -99 });
     const rig = env.store.get(env.service.rig);
-    expect(rig.amps[0]).toMatchObject({ vrmsAt0db: 10, gainDb: -20 });
+    expect(rig.amps[0]).toMatchObject({ vrmsAt0db: 10, gainDb: -99 });
     expect(env.service.addAmp({ name: '   ', vrmsAt0db: 2, gainDb: 0 })).toBeNull();
     expect(env.service.addHeadphone({
       name: '',

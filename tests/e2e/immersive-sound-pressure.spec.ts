@@ -8,7 +8,7 @@ const RIG = {
   version: 1,
   amps: [
     { id: 'a1', name: 'Desktop DAC', vrmsAt0db: 2, gainDb: 0 },
-    { id: 'a2', name: 'Portable', vrmsAt0db: 1, gainDb: 6 },
+    { id: 'a2', name: 'Portable', vrmsAt0db: 1, gainDb: -6 },
   ],
   headphones: [
     { id: 'h1', name: 'Open 300', impedanceOhm: 300, sensitivity: 97, sensitivityUnit: 'dbPerMw' },
@@ -110,11 +110,11 @@ test('没有设备时显示未配置，点击可以打开浮层添加设备', as
   const form = panel.locator('[data-sound-pressure-form="amp"]');
   await form.getByLabel('名称').fill('USB Dongle');
   await form.getByLabel('0 dBFS 输出（Vrms）').fill('1');
-  await form.getByLabel('增益（dB）').fill('3');
+  await form.getByLabel('增益（dB）').fill('-3');
   await form.getByRole('button', { name: '保存', exact: true }).click();
   await expect(panel.getByText('USB Dongle')).toBeVisible();
   await expect
     .poll(() => host.config.get(HEADPHONE_RIG_KEY))
-    .toMatchObject({ amps: [{ name: 'USB Dongle', vrmsAt0db: 1, gainDb: 3 }] });
+    .toMatchObject({ amps: [{ name: 'USB Dongle', vrmsAt0db: 1, gainDb: -3 }] });
   expect(errors).toStrictEqual([]);
 });

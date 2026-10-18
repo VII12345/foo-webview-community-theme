@@ -75,16 +75,16 @@ describe('耳机声压估算', () => {
     expect((quiet.marginDb ?? 0) - (loud.marginDb ?? 0)).toBeCloseTo(20, 6);
   });
 
-  it('耳放增益叠加在数字电平上', () => {
+  it('负的耳放增益从数字电平上扣除', () => {
     const withGain = estimateSoundPressure(
       { shortTermLufs: -20, volumeDb: 0, muted: false },
-      rig({ amps: [{ ...AMP, gainDb: 6 }] }),
+      rig({ amps: [{ ...AMP, gainDb: -6 }] }),
     );
     const plain = estimateSoundPressure(
       { shortTermLufs: -20, volumeDb: 0, muted: false },
       rig(),
     );
-    expect((withGain.spl ?? 0) - (plain.spl ?? 0)).toBeCloseTo(6, 6);
+    expect((withGain.spl ?? 0) - (plain.spl ?? 0)).toBeCloseTo(-6, 6);
   });
 
   it('静音、无响度、未选设备分别给出各自的状态', () => {
@@ -116,8 +116,8 @@ describe('耳机声压估算', () => {
 
   it('超过显示上限只写 >140，余量仍按实际值算', () => {
     const reading = estimateSoundPressure(
-      { shortTermLufs: -3, volumeDb: 20, muted: false },
-      rig({ amps: [{ ...AMP, gainDb: 20 }] }),
+      { shortTermLufs: -3, volumeDb: 30, muted: false },
+      rig({ amps: [{ ...AMP, vrmsAt0db: 10 }] }),
     );
     expect(formatSpl(reading.spl)).toBe('>140');
     expect(reading.marginDb).toBeLessThan(-60);
@@ -161,7 +161,7 @@ describe('耳机设备的校验', () => {
       id: 'a',
       name: 'Amp',
       vrmsAt0db: 10,
-      gainDb: -20,
+      gainDb: -99,
     });
     expect(normalizeHeadphone({ id: 'h', name: 'HP', impedanceOhm: 1, sensitivity: 999 })).toEqual({
       id: 'h',
