@@ -350,6 +350,7 @@ test('歌词一律排在右半靠左五分之一处，左对齐', async ({ page 
     await page.getByRole('menuitemradio', { name: label, exact: true }).click();
     const pane = view.locator('[data-immersive-lyrics-player]');
     await expect(pane).toBeVisible();
+    await expect(pane.locator('.amll-lyric-player')).toContainText('右半第一句');
     const box = await pane.evaluate((element) => {
       const stage = element.closest('[data-paper-content]');
       if (!stage) throw new Error('歌词不在舞台上');
@@ -363,12 +364,21 @@ test('歌词一律排在右半靠左五分之一处，左对齐', async ({ page 
         right: Math.round((rect.right - stageRect.left) / scale),
         // 行盒的左缘贴着容器左缘 = 左对齐（居中的话会留出一大截空白）。
         rowInset: rowRect ? Math.round(rowRect.left - rect.left) : null,
+        // AMLL 默认 1em 行内边距；full 舞台要去掉，文字实际左缘贴住容器。
+        textInset: (() => {
+          const line = element.querySelector('[class*="lyricMainLine"]');
+          if (!line) return null;
+          const range = document.createRange();
+          range.selectNodeContents(line);
+          return Math.round((range.getBoundingClientRect().left - rect.left) / scale);
+        })(),
       };
     });
     // 舞台左缘 1152（右半 960–1920 靠左五分之一处），右缘不超过舞台。
     expect(box.left).toBe(1152);
     expect(box.right).toBeLessThanOrEqual(1920);
     expect(box.rowInset).toBeLessThan(4);
+    expect(box.textInset ?? 999).toBeLessThan(4);
   }
   expect(errors).toStrictEqual([]);
 });

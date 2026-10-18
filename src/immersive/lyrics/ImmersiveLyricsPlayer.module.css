@@ -11,3 +11,8 @@
   width: 100%;
   height: 100%;
 }
+
+/* full 舞台的歌词容器已经在右区左五分之一，去掉 AMLL 默认的 1em 行内边距，让文字实际贴住这条线。 */
+.root[data-edge-aligned] :global(.amll-lyric-player) {
+  --lyric-line-padding-x: 0;
+}

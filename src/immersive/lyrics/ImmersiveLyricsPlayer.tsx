@@ -10,7 +10,14 @@ import { useLyricFontZoom } from '../../lyrics/useLyricFontZoom.ts';
 import { useViewServices } from '../page/viewServices.ts';
 import styles from './ImmersiveLyricsPlayer.module.css';
 
-export function ImmersiveLyricsPlayer({ fontScale = 1 }: { readonly fontScale?: number } = {}) {
+export function ImmersiveLyricsPlayer({
+  fontScale = 1,
+  edgeAligned = false,
+}: {
+  readonly fontScale?: number;
+  /** full 舞台的动画歌词贴住右区左缘，不用 AMLL 默认的 1em 行内边距。 */
+  readonly edgeAligned?: boolean;
+} = {}) {
   const services = useViewServices();
   const lyrics = useService(lyricsKey);
   const display = useAtomValueRawSync(useService(lyricsDisplayKey).display);
@@ -22,7 +29,11 @@ export function ImmersiveLyricsPlayer({ fontScale = 1 }: { readonly fontScale?: 
   const nudge = useLyricAlignNudge();
   if (!services.lyrics || state.status !== 'ready' || state.content.kind !== 'synced') return null;
   return (
-    <div className={styles.root} data-immersive-lyrics-player>
+    <div
+      className={styles.root}
+      data-immersive-lyrics-player
+      data-edge-aligned={edgeAligned || undefined}
+    >
       <LyricsPlayer
         lines={state.content.lines}
         motion={motion}
