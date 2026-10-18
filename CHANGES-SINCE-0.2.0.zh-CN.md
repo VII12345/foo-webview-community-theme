@@ -3,9 +3,9 @@
 本文记录本仓库相对原作者 `NereaFantasia/foo-webview-default-theme` 0.2.0 的全部本地提交与净改动，供维护、审查和升级时对照。
 
 - 上游基线：`b46e934`（`feat: 发布默认主题 0.2.0`，2026-10-09）
-- 本文终点：`40033cc`（`fix(folders): use directory cover images for folder cards`，2026-10-18）
-- 提交范围：`b46e934..40033cc`，共 97 个提交，其中 `d0ea5e2`、`243da20`、`6ba52fd`、`be38f8b`、`43f7daa` 是文档提交
-- 代码净差异：239 个文件，+16046 / −979 行（不含本文档）
+- 本文终点：`c7bd496`（`fix(sound): show the DX5 device volume in the SPL cell`，2026-10-19）
+- 提交范围：`b46e934..c7bd496`，共 101 个提交，其中 `d0ea5e2`、`243da20`、`6ba52fd`、`be38f8b`、`43f7daa` 是文档提交
+- 代码净差异：243 个文件，+16166 / −1000 行（不含本文档）
 - `CHANGELOG.md` 由更新器解析，本文不修改该文件；本说明单独成篇。
 
 文档描述的是**最终净状态**，不是每个中间提交的逐字复述。三组「先实现、后回退、再重做」的提交在正文与附录中都会标明，避免把已回退的实现误当成现状。
@@ -570,7 +570,7 @@ localWord → local → word → line → plain
 - 字段：电源、音量原始值与步进、静音、输入、输出路由、耳机高低增益、采样率、line 模式、平衡；音量 `-(raw * stepDb)`，raw 0 = 0 dB。
 - DX5 II 参数表：6.35mm L/H `7.2/24.2 Vpp`，4.4mm/XLR L/H `15.0/48.0 Vpp`；自动 amp 的 `V0 = Vpp / (2√2)`，`gainDb = 设备音量`，foobar 音量另算（两者独立）。
 - 设置 → 耳机新增“自动读取解码/耳放信息”开关，悬停文案“仅适用于拓品DX52”；状态显示连接/授权/占用/线路输出/非 USB；提供“重新授权”和输出接口（自动/6.35/4.4 XLR）。按用户要求不再检查 foobar2000 当前输出设备名。
-- 组件在自动生效时显示 `SPL · TOPPING DX5 II · 4.4mm XLR · High` 等当前输出，浮层列出输出/增益/设备音量/采样率；开关关闭时不显示任何 DX5 II 专属信息。
+- 组件在自动生效时显示 `SPL · DX5 II · 4.4mm XLR`，第二行显示高/低增益、设备音量与耳机名，浮层列出输出/增益/设备音量/采样率；开关关闭时不显示任何 DX5 II 专属信息。
 
 ### 17.3 当前行已唱字用强调色
 
@@ -579,7 +579,8 @@ localWord → local → word → line → plain
 ### 17.4 文件夹页滚动与封面
 
 - 整页 `overflow-y: auto`，`.body` 最小高度 420px；窗口压扁时标题/筛选/工具栏可滚出视野，目录树不再被挤到零。短窗口减小页边距与间距。
-- 封面优先用宿主 `artwork.getFolderImages(directory)` 列出的目录图片（优先 `cover/folder/front` 命名），取不到 URL 再退回纯文件路径 `track.path` 的内嵌图；`file-relative://` 退回 `absolutePath`，不再把 `trackPathOf` 的 `|subsong:N` 传给封面接口。
+- 封面优先用宿主 `artwork.getFolderImages(directory)` 列出的目录图片（优先 `cover/folder/front` 命名），取不到 URL 再退回纯文件路径 `track.path` 的内嵌图；同一目录只请求一次目录图片。`file-relative://` 退回 `absolutePath`，不再把 `trackPathOf` 的 `|subsong:N` 传给封面接口。
+- 列表视图的封面列改为 `perRowCover`：每行一张小图，不再只由组头显示第一张；分组行不再单独占一张封面。
 - `FolderArt` 底层始终保留文件夹图标并加 `--bg-hover` 底色，`<img>` 绝对定位覆盖；加载中/失败/透明占位不再留白。封面缓存上限 512 → 2000。
 
 ### 17.5 卡片歌词与左区上下对齐，并上下各多一行
@@ -690,14 +691,17 @@ localWord → local → word → line → plain
 | `6730a43` | 声压 | 不再要求 DX5 是 foobar 当前输出 |
 | `aa3ada4` | 沉浸 | 卡片歌词上下各多一行 |
 | `40033cc` | 文件夹 | 优先使用目录封面图 |
+| `cf60f26` | 声压 | 自动标签缩短并为增益/耳机腾一行 |
+| `8cd4868` | 文件夹 | 列表每行显示封面 |
+| `c7bd496` | 声压 | 组件第二行显示设备音量 |
 
 ---
 
 ## 附录 B：净差异
 
 ```text
-b46e934..40033cc（不含文档）
-239 files changed, 16046 insertions(+), 979 deletions(-)
+b46e934..c7bd496（不含文档）
+243 files changed, 16166 insertions(+), 1000 deletions(-)
 ```
 
 主要新增目录/模块：
