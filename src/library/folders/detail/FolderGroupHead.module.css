@@ -49,5 +49,5 @@
   position: absolute;
   top: 100%;
   left: 0;
-  padding: var(--spacingVerticalS) var(--spacingHorizontalS);
+  padding: var(--table-cover-inset, 8px);
 }

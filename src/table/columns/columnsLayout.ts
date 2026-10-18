@@ -2,6 +2,7 @@ import {
   columnDef,
   columnTrack,
   NARROW_COLUMNS,
+  NARROW_COVER_WIDTH,
   NARROW_WIDTH,
   widthOf,
   type ColumnId,
@@ -57,7 +58,13 @@ export function columnsLayout(
     !squeezed.includes(id);
   const cells = state.order.filter((id) => id !== 'cover' && shown(id));
   const cover = shown('cover') && measured;
-  const coverWidth = cover ? Math.min(widthOf(state.widths, 'cover'), state.containerWidth / 3) : 0;
+  const coverWidth = cover
+    ? narrow
+      ? widthOf(state.widths, 'cover') > 0
+        ? Math.min(NARROW_COVER_WIDTH, state.containerWidth / 3)
+        : 0
+      : Math.min(widthOf(state.widths, 'cover'), state.containerWidth / 3)
+    : 0;
   const rowTemplate = cells.map((id) => columnTrack(id, state.widths)).join(' ');
   return {
     narrow,

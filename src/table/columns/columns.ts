@@ -153,7 +153,15 @@ export const MIN_WIDTH = 32;
 
 /** 表格容器不宽于这么多 CSS 像素时是窄档，只留 `NARROW_COLUMNS` 里的列。 */
 export const NARROW_WIDTH = 520;
-export const NARROW_COLUMNS: ReadonlySet<ColumnId> = new Set(['number', 'title', 'duration']);
+/** 窄档保留的小封面宽度；用户主动把封面列拖到 0 时仍按隐藏处理。 */
+export const NARROW_COVER_WIDTH = 32;
+export const NARROW_COLUMNS: ReadonlySet<ColumnId> = new Set([
+  'cover',
+  'number',
+  'art',
+  'title',
+  'duration',
+]);
 
 export function widthOf(widths: ColumnWidths, id: ColumnId): number {
   return widths[columnIndex(id)] ?? 0;

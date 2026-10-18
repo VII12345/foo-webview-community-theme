@@ -20,13 +20,14 @@ describe('列的版式', () => {
     expect(resizePartner(layout, 'cover')).toBeNull();
   });
 
-  it('封面列藏起来或窄档时也不画、没有分隔条', () => {
+  it('封面列藏起来时不画；窄档保留 32px 小封面', () => {
     const offered = [...DEFAULT_ORDER];
     const hidden = columnsLayout({ ...STATE, hidden: new Set(['cover']) }, offered);
     expect(resizePartner(hidden, 'cover')).toBeNull();
     const narrow = columnsLayout({ ...STATE, containerWidth: 500 }, offered);
-    expect(narrow.coverWidth).toBe(0);
-    expect(resizePartner(narrow, 'cover')).toBeNull();
+    expect(narrow.coverWidth).toBe(32);
+    expect(narrow.header).toContain('cover');
+    expect(resizePartner(narrow, 'cover')).toBe('self');
   });
 
   it('藏着的列没有分隔条', () => {

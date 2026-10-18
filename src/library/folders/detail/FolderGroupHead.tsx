@@ -76,7 +76,10 @@ export function FolderGroupHead({ item, state, coverWidth, full, filtered }: Fol
       </div>
       {!item.collapsed && coverWidth > 0 && group.direct.length > 0 && (
         <span className={styles.cover} data-table-group-body>
-          <FolderArt track={group.direct[0]} size={Math.max(0, coverWidth - 16)} />
+          <FolderArt
+            track={group.direct[0]}
+            size={Math.max(0, coverWidth - 2 * (coverWidth <= 40 ? 2 : 8))}
+          />
         </span>
       )}
     </>

@@ -27,6 +27,21 @@ test('点侧边栏的列表进它的页：页头写列表名、首数与总时�
   expect(errors).toEqual([]);
 });
 
+test('窄窗仍保留小封面，并把行高收到 32', async ({ page }) => {
+  const { grid, errors } = await openPlaylist(page, 'Mix', albumTracks('Mix', 2, 2));
+  await page.setViewportSize({ width: 480, height: 800 });
+  await expect(grid).toHaveAttribute('data-narrow', 'true');
+  expect(
+    await grid.evaluate((element) =>
+      getComputedStyle(element).getPropertyValue('--table-row-height'),
+    ),
+  ).toBe('32px');
+  const cover = grid.locator('[data-table-group-body]').first();
+  await expect(cover).toBeVisible();
+  expect((await cover.boundingBox())?.width).toBe(32);
+  expect(errors).toEqual([]);
+});
+
 test('曲目菜单与 Delete：移除选中的曲目；锁着的列表 Delete 不发', async ({ page }) => {
   const { host, entry, errors } = await openSidebar(page);
   await entry('Road Trip').click();

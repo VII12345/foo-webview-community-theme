@@ -55,6 +55,16 @@ test('节、专辑分组头与曲目行；节头写张数与首数，分组头�
   await expect(page.locator('[data-album-subtitle]')).toContainText('8 张 · 16 首');
 });
 
+test('窄窗仍保留 32px 小封面', async ({ page }) => {
+  await start(page);
+  await page.setViewportSize({ width: 480, height: 800 });
+  const grid = table(page);
+  await expect(grid).toHaveAttribute('data-narrow', 'true');
+  const cover = grid.locator('[data-list-cover]').first();
+  await expect(cover).toBeVisible();
+  expect((await cover.boundingBox())?.width).toBe(32);
+});
+
 test('单击节头折叠这一节并落盘，重新载入后还折着；专辑的开合键只开合这一张', async ({ page }) => {
   const host = await start(page);
   await section(page, 'Rock').click();

@@ -95,7 +95,7 @@
   top: 100%;
   left: 0;
   box-sizing: border-box;
-  padding: var(--spacingVerticalS) var(--spacingHorizontalS);
+  padding: var(--table-cover-inset, 8px);
   border: none;
   background: none;
   cursor: pointer;

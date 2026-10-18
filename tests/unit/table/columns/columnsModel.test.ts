@@ -57,7 +57,7 @@ describe('画哪些列', () => {
     model.setContainerWidth(600);
     expect(layout().coverWidth).toBe(120);
     model.setContainerWidth(330);
-    expect(layout().coverWidth).toBe(0);
+    expect(layout().coverWidth).toBe(32);
   });
 
   it('存的封面宽超过容器宽的三分之一时按三分之一画', () => {
@@ -72,11 +72,11 @@ describe('画哪些列', () => {
     expect(store.get(model.layout).coverWidth).toBe(200);
   });
 
-  it('容器不宽于 520 时只留序号、标题与时长', () => {
+  it('容器不宽于 520 时保留封面、序号、标题与时长', () => {
     const { model, layout } = setup();
     model.setContainerWidth(520);
     expect(layout().narrow).toBe(true);
-    expect(layout().header).toEqual(['number', 'title', 'duration']);
+    expect(layout().header).toEqual(['cover', 'number', 'title', 'duration']);
     model.setContainerWidth(521);
     expect(layout().narrow).toBe(false);
   });

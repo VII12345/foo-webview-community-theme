@@ -92,6 +92,8 @@ export interface TrackTableProps<G> extends TableCallbacks<G> {
   readonly label: string;
   /** 曲目行与空位的高，CSS 像素。 */
   readonly rowHeight: number;
+  /** 窄档（容器 ≤520）时曲目行的高；缺省 32，让窄窗也放得下小封面。 */
+  readonly narrowRowHeight?: number;
   /** 分组头的高；要给稳定的函数。不给时与曲目行同高。 */
   readonly groupHeight?: (item: TableGroupItem<G>) => number;
   /**
@@ -154,12 +156,13 @@ const ART_INSET = 4;
  * 开始，行不会从列头底下透出来，列头因此不用铺底。
  */
 export function TrackTable<G>(props: TrackTableProps<G>) {
-  const { columns, items, selection, rowHeight, renderGroup, scrollParent } = props;
+  const { columns, items, selection, renderGroup, scrollParent } = props;
   const classes = useTrackTableStyles();
   const services = useTableServices();
   const ratings = useTableRatings(items, props.ratingStamp, services.ratings);
   const t = useAtomValueRawSync(translateAtom);
   const layout = useAtomValueRawSync(columns.layout);
+  const rowHeight = layout.narrow ? (props.narrowRowHeight ?? 32) : props.rowHeight;
   const { ranges } = useAtomValueRawSync(selection.state);
   const playingKey = useAtomValueRawSync(services.playingKey);
   const audible = useAtomValueRawSync(services.audible);
@@ -191,6 +194,7 @@ export function TrackTable<G>(props: TrackTableProps<G>) {
   });
   const input = useTrackTableInput({
     ...props,
+    rowHeight,
     onToggleGroup:
       props.onToggleGroup && ((index) => fold.run(index, () => props.onToggleGroup?.(index))),
     onSetGroup:
@@ -238,6 +242,7 @@ export function TrackTable<G>(props: TrackTableProps<G>) {
     '--table-row-left': `${layout.coverWidth}px`,
     '--table-row-height': `${rowHeight}px`,
     '--table-art-size': `${artSize}px`,
+    '--table-cover-inset': layout.narrow ? '2px' : '8px',
   };
 
   return (
@@ -249,6 +254,7 @@ export function TrackTable<G>(props: TrackTableProps<G>) {
       tabIndex={0}
       className={mergeClasses(classes.table, pageScroll && classes.pageScrollTable)}
       style={variables}
+      data-narrow={layout.narrow || undefined}
       aria-label={props.label}
       aria-rowcount={aria.count + 1}
       aria-colcount={layout.header.length}
