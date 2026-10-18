@@ -103,9 +103,9 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
       : null;
   const keySub =
     auto.enabled && auto.active && auto.state
-      ? `${auto.state.highGain ? t('settings.dx52HighGain') : t('settings.dx52LowGain')}${
-          headphone ? ` · ${headphone.name}` : ''
-        }`
+      ? `${auto.state.highGain ? t('settings.dx52HighGain') : t('settings.dx52LowGain')} · ${t(
+          'immersive.dx52DeviceVolume',
+        )} ${auto.state.volumeDb.toFixed(1)} dB${headphone ? ` · ${headphone.name}` : ''}`
       : null;
   const hint = auto.enabled && !auto.active ? autoHint(auto) : stateHint(reading);
   const margin =
