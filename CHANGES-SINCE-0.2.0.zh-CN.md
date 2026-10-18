@@ -3,9 +3,9 @@
 本文记录本仓库相对原作者 `NereaFantasia/foo-webview-default-theme` 0.2.0 的全部本地提交与净改动，供维护、审查和升级时对照。
 
 - 上游基线：`b46e934`（`feat: 发布默认主题 0.2.0`，2026-10-09）
-- 本文终点：`b5a7979`（`feat(sound): read TOPPING DX5 II state over WebHID`，2026-10-18）
-- 提交范围：`b46e934..b5a7979`，共 90 个提交，其中 `d0ea5e2`、`243da20`、`6ba52fd`、`be38f8b` 是文档提交
-- 代码净差异：239 个文件，+15961 / −975 行（不含本文档）
+- 本文终点：`aeabd30`（`fix(sound): include the DX5 II gain in the auto readout`，2026-10-18）
+- 提交范围：`b46e934..aeabd30`，共 92 个提交，其中 `d0ea5e2`、`243da20`、`6ba52fd`、`be38f8b`、`43f7daa` 是文档提交
+- 代码净差异：239 个文件，+15972 / −975 行（不含本文档）
 - `CHANGELOG.md` 由更新器解析，本文不修改该文件；本说明单独成篇。
 
 文档描述的是**最终净状态**，不是每个中间提交的逐字复述。三组「先实现、后回退、再重做」的提交在正文与附录中都会标明，避免把已回退的实现误当成现状。
@@ -684,14 +684,15 @@ localWord → local → word → line → plain
 | `a85de58` | 文件夹 | 整页滚动、封面纯路径与占位底色 |
 | `4c410b6` | 沉浸 | 卡片歌词与左区上下对齐 |
 | `b5a7979` | 声压 | WebHID 自动读取 DX5 II |
+| `aeabd30` | 声压 | 自动读数显示 DX5 II 增益 dB |
 
 ---
 
 ## 附录 B：净差异
 
 ```text
-b46e934..b5a7979（不含文档）
-239 files changed, 15961 insertions(+), 975 deletions(-)
+b46e934..aeabd30（不含文档）
+239 files changed, 15972 insertions(+), 975 deletions(-)
 ```
 
 主要新增目录/模块：
