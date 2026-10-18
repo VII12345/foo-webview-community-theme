@@ -16,7 +16,7 @@ After installing the plugin, select `Webview2 UI` as the user interface in fooba
 
 ### Install the theme
 
-1. Download `foo-webview-default-theme-0.3.0.zip` from [GitHub Releases](https://github.com/VII12345/foo-webview-default-theme/releases).
+1. Download `foo-webview-community-theme-0.3.0.zip` from [GitHub Releases](https://github.com/VII12345/foo-webview-community-theme/releases).
 2. Open `File > Preferences > Display > WebView2 UI`. Use template management to create a new template for the theme, then open its folder.
 3. Extract the installation package into that folder, replacing the new template's placeholder page. Keep `index.html` directly inside the template folder, not an extra subfolder.
 4. Select that template in preferences, apply the settings and restart foobar2000.

@@ -44,7 +44,7 @@ describe('LRCLIB 来源', () => {
       track_name: '晴天',
       artist_name: '周杰伦',
     });
-    expect(String(request?.header('User-Agent'))).toMatch(/^foo-webview-default-theme\//);
+    expect(String(request?.header('User-Agent'))).toMatch(/^foo-webview-community-theme\//);
     expect(found).toMatchObject([
       {
         source: 'lrclib',

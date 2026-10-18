@@ -4,10 +4,10 @@
   <img src=".github/assets/readme-banner.jpg" alt="Default Theme 社区增强版：WinUI 3 的设计，装着一颗 foobar2000 的心" width="100%" />
 </p>
 
-# foo-webview-default-theme · 社区增强版
+# foo-webview-community-theme · 社区增强版
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/VII12345/foo-webview-default-theme)](https://github.com/VII12345/foo-webview-default-theme/releases)
+[![Release](https://img.shields.io/github/v/release/VII12345/foo-webview-community-theme)](https://github.com/VII12345/foo-webview-community-theme/releases)
 [![foo_ui_webview2](https://img.shields.io/badge/foo__ui__webview2-2.0.0%2B-informational)](https://github.com/NereaFantasia/foo_ui_webview2)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey)]()
 
@@ -106,7 +106,7 @@ Default Theme 是 [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webv
 
 ### 一键包
 
-1. 从 [Releases](https://github.com/VII12345/foo-webview-default-theme/releases) 下载 `foo-webview-default-theme-0.3.0-full.zip`。
+1. 从 [Releases](https://github.com/VII12345/foo-webview-community-theme/releases) 下载 `foo-webview-community-theme-0.3.0-full.zip`。
 2. 关闭 foobar2000。
 3. 把 `components/foo_ui_webview2/` 与 `components/foo_monthly_stats/` 复制到 `<profile>\user-components-x64\`。
    - 便携版：`<foobar2000 目录>\profile\user-components-x64\`
@@ -116,7 +116,7 @@ Default Theme 是 [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webv
 
 ### 只更新主题
 
-已有组件时，下载 `foo-webview-default-theme-0.3.0.zip`，把内容解压到模板目录覆盖即可。`foo-webview-components-0.3.0.zip` 是单独的组件包。
+已有组件时，下载 `foo-webview-community-theme-0.3.0.zip`，把内容解压到模板目录覆盖即可。`foo-webview-components-0.3.0.zip` 是单独的组件包。
 
 > **不要用在线更新安装上游主题。** 主题内置的更新器仍指向上游仓库；安装上游版本会覆盖本分支的功能。请在设置 → 关于中保持“手动检查”，或只手动替换模板目录。
 
@@ -137,7 +137,7 @@ Default Theme 是 [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webv
 - 在线歌词、艺人简介依赖公开接口，接口变更时可能暂时失效。
 - 耳机声压是**估算**，不建模输出阻抗、耳机阻抗曲线、耳道耦合与头相关传输；80 dB 只是产品内的安全参考线。
 - 修改版 DLL 可能被杀毒软件误报；源链接与哈希见组件说明。
-- 问题反馈请开 [GitHub Issue](https://github.com/VII12345/foo-webview-default-theme/issues)，附 foobar2000 版本、组件版本、复现步骤与截图。
+- 问题反馈请开 [GitHub Issue](https://github.com/VII12345/foo-webview-community-theme/issues)，附 foobar2000 版本、组件版本、复现步骤与截图。
 
 ## 从源码构建
 

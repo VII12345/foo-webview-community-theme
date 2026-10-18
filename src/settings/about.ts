@@ -12,5 +12,5 @@ export const LICENSE_URL = 'https://www.gnu.org/licenses/agpl-3.0.html';
  * 贴进问题报告里给维护者看，一种写法好认。
  */
 export function versionReport(diagnostics: Diagnostics): string {
-  return [`foo-webview-default-theme ${THEME_VERSION}`, diagnosticText(diagnostics)].join('\n');
+  return [`foo-webview-community-theme ${THEME_VERSION}`, diagnosticText(diagnostics)].join('\n');
 }

@@ -62,7 +62,7 @@ describe('lrcmux 来源', () => {
       duration: '213',
     });
     expect(String(http.requests()[0]?.header('User-Agent'))).toMatch(
-      /^foo-webview-default-theme\//,
+      /^foo-webview-community-theme\//,
     );
   });
 

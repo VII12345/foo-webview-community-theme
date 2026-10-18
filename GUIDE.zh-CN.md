@@ -16,7 +16,7 @@ Default Theme 是 [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webv
 
 ### 安装主题
 
-1. 从 [GitHub Releases](https://github.com/VII12345/foo-webview-default-theme/releases) 下载 `foo-webview-default-theme-0.3.0.zip`。
+1. 从 [GitHub Releases](https://github.com/VII12345/foo-webview-community-theme/releases) 下载 `foo-webview-community-theme-0.3.0.zip`。
 2. 打开 `File > Preferences > Display > WebView2 UI`，在模板管理中为主题新建一个模板，再打开它的文件夹。
 3. 将安装包内容解压到该文件夹，覆盖新建模板的占位页。`index.html` 必须直接位于模板文件夹内，不要多套一层文件夹。
 4. 在首选项中确认选中该模板，应用设置，重启 foobar2000。

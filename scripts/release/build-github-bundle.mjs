@@ -1,7 +1,7 @@
 // 生成本仓库的 GitHub 发行包，只写本地目录，不上传：
-//   foo-webview-default-theme-<版本>.zip          主题（index.html 在根）
+//   foo-webview-community-theme-<版本>.zip          主题（index.html 在根）
 //   foo-webview-components-<版本>.zip             两个组件目录 + 说明
-//   foo-webview-default-theme-<版本>-full.zip     主题 + 组件 + 安装说明
+//   foo-webview-community-theme-<版本>-full.zip     主题 + 组件 + 安装说明
 //   SHA256SUMS.txt / release.json
 //
 // 用法：node scripts/release/build-github-bundle.mjs --components <user-components-x64 目录>
@@ -121,7 +121,7 @@ const componentInstallNotes = `安装 / Installation
    - 安装版：%APPDATA%\\foobar2000-v2\\user-components-x64\\
 3. 启动 foobar2000，确认组件列表出现 WebView2 UI 与 Monthly Stats。
 
-主题本身另见 foo-webview-default-theme-${version}.zip。
+主题本身另见 foo-webview-community-theme-${version}.zip。
 不要用主题内置的在线更新安装上游版本；它会覆盖本分支的功能。
 `;
 
@@ -137,7 +137,7 @@ const fullInstallNotes = `安装 / Installation
    index.html 必须直接位于该目录。
 4. 启动 foobar2000，在 foo_ui_webview2 首选项选择该模板，应用并重启。
 
-已有组件时，也可以只用 foo-webview-default-theme-${version}.zip 更新主题。
+已有组件时，也可以只用 foo-webview-community-theme-${version}.zip 更新主题。
 
 不要用主题内置的在线更新安装上游版本；它会覆盖本分支的功能。
 `;
@@ -163,7 +163,7 @@ rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 const assets = [
   {
-    name: `foo-webview-default-theme-${version}.zip`,
+    name: `foo-webview-community-theme-${version}.zip`,
     bytes: themeZip,
     description: 'theme only, index.html at root',
   },
@@ -173,7 +173,7 @@ const assets = [
     description: 'bundled components',
   },
   {
-    name: `foo-webview-default-theme-${version}-full.zip`,
+    name: `foo-webview-community-theme-${version}-full.zip`,
     bytes: fullZip,
     description: 'theme + components + install notes',
   },

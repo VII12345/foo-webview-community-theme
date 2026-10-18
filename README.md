@@ -4,10 +4,10 @@ English | [中文](./README.zh-CN.md)
   <img src=".github/assets/readme-banner.jpg" alt="Default Theme community edition: WinUI 3 design with a foobar2000 heart" width="100%" />
 </p>
 
-# foo-webview-default-theme · Community Edition
+# foo-webview-community-theme · Community Edition
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/VII12345/foo-webview-default-theme)](https://github.com/VII12345/foo-webview-default-theme/releases)
+[![Release](https://img.shields.io/github/v/release/VII12345/foo-webview-community-theme)](https://github.com/VII12345/foo-webview-community-theme/releases)
 [![foo_ui_webview2](https://img.shields.io/badge/foo__ui__webview2-2.0.0%2B-informational)](https://github.com/NereaFantasia/foo_ui_webview2)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey)]()
 
@@ -106,7 +106,7 @@ Requires foobar2000 2.x x64, foo_ui_webview2 2.0.0+ and the standalone `Webview2
 
 ### All-in-one package
 
-1. Download `foo-webview-default-theme-0.3.0-full.zip` from [Releases](https://github.com/VII12345/foo-webview-default-theme/releases).
+1. Download `foo-webview-community-theme-0.3.0-full.zip` from [Releases](https://github.com/VII12345/foo-webview-community-theme/releases).
 2. Close foobar2000.
 3. Copy `components/foo_ui_webview2/` and `components/foo_monthly_stats/` into `<profile>\user-components-x64\`.
    - Portable: `<foobar2000>\profile\user-components-x64\`
@@ -116,7 +116,7 @@ Requires foobar2000 2.x x64, foo_ui_webview2 2.0.0+ and the standalone `Webview2
 
 ### Theme-only update
 
-If the components are already installed, download `foo-webview-default-theme-0.3.0.zip` and extract it over the template folder. `foo-webview-components-0.3.0.zip` contains the components separately.
+If the components are already installed, download `foo-webview-community-theme-0.3.0.zip` and extract it over the template folder. `foo-webview-components-0.3.0.zip` contains the components separately.
 
 > **Do not install an upstream theme update over this fork.** The built-in updater still points at the upstream repository and would overwrite the fork's features. Keep the update mode on “manual check” in Settings → About, or replace the template folder by hand.
 
@@ -137,7 +137,7 @@ The modified DLLs are distributed only with this release and remain copyright of
 - Online lyrics and artist biographies depend on public APIs and may break temporarily.
 - Headphone SPL is an **estimate**: output impedance, headphone impedance curves, ear coupling and HRTF are not modelled; 80 dB is a product safety reference, not a medical limit.
 - Modified DLLs may trigger antivirus false positives; see the component notes for sources and hashes.
-- Please open a [GitHub Issue](https://github.com/VII12345/foo-webview-default-theme/issues) with the foobar2000 version, component versions, steps and screenshots.
+- Please open a [GitHub Issue](https://github.com/VII12345/foo-webview-community-theme/issues) with the foobar2000 version, component versions, steps and screenshots.
 
 ## Building from source
 

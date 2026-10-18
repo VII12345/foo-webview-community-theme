@@ -13,7 +13,7 @@ import { parseArgs } from 'node:util';
 const { values } = parseArgs({
   options: {
     dir: { type: 'string' },
-    repo: { type: 'string', default: 'VII12345/foo-webview-default-theme' },
+    repo: { type: 'string', default: 'VII12345/foo-webview-community-theme' },
     notes: { type: 'string' },
     publish: { type: 'boolean', default: false },
     draft: { type: 'boolean', default: true },

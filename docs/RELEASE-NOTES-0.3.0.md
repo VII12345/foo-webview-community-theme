@@ -38,12 +38,12 @@
 
 ## 安装
 
-1. 下载 `foo-webview-default-theme-0.3.0-full.zip`。
+1. 下载 `foo-webview-community-theme-0.3.0-full.zip`。
 2. 关闭 foobar2000，把 `components/foo_ui_webview2/` 与 `components/foo_monthly_stats/` 复制到 `<profile>\user-components-x64\`。
 3. 把 `theme/` 的内容解压到 `<profile>\webview-ui\<模板名>\`，`index.html` 直接位于该目录。
 4. 启动 foobar2000，在 foo_ui_webview2 首选项选择模板并重启。
 
-已有组件时可用 `foo-webview-default-theme-0.3.0.zip` 只更新主题；`foo-webview-components-0.3.0.zip` 是单独的组件包。
+已有组件时可用 `foo-webview-community-theme-0.3.0.zip` 只更新主题；`foo-webview-components-0.3.0.zip` 是单独的组件包。
 
 ## 组件说明
 
@@ -51,7 +51,7 @@
 - `foo_ui_webview2/WebView2Loader.dll`：官方 Microsoft 1.0.3719.77。
 - `foo_monthly_stats/foo_monthly_stats.dll`：**修改版（非官方）**，统计页依赖其时长字段。
 
-哈希与官方来源见仓库的 [docs/COMPONENTS.md](https://github.com/VII12345/foo-webview-default-theme/blob/main/docs/COMPONENTS.md)。
+哈希与官方来源见仓库的 [docs/COMPONENTS.md](https://github.com/VII12345/foo-webview-community-theme/blob/main/docs/COMPONENTS.md)。
 
 > 主题内置在线更新仍指向上游；不要安装上游主题更新覆盖本分支。更新宿主组件前请备份修改版 DLL。
 
@@ -64,7 +64,7 @@
 
 ## 反馈
 
-请开 [GitHub Issue](https://github.com/VII12345/foo-webview-default-theme/issues)，附 foobar2000 版本、组件版本、复现步骤与截图。
+请开 [GitHub Issue](https://github.com/VII12345/foo-webview-community-theme/issues)，附 foobar2000 版本、组件版本、复现步骤与截图。
 
 ## English summary
 

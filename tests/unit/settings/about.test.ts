@@ -23,7 +23,7 @@ describe('about', () => {
           pluginName: 'foo_ui_webview2',
           pluginVersion: '2.1.0',
         }),
-      ).toMatch(/^foo-webview-default-theme 0\.1\.1\n/);
+      ).toMatch(/^foo-webview-community-theme 0\.1\.1\n/);
     } finally {
       vi.doUnmock('../../../package.json');
       vi.resetModules();
@@ -43,7 +43,7 @@ describe('about', () => {
       pluginVersion: '2.1.0',
     });
     expect(report.split('\n')).toEqual([
-      `foo-webview-default-theme ${THEME_VERSION}`,
+      `foo-webview-community-theme ${THEME_VERSION}`,
       'foobar2000 v2.25 (32-bit)',
       'foo_ui_webview2 2.1.0 (requires 2.0.0 or later)',
     ]);
