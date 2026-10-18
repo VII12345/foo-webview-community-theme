@@ -307,9 +307,18 @@ export function createQqSource(host: LyricsHttpHost): LyricsSource {
       return asList(list).flatMap((item) => candidateOf(item) ?? []);
     },
     async fetch(candidate: LyricsCandidate, signal?: AbortSignal) {
-      const songId =
+      let songId =
         candidate.songId ??
         (candidate.idKind === 'songId' ? Number(candidate.ref) : 0);
+      // 搜索应答偶尔不带 songid；候选的 ref 仍是 MID，补一次解析再尝试 QRC。
+      if (
+        !(Number.isInteger(songId) && songId > 0) &&
+        candidate.idKind !== 'songId' &&
+        !/^\d+$/.test(candidate.ref)
+      ) {
+        const resolved = await resolveMid(host, candidate.ref, signal);
+        if (resolved?.songId) songId = resolved.songId;
+      }
       const qrc =
         Number.isInteger(songId) && songId > 0
           ? await fetchQrc(host, songId, candidate.durationMs, signal)

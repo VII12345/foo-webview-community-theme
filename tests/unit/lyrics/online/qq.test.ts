@@ -128,6 +128,7 @@ describe('QQ 音乐来源', () => {
       lines: [{ words: [{ word: '风' }, { word: '到这里' }] }],
     });
     expect(http.posts()[0]?.url.pathname).toBe('/cgi-bin/musicu.fcg');
+    expect(http.posts()[0]?.async).toBe(false);
     expect(
       (http.posts()[0]?.body as Record<string, Record<string, { param: { songID: number } }>>)[
         'music.musichallSong.PlayLyricInfo.GetPlayLyricInfo'
@@ -175,9 +176,52 @@ describe('QQ 音乐来源', () => {
       lines: [{ words: [{ word: '风' }, { word: '到这里' }] }],
     });
     expect(http.posts()[0]?.url.pathname).toBe('/cgi-bin/musicu.fcg');
+    expect(http.posts()[0]?.async).toBe(false);
     expect(
       http.requests().some((request) => request.url.pathname.includes('fcg_query_lyric_new')),
     ).toBe(false);
+  });
+
+  it('搜索候选没有 songid 时，fetch 先解析 MID 再取 QRC', async () => {
+    const qrcXml =
+      '<?xml version="1.0"?><QrcInfos><LyricInfo><Lyric_1 LyricType="1" LyricContent="[1000,2000]风(0,500)到这里(500,1500)"/></LyricInfo></QrcInfos>';
+    const http = installLyricsHttp({
+      [SONGID]: json({
+        req_0: {
+          code: 0,
+          data: {
+            track_info: {
+              id: 587372667,
+              mid: '000pegfy2hOiev',
+              name: '我饮人间一碗酒',
+              singer: [{ name: '浅影阿' }],
+              album: { name: '我饮人间一碗酒' },
+              interval: 214,
+            },
+          },
+        },
+        'music.musichallSong.PlayLyricInfo.GetPlayLyricInfo': {
+          code: 0,
+          data: { lyric: encryptQrcHex(qrcXml) },
+        },
+      }),
+      [LYRIC]: json({ retcode: 0, lyric: '[00:01]不该用的逐行', trans: '' }),
+    });
+    const source = createQqSource(http.host);
+    const noId: LyricsCandidate = {
+      source: 'qq',
+      ref: '000pegfy2hOiev',
+      title: '我饮人间一碗酒',
+      artists: ['浅影阿'],
+      album: '我饮人间一碗酒',
+      durationMs: 214_000,
+    };
+    expect(await source.fetch(noId)).toMatchObject({
+      kind: 'synced',
+      lines: [{ words: [{ word: '风' }, { word: '到这里' }] }],
+    });
+    expect(http.posts()).toHaveLength(2);
+    expect(http.posts().every((post) => post.async === false)).toBe(true);
   });
 
   it('手输 MID 先经 get_song_detail 解析成 Song ID，再取 QRC', async () => {

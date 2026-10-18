@@ -54,7 +54,12 @@ export async function lyricsPost(
 ): Promise<LyricsHttpAnswer | null> {
   if (signal?.aborted) return null;
   const answer = await settle(() =>
-    host.http.post(url, body, { timeout: TIMEOUT_MS, headers: { ...headers } }),
+    host.http.post(url, body, {
+      // 宿主默认 async:true，只回 receipt，没有 body/status；QQ 的 QRC 必须阻塞拿应答。
+      async: false,
+      timeout: TIMEOUT_MS,
+      headers: { ...headers },
+    }),
   );
   if (signal?.aborted) return null;
   if (!answer || answer.success === false) return null;

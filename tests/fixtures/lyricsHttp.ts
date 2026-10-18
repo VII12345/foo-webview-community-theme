@@ -28,7 +28,12 @@ export function installLyricsHttp(routes: LyricsRoutes) {
     };
   };
   host.answer('http.get', answer);
-  host.answer('http.post', answer);
+  // 宿主默认 async:true 只回 receipt；POST 必须显式 async:false 才拿得到正文。
+  host.answer('http.post', (params) =>
+    params['async'] === false
+      ? answer(params)
+      : { success: true, async: true, requestId: 'async-receipt' },
+  );
   return {
     host: host.fb,
     requests: () =>
@@ -40,6 +45,7 @@ export function installLyricsHttp(routes: LyricsRoutes) {
       host.callsTo('http.post').map((params) => ({
         url: new URL(String(params['url'])),
         body: params['body'],
+        async: params['async'],
         header: (name: string): unknown => Reflect.get(Object(params['headers']), name),
       })),
   };
