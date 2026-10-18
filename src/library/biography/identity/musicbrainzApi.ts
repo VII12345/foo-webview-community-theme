@@ -1,4 +1,5 @@
 import { fb } from 'foo-webview-sdk/bridge';
+import { APP_USER_AGENT } from '../../../host/appIdentity.ts';
 import { settle } from '../../../host/hostCall.ts';
 import { biographyRetryAt } from '../biographyCacheFormat.ts';
 import type { BiographyProblem } from '../biographyModel.ts';
@@ -50,7 +51,7 @@ async function send(
       redirect: 'error',
       headers: {
         // MusicBrainz 要求 UA 写明应用与联系方式，否则可能限速或拒绝。
-        'User-Agent': 'foo-webview-default-theme/0.1 ( https://github.com/NereaFantasia )',
+        'User-Agent': APP_USER_AGENT,
         Accept: 'application/json',
       },
     }),

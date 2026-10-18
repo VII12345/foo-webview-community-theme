@@ -1,4 +1,5 @@
 import { fb } from 'foo-webview-sdk/bridge';
+import { APP_USER_AGENT } from '../../../host/appIdentity.ts';
 import { settle } from '../../../host/hostCall.ts';
 import { biographyFreshness, biographyHeader, biographyRetryAt } from '../biographyCacheFormat.ts';
 import type { BiographyProblem } from '../biographyModel.ts';
@@ -22,7 +23,7 @@ export async function fetchLastfmPhoto(
       timeout: 12_000,
       redirect: 'error',
       headers: {
-        'User-Agent': 'foo-webview-default-theme/0.1 (+https://github.com/NereaFantasia)',
+        'User-Agent': APP_USER_AGENT,
         Accept: 'image/jpeg,image/png,image/webp',
       },
     }),

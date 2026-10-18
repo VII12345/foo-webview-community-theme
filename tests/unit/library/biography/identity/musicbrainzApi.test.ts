@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { APP_USER_AGENT } from '../../../../../src/host/appIdentity.ts';
 import {
   createMusicbrainzClient,
   MUSICBRAINZ_INTERVAL_MS,
@@ -38,9 +39,7 @@ describe('MusicBrainz 请求', () => {
     });
     const call = host.callsTo('http.get')[0];
     expect(call).toMatchObject({ redirect: 'error', timeout: 15000 });
-    expect(String(Reflect.get(Object(call?.['headers']), 'User-Agent'))).toMatch(
-      /^foo-webview-default-theme\/\S+ \( https:\/\/\S+ \)$/,
-    );
+    expect(String(Reflect.get(Object(call?.['headers']), 'User-Agent'))).toBe(APP_USER_AGENT);
     const url = new URL(String(call?.['url']));
     expect(url.origin + url.pathname).toBe('https://musicbrainz.org/ws/2/artist');
     expect(Object.fromEntries(url.searchParams)).toEqual({

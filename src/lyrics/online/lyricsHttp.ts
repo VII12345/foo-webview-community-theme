@@ -1,4 +1,5 @@
 import type { fb } from 'foo-webview-sdk/bridge';
+import { APP_USER_AGENT } from '../../host/appIdentity.ts';
 import { settle } from '../../host/hostCall.ts';
 
 /** JSON 正文；与 SDK 内部的 JsonValue 同形（那个类型没有从包根导出）。 */
@@ -14,7 +15,7 @@ export interface LyricsHttpAnswer {
 
 /** 开放接口（LRCLIB、lrcmux）请调用方在 UA 里写明应用名与主页。 */
 export const OPEN_API_HEADERS = {
-  'User-Agent': 'foo-webview-default-theme/0.1 (+https://github.com/NereaFantasia)',
+  'User-Agent': APP_USER_AGENT,
 } as const;
 
 /** 应答体上限，超出按失败处理；最大的是 AMLL TTML DB 的索引，约 1.6 MB。 */
