@@ -3,9 +3,9 @@
 本文记录本仓库相对原作者 `NereaFantasia/foo-webview-default-theme` 0.2.0 的全部本地提交与净改动，供维护、审查和升级时对照。
 
 - 上游基线：`b46e934`（`feat: 发布默认主题 0.2.0`，2026-10-09）
-- 本文终点：`bbe1f09`（`feat: estimate headphone SPL in the paper and focus views`，2026-10-18）
-- 提交范围：`b46e934..bbe1f09`，共 53 个提交
-- 净差异：162 个文件，+9694 / −530 行（含单元测试与浏览器测试）
+- 本文终点：`a1c5666`（`fix: clamp headphone amp gain to -99..0 dB`，2026-10-18）
+- 提交范围：`b46e934..a1c5666`，共 55 个提交，其中 `d0ea5e2` 是本文档自身
+- 代码净差异：162 个文件，+9694 / −530 行（不含本文档）
 - `CHANGELOG.md` 由更新器解析，本文不修改该文件；本说明单独成篇。
 
 文档描述的是**最终净状态**，不是每个中间提交的逐字复述。三组「先实现、后回退、再重做」的提交在正文与附录中都会标明，避免把已回退的实现误当成现状。
@@ -288,7 +288,7 @@ interface HeadphoneRig {
 
 - 耳放与耳机分开维护、分开选择；组合成当前的一套。
 - 每类最多 64 个设备，名称去空格后最多 64 字符。
-- 参数范围：Vrms 0.1–10（默认 2）、增益 −20–20（默认 0）、阻抗 8–2000 Ω（默认 300）、dB/mW 灵敏度 70–140（默认 100）、dB/V 灵敏度 80–150（默认 100）。
+- 参数范围：Vrms 0.1–10（默认 2）、增益 −99–0（默认 0，负值为衰减）、阻抗 8–2000 Ω（默认 300）、dB/mW 灵敏度 70–140（默认 100）、dB/V 灵敏度 80–150（默认 100）。
 - 从 config 读取时：版本大于 1 整份拒绝；非法条目丢弃；越界夹回；重复 id 保留第一个；选中的 id 不存在时置空。
 
 ### 10.3 计算公式
@@ -374,14 +374,17 @@ M    = Vsen + 10·log10(Z / 1000)
   - `tests/unit/playback/soundPressure.test.ts`：公式、单位换算、状态与格式化；
   - `tests/unit/playback/soundPressurePrefs.test.ts`：增删改选、删除选中项、重复 id、越界、版本拒绝、写入失败。
 
-已知的**既有失败**（在本次改动之前的 HEAD 上同样失败，不是本次引入）：
+已知的**既有失败**（相对最近这批功能是既有问题；其中一部分在 `b46e934` 基线上同样失败，另一部分由更早的本地功能改变了 DOM，但测试未同步）：
 
-- `settings-page.spec.ts` 中 1280 宽卡片宽度断言（环境滚动条使 760 实测为 746）；
-- `settings-page.spec.ts` 的「离开设置页再回来，滚动位置还在」；
-- `player-capsule` 的 `scaleX` 断言；
-- `lyrics-panel` 的一处滚动断言；
-- `track-info-integration` 的若干菜单项；
-- `player-bar` / `titlebar` 的若干环境相关断言。
+| 位置 | 期望 / 实际 | 原因 |
+|---|---|---|
+| `settings-page.spec.ts` 1280 宽卡片 | 760 / 746 | 无头 Chromium 的经典滚动条占 14px；`b46e934` 上同样失败 |
+| `settings-page.spec.ts` 滚动恢复 | 2545 / 0 或 2855 | 恢复快照写入后，挂载期的布局与焦点处理又改变了滚动位置；基线同样失败 |
+| `player-capsule.spec.ts` 两项 | 找不到 `[style*="scaleX"]` | 测试找内联 `scaleX`，实现用 CSS 变量 `--seek-progress`（`SeekBar.module.css`）；基线同样失败 |
+| `player-bar.spec.ts` 六项 | 找不到 `[data-output-panel]`，部分几何不符 | 音量浮层实际属性是 `data-volume-popover` / `data-player-surface`；测试选择器未同步；基线同样失败 |
+| `titlebar.spec.ts` 三项 | 菜单键 28×36 / 40×32；首个菜单只有「迷你播放器」 | `ToolbarButton` 的实际尺寸；主菜单首项是 `MiniPlayerMenuItem`，测试却假设首个菜单直接是 fb2k 六个根；基线同样失败 |
+| `lyrics-panel.spec.ts` 滚动恢复 | 候选的父级 `scrollTop` > 0 / 0 | 来源分组后候选属于 `[data-lyrics-source-group]`，真正滚动的是外层结果区；测试仍取直接父级。由本地分组提交 `fa606c0` 后未同步 |
+| `track-info-integration.spec.ts` 四项 | 工具栏边框 0 / 1px；菜单无「关闭面板」；更多键位置不符 | 测试仍按旧头部结构与旧菜单项断言。当前曲目信息工具栏菜单只有复制/刷新/复制标签，关闭由右侧卡菜单负责；标签编辑器加入后 DOM 顺序也变了 |
 
 这些用例在最终汇报中单独列出，未通过修改产品代码来「凑过」。
 
@@ -457,13 +460,15 @@ M    = Vsen + 10·log10(Z / 1000)
 | `304c4a7` | 沉浸 | 卡片五键整行居中 |
 | `13d7b1c` | 沉浸 | 放大卡片左区文字、进度、星级与更多 |
 | `bbe1f09` | 声压 | 图纸/聚焦显示耳机输出声压估算 |
+| `d0ea5e2` | 文档 | 本文档 |
+| `a1c5666` | 声压 | 耳放增益范围改为 −99–0 dB |
 
 ---
 
 ## 附录 B：净差异
 
 ```text
-b46e934..bbe1f09
+b46e934..a1c5666（不含文档）
 162 files changed, 9694 insertions(+), 530 deletions(-)
 ```
 
