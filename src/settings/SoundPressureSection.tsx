@@ -29,8 +29,13 @@ import {
   type SensitivityUnit,
 } from '../playback/soundPressure.ts';
 import { soundPressureKey } from '../playback/soundPressurePrefs.ts';
-import { dx52OutputInfo, type Dx52Jack } from '../playback/dx52.ts';
+import {
+  dx52OutputInfo,
+  outputDeviceIsDx52,
+  type Dx52Jack,
+} from '../playback/dx52.ts';
 import { DX52_AUTO_KEY, DX52_JACK_KEY, dx52Key } from '../playback/dx52Prefs.ts';
+import { currentOutputDeviceNameAtom } from '../playback/outputDeviceName.ts';
 import { SettingsExpander } from './SettingsExpander.tsx';
 import { SettingsRow } from './SettingsRow.tsx';
 import { SettingsSaveNotice } from './SettingsSaveNotice.tsx';
@@ -219,6 +224,7 @@ export function SoundPressureSection() {
   const dx52Jack = useAtomValueRawSync(dx52.jack);
   const dx52Status = useAtomValueRawSync(dx52.status);
   const dx52State = useAtomValueRawSync(dx52.state);
+  const outputName = useAtomValueRawSync(currentOutputDeviceNameAtom);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -329,6 +335,7 @@ export function SoundPressureSection() {
     if (dx52State.input !== 'usb') return t('settings.dx52NotUsb');
     const output = dx52OutputInfo(dx52State.route, dx52Jack);
     if (!output.headphone) return t('settings.dx52LineOutput');
+    if (!outputDeviceIsDx52(outputName)) return t('settings.dx52WrongOutput');
     const gain = dx52State.highGain ? t('settings.dx52HighGain') : t('settings.dx52LowGain');
     const rate =
       dx52State.sampleRate && dx52State.sampleRate >= 1000
