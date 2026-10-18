@@ -73,7 +73,7 @@ describe('KRC', () => {
 });
 
 describe('酷狗来源', () => {
-  it('按「艺人 - 曲名」与毫秒时长搜，跳过用户上传的候选，顿号连写的艺人拆开', async () => {
+  it('按「艺人 - 曲名」与秒时长搜，自动搜索跳过用户上传，顿号连写的艺人拆开', async () => {
     const http = installLyricsHttp({
       [SEARCH]: json({
         status: 200,
@@ -92,11 +92,89 @@ describe('酷狗来源', () => {
     });
     expect(await createKugouSource(http.host).search(query)).toEqual([
       candidate,
-      { ...candidate, ref: '10:D', artists: ['林俊杰', 'A-Lin'], durationMs: 1 },
+      { ...candidate, ref: '10:D', artists: ['林俊杰', 'A-Lin'], durationMs: 1000 },
     ]);
     const params = http.requests()[0]?.url.searchParams;
     expect(params?.get('keyword')).toBe('林俊杰 - 江南');
-    expect(params?.get('duration')).toBe('267946');
+    expect(params?.get('duration')).toBe('268');
+  });
+
+  it('普通候选的 duration 是秒，自动搜索按毫秒比较并跳过 UGC', async () => {
+    const http = installLyricsHttp({
+      [SEARCH]: json({
+        status: 200,
+        candidates: [
+          {
+            id: '61386596',
+            accesskey: 'D09F57F7',
+            song: '离忧',
+            singer: '司南',
+            duration: 274,
+            product_from: '不是ugc',
+          },
+          {
+            id: '43426574',
+            accesskey: '48793CBB',
+            song: '离忧',
+            singer: '司南',
+            duration: 274320,
+            product_from: 'ugc',
+          },
+        ],
+      }),
+    });
+    const found = (await createKugouSource(http.host).search({
+      ...query,
+      title: '离忧',
+      artists: ['司南'],
+      durationMs: 274320,
+    })) as LyricsCandidate[];
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ ref: '61386596:D09F57F7', durationMs: 274000 });
+  });
+
+  it('手动关键词与 Hash 搜索允许 UGC，数字 id 也转成字符串', async () => {
+    const keywordHttp = installLyricsHttp({
+      [SEARCH]: json({
+        status: 200,
+        candidates: [
+          {
+            id: 43426574,
+            accesskey: 48793,
+            song: '离忧',
+            singer: '司南',
+            duration: 274320,
+            product_from: 'UGC',
+          },
+        ],
+      }),
+    });
+    const manual = (await createKugouSource(keywordHttp.host).search({
+      ...query,
+      keywords: '离忧 司南',
+    })) as LyricsCandidate[];
+    expect(manual[0]).toMatchObject({ ref: '43426574:48793', durationMs: 274320 });
+
+    const hashHttp = installLyricsHttp({
+      [HASH_SEARCH]: json({
+        status: 200,
+        candidates: [
+          {
+            id: '43426574',
+            accesskey: '48793CBB',
+            song: '离忧',
+            singer: '司南',
+            duration: 274320,
+            product_from: 'ugc',
+          },
+        ],
+      }),
+    });
+    const hash = (await createKugouSource(hashHttp.host).search({
+      ...query,
+      id: { source: 'kugou', kind: 'kugouHash', value: '71c314341a3a20c6167fe2b8d66f1bd3' },
+    })) as LyricsCandidate[];
+    expect(hash[0]).toMatchObject({ ref: '43426574:48793CBB', durationMs: 274320 });
   });
 
   it('按 ref 里的 id 与 accesskey 下载 KRC，解成逐字词', async () => {

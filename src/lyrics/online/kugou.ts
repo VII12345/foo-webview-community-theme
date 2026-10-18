@@ -112,14 +112,38 @@ export function parseKrc(text: string): LyricLine[] {
   }));
 }
 
+/** 酷狗有的接口把 id/accesskey 写成数字；统一转成候选 ref 能用的字符串。 */
+const idText = (value: unknown): string =>
+  typeof value === 'string'
+    ? value
+    : typeof value === 'number' && Number.isFinite(value)
+      ? String(value)
+      : '';
+
+/**
+ * 酷狗候选的 duration：普通候选按秒（274），UGC 候选按毫秒（274320）。小于 10000 的值按秒处理，
+ * 否则按毫秒；字符串数字也接受。
+ */
+export function kugouDurationMs(value: unknown): number {
+  const number =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim()
+        ? Number(value)
+        : 0;
+  if (!Number.isFinite(number) || number <= 0) return 0;
+  return number < 10_000 ? Math.round(number * 1000) : Math.round(number);
+}
+
 /**
  * 候选的 `ref` 是下载要的 id 与 accesskey，中间用冒号隔开。酷狗的候选不带专辑，合作艺人用顿号连写。
- * 来源标成 ugc 的是未经审核的用户上传，有时挂着别的歌的词，不要。
+ * 自动搜索标成 ugc 的是未经审核的用户上传，有时挂着别的歌的词，不收；用户手动按关键词或 Hash 找时
+ * 允许 UGC，否则唯一有词的那条会被丢掉。
  */
-function candidateOf(item: unknown): LyricsCandidate | null {
-  if (asText(field(item, 'product_from')) === 'ugc') return null;
-  const id = asText(field(item, 'id'));
-  const key = asText(field(item, 'accesskey'));
+function candidateOf(item: unknown, allowUgc: boolean): LyricsCandidate | null {
+  if (!allowUgc && asText(field(item, 'product_from')).toLowerCase() === 'ugc') return null;
+  const id = idText(field(item, 'id'));
+  const key = idText(field(item, 'accesskey'));
   const title = asText(field(item, 'song'));
   if (!id || !key || !title) return null;
   const singer = asText(field(item, 'singer'));
@@ -129,7 +153,7 @@ function candidateOf(item: unknown): LyricsCandidate | null {
     title,
     artists: singer.split('、').filter(Boolean),
     album: '',
-    durationMs: asNumber(field(item, 'duration')),
+    durationMs: kugouDurationMs(field(item, 'duration')),
   };
 }
 
@@ -159,7 +183,7 @@ export function createKugouSource(host: LyricsHttpHost): LyricsSource {
   return {
     id: 'kugou',
     async search(query: LyricsQuery, signal?: AbortSignal) {
-      // 用户给了歌曲 Hash：用 Hash 查候选，关键词与时长留空。
+      // 用户给了歌曲 Hash：用 Hash 查候选，关键词与时长留空。Hash 常常只对应 UGC 歌词。
       const manual = query.id;
       if (manual?.source === 'kugou') {
         if (manual.kind !== 'kugouHash' || !manual.value.trim()) return [];
@@ -180,15 +204,22 @@ export function createKugouSource(host: LyricsHttpHost): LyricsSource {
         );
         const data = lyricsJson(answer);
         if (answer?.status !== 200 || asNumber(field(data, 'status')) !== 200) return 'failed';
-        return asList(field(data, 'candidates')).flatMap((item) => candidateOf(item) ?? []);
+        return asList(field(data, 'candidates')).flatMap(
+          (item) => candidateOf(item, true) ?? [],
+        );
       }
       const { keyword, useDuration } = keywordOf(query);
+      // 手动关键词/ID 搜索允许 UGC；播放时的自动搜索仍过滤，避免挂错词的版本。
+      const allowUgc = query.id !== undefined || query.keywords !== undefined;
       const params = new URLSearchParams({ ver: '1', man: 'yes', client: 'pc', keyword });
-      if (useDuration) params.set('duration', String(Math.round(query.durationMs)));
+      // 酷狗搜索的 duration 是秒；发送毫秒会把 UGC 候选排到前面并让普通候选落选。
+      if (useDuration) params.set('duration', String(Math.round(query.durationMs / 1000)));
       const answer = await lyricsGet(host, `${SEARCH_URL}?${params.toString()}`, undefined, signal);
       const data = lyricsJson(answer);
       if (answer?.status !== 200 || asNumber(field(data, 'status')) !== 200) return 'failed';
-      return asList(field(data, 'candidates')).flatMap((item) => candidateOf(item) ?? []);
+      return asList(field(data, 'candidates')).flatMap(
+        (item) => candidateOf(item, allowUgc) ?? [],
+      );
     },
     /**
      * 歌词接口不返回封面，改用歌搜索接口：按「曲名 艺人」搜，取首条的 `Image`（形如
