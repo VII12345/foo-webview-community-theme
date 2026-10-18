@@ -86,6 +86,11 @@ const useStyles = makeStyles({
       color: tokens.colorNeutralBackground1,
     },
   },
+  playFlat: {
+    color: tokens.colorNeutralForeground1,
+    ':hover': { color: tokens.colorNeutralForeground1 },
+    [PRESSED]: { color: tokens.colorNeutralForeground1 },
+  },
   playOff: {
     backgroundColor: tokens.colorNeutralBackgroundDisabled,
     ':hover': { backgroundColor: tokens.colorNeutralBackgroundDisabled },
@@ -213,7 +218,10 @@ export function PaperTransport({
       <TransportKey
         label={playing ? t('player.pause') : t('player.play')}
         icon={playing ? <Pause24Filled /> : <Play24Filled />}
-        className={mergeClasses(classes.play, disabled ? classes.playOff : classes.playLive)}
+        className={mergeClasses(
+          classes.play,
+          disabled ? classes.playOff : extras ? classes.playFlat : classes.playLive,
+        )}
         iconClassName={classes.playIcon}
         disabled={disabled}
         onClick={() => void playback.playOrPause()}

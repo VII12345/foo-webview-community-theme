@@ -189,6 +189,25 @@ test('歌词视图左区罗盘在左半区居中，图纸/聚焦仍在原位', a
   expect(errors).toStrictEqual([]);
 });
 
+test('卡片两档的播放键透明，图纸/聚焦仍是实心', async ({ page }) => {
+  const { view, errors } = await openImmersive(page);
+  const background = () =>
+    view
+      .getByRole('group', { name: '播放控制' })
+      .getByRole('button', { name: /^(暂停|播放)$/ })
+      .evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(await background()).not.toBe('rgba(0, 0, 0, 0)');
+  for (const label of ['卡片视图', '卡片歌词']) {
+    await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: label, exact: true }).click();
+    expect(await background()).toBe('rgba(0, 0, 0, 0)');
+  }
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '图纸舞台', exact: true }).click();
+  expect(await background()).not.toBe('rgba(0, 0, 0, 0)');
+  expect(errors).toStrictEqual([]);
+});
+
 test('卡片视图：左区换成方封面卡片，背景与右栏四行字照旧；原视图仍在', async ({ page }) => {
   const { view, errors } = await openImmersive(page, {
     onHost(host) {
