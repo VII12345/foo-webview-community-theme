@@ -3,9 +3,9 @@
 本文记录本仓库相对原作者 `NereaFantasia/foo-webview-default-theme` 0.2.0 的全部本地提交与净改动，供维护、审查和升级时对照。
 
 - 上游基线：`b46e934`（`feat: 发布默认主题 0.2.0`，2026-10-09）
-- 本文终点：`aeabd30`（`fix(sound): include the DX5 II gain in the auto readout`，2026-10-18）
-- 提交范围：`b46e934..aeabd30`，共 92 个提交，其中 `d0ea5e2`、`243da20`、`6ba52fd`、`be38f8b`、`43f7daa` 是文档提交
-- 代码净差异：239 个文件，+15972 / −975 行（不含本文档）
+- 本文终点：`40033cc`（`fix(folders): use directory cover images for folder cards`，2026-10-18）
+- 提交范围：`b46e934..40033cc`，共 97 个提交，其中 `d0ea5e2`、`243da20`、`6ba52fd`、`be38f8b`、`43f7daa` 是文档提交
+- 代码净差异：239 个文件，+16046 / −979 行（不含本文档）
 - `CHANGELOG.md` 由更新器解析，本文不修改该文件；本说明单独成篇。
 
 文档描述的是**最终净状态**，不是每个中间提交的逐字复述。三组「先实现、后回退、再重做」的提交在正文与附录中都会标明，避免把已回退的实现误当成现状。
@@ -569,7 +569,7 @@ localWord → local → word → line → plain
 - 协议：16 字节帧、CRC-16/ARC，`0x1101` 连接、`0x710C` 多帧快照、`0x7101/02/03/04/05/17/1E` 推送、`0x7134` 心跳（5s）。
 - 字段：电源、音量原始值与步进、静音、输入、输出路由、耳机高低增益、采样率、line 模式、平衡；音量 `-(raw * stepDb)`，raw 0 = 0 dB。
 - DX5 II 参数表：6.35mm L/H `7.2/24.2 Vpp`，4.4mm/XLR L/H `15.0/48.0 Vpp`；自动 amp 的 `V0 = Vpp / (2√2)`，`gainDb = 设备音量`，foobar 音量另算（两者独立）。
-- 设置 → 耳机新增“自动读取解码/耳放信息”开关，悬停文案“仅适用于拓品DX52”；状态显示连接/授权/占用/线路输出/非 USB/当前输出不匹配；提供“重新授权”和输出接口（自动/6.35/4.4 XLR）。
+- 设置 → 耳机新增“自动读取解码/耳放信息”开关，悬停文案“仅适用于拓品DX52”；状态显示连接/授权/占用/线路输出/非 USB；提供“重新授权”和输出接口（自动/6.35/4.4 XLR）。按用户要求不再检查 foobar2000 当前输出设备名。
 - 组件在自动生效时显示 `SPL · TOPPING DX5 II · 4.4mm XLR · High` 等当前输出，浮层列出输出/增益/设备音量/采样率；开关关闭时不显示任何 DX5 II 专属信息。
 
 ### 17.3 当前行已唱字用强调色
@@ -579,18 +579,19 @@ localWord → local → word → line → plain
 ### 17.4 文件夹页滚动与封面
 
 - 整页 `overflow-y: auto`，`.body` 最小高度 420px；窗口压扁时标题/筛选/工具栏可滚出视野，目录树不再被挤到零。短窗口减小页边距与间距。
-- 封面按纯文件路径 `track.path` 取（`file-relative://` 退回 `absolutePath`），不再把 `trackPathOf` 的 `|subsong:N` 传给封面接口；CUE/多轨文件夹因此能显示封面。
+- 封面优先用宿主 `artwork.getFolderImages(directory)` 列出的目录图片（优先 `cover/folder/front` 命名），取不到 URL 再退回纯文件路径 `track.path` 的内嵌图；`file-relative://` 退回 `absolutePath`，不再把 `trackPathOf` 的 `|subsong:N` 传给封面接口。
 - `FolderArt` 底层始终保留文件夹图标并加 `--bg-hover` 底色，`<img>` 绝对定位覆盖；加载中/失败/透明占位不再留白。封面缓存上限 512 → 2000。
 
-### 17.5 卡片歌词与左区上下对齐
+### 17.5 卡片歌词与左区上下对齐，并上下各多一行
 
 - `CardTops` 增加 `top`/`bottom`：第一个可见模块的 top、最后一个可见模块的 bottom（cover 460、meta 高度、seek 40、transport 80、cells 48）。
 - `cardLyrics` 的 `ImmersiveLyricsPlayer` 接收显式 `top/bottom/height`；全显时 220–978，覆盖 CSS 的固定 660。全隐藏时退回原 300 与整高。
+- 卡片歌词再按 AMLL 主行行高 `1.2em` 上下各扩一行：`top -= 1.2 * fontSize * fontScale`，`height += 2 * 1.2 * fontSize * fontScale`；字号随设置/滚轮实时变化。
 
 ### 17.6 验证
 
 - 450 个单测文件、3701 条通过；`npm run build` 通过。
-- 新增 DX5 II 协议/服务/读数单测、QQ 异步回归、文件夹封面路径单测；E2E 覆盖声压组件与设置开关、自动模式组件显示、文件夹滚动/占位、歌词强调色与卡片歌词对齐。
+- 新增 DX5 II 协议/服务/读数单测、QQ 异步回归、文件夹目录封面单测；E2E 覆盖声压组件与设置开关、自动模式组件显示、文件夹滚动/占位/目录封面、歌词强调色与卡片歌词上下各多一行。
 
 ---
 
@@ -685,14 +686,18 @@ localWord → local → word → line → plain
 | `4c410b6` | 沉浸 | 卡片歌词与左区上下对齐 |
 | `b5a7979` | 声压 | WebHID 自动读取 DX5 II |
 | `aeabd30` | 声压 | 自动读数显示 DX5 II 增益 dB |
+| `8a4555c` | 声压 | 自动设置提示非 DX5 输出（后续移除） |
+| `6730a43` | 声压 | 不再要求 DX5 是 foobar 当前输出 |
+| `aa3ada4` | 沉浸 | 卡片歌词上下各多一行 |
+| `40033cc` | 文件夹 | 优先使用目录封面图 |
 
 ---
 
 ## 附录 B：净差异
 
 ```text
-b46e934..aeabd30（不含文档）
-239 files changed, 15972 insertions(+), 975 deletions(-)
+b46e934..40033cc（不含文档）
+239 files changed, 16046 insertions(+), 979 deletions(-)
 ```
 
 主要新增目录/模块：
