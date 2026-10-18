@@ -240,6 +240,24 @@ test('离开设置页再回来，滚动位置还在', async ({ page }) => {
   expect(settings.errors).toEqual([]);
 });
 
+test('窄档分类条也一样恢复滚动位置', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const settings = await openSettings(page);
+  await fitPageWidth(page, 600);
+  await expect(settings.nav).toHaveAttribute('data-settings-nav', 'strip');
+  await settings.nav.getByRole('button', { name: '快捷键', exact: true }).click();
+  const left = await scrollTop(settings.scroller);
+  expect(left).toBeGreaterThan(0);
+
+  await clickSideButton(page, 'back');
+  await expect(page.getByRole('heading', { level: 1, name: '专辑' })).toBeVisible();
+  await clickSideButton(page, 'forward');
+  await expect(page.getByRole('heading', { level: 1, name: '设置' })).toBeVisible();
+  await expect.poll(() => scrollTop(settings.scroller)).toBe(left);
+  expect(settings.errors).toEqual([]);
+});
+
 test('焦点在设置页里时后退，焦点交还给侧边栏的「设置」；侧边栏藏着时给侧边栏键', async ({
   page,
 }) => {

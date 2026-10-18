@@ -48,6 +48,8 @@
   padding: var(--spacingVerticalS) var(--spacingHorizontalXXL)
     calc(var(--spacingVerticalXXL) + var(--player-inset, 0px)) 0;
   overflow-y: auto;
+  /* 恢复快照时上方内容晚到会触发滚动锚定，把刚写进去的位置改掉。 */
+  overflow-anchor: none;
 }
 
 .narrow .scroller {

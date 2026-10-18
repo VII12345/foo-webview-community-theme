@@ -14,6 +14,7 @@ import { useAtomValueRawSync } from 'jotai/react';
 import {
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useLayoutEffect,
   useRef,
@@ -168,7 +169,12 @@ export function SettingsPage() {
   const strip = pageWidth !== null && pageWidth < PAGE_NAV_MIN_WIDTH;
   const compact = columnWidth !== null && columnWidth < CARD_FIELD_MIN_WIDTH;
   const layout = useMemo(() => ({ compact }), [compact]);
-  const nav = useSettingsNav(ORDER, reduced);
+  // 快照恢复先挂起，等挂载期的测量/换排法/焦点都落定后再写 scrollTop；恢复中不把滚动当成用户操作。
+  const restoring = useRef(false);
+  const restoreTarget = useRef<number | null>(null);
+  const restoreDeadline = useRef(0);
+  const [, setRestoreTick] = useState(0);
+  const nav = useSettingsNav(ORDER, reduced, restoring);
   // 目录与卡列都在这一层里，页面上能接焦点的都在它下面。
   const body = useRef<HTMLDivElement>(null);
   useFocusReturn(body);
@@ -176,13 +182,56 @@ export function SettingsPage() {
   usePageSnapshot(
     SCROLL_SLOT,
     {
-      capture: () => ({ top: nav.scroller.current?.scrollTop ?? 0 }),
+      capture: () => ({
+        top: restoreTarget.current ?? nav.scroller.current?.scrollTop ?? 0,
+      }),
       restore: ({ top }) => {
-        if (nav.scroller.current) nav.scroller.current.scrollTop = top;
+        restoreTarget.current = top;
+        restoreDeadline.current = performance.now() + 1000;
+        restoring.current = true;
+        setRestoreTick((tick) => tick + 1);
       },
     },
     true,
   );
+
+  useLayoutEffect(() => {
+    const element = nav.scroller.current;
+    const target = restoreTarget.current;
+    if (!element || target === null) return undefined;
+    if (performance.now() > restoreDeadline.current) {
+      restoreTarget.current = null;
+      restoring.current = false;
+      return undefined;
+    }
+    element.scrollTop = target;
+    if (Math.abs(element.scrollTop - target) < 1) {
+      restoreTarget.current = null;
+      restoring.current = false;
+      return undefined;
+    }
+    // 内容还没长到目标高度时先停在被夹住的位置，下一帧或下一次布局提交再试。
+    const frame = requestAnimationFrame(() => setRestoreTick((tick) => tick + 1));
+    return () => cancelAnimationFrame(frame);
+  });
+
+  useEffect(() => {
+    const element = nav.scroller.current;
+    if (!element) return undefined;
+    const cancel = () => {
+      if (!restoring.current) return;
+      restoreTarget.current = null;
+      restoring.current = false;
+    };
+    element.addEventListener('wheel', cancel, { passive: true });
+    element.addEventListener('pointerdown', cancel);
+    element.addEventListener('keydown', cancel);
+    return () => {
+      element.removeEventListener('wheel', cancel);
+      element.removeEventListener('pointerdown', cancel);
+      element.removeEventListener('keydown', cancel);
+    };
+  }, [nav.scroller]);
 
   const items = GROUPS.map((group) => ({ id: group.id, label: t(group.label), icon: group.icon }));
   return (

@@ -54,7 +54,7 @@ function useFocusHandoff(root: RefObject<HTMLElement | null>, handoff: RefObject
     const element = root.current;
     if (handoff.current) {
       handoff.current = false;
-      element?.querySelector<HTMLElement>('[aria-current]')?.focus();
+      element?.querySelector<HTMLElement>('[aria-current]')?.focus({ preventScroll: true });
     }
     return () => {
       handoff.current = element?.contains(document.activeElement) ?? false;
@@ -100,11 +100,16 @@ function SettingsStrip({ items, current, onSelect, handoff }: LayoutProps) {
   const arrows = useArrowNavigationGroup({ axis: 'horizontal', memorizeCurrent: true });
   useFocusHandoff(root, handoff);
 
-  // 亮着的那一项滚出了这一行就带回来；竖直方向已经看得见，不会去动外面的滚动。
+  // 亮着的那一项滚出了这一行就带回来；只动这一行自己的横向滚动，不碰外层卡列。
   useEffect(() => {
-    root.current
-      ?.querySelector('[aria-current]')
-      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const strip = root.current;
+    const item = strip?.querySelector<HTMLElement>('[aria-current]');
+    if (!strip || !item) return;
+    const left = item.offsetLeft;
+    const right = left + item.offsetWidth;
+    if (left < strip.scrollLeft) strip.scrollLeft = left;
+    else if (right > strip.scrollLeft + strip.clientWidth)
+      strip.scrollLeft = right - strip.clientWidth;
   }, [current]);
 
   return (

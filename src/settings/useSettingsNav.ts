@@ -35,7 +35,11 @@ export interface SettingsNavBinding {
  * 把目录与卡列的滚动连起来：滚动时亮的那一组跟着换，点目录滚到那一组。`order` 要是稳定的引用。
  * 减弱动效时滚动直接到位。
  */
-export function useSettingsNav(order: readonly string[], reduced: boolean): SettingsNavBinding {
+export function useSettingsNav(
+  order: readonly string[],
+  reduced: boolean,
+  restoring?: RefObject<boolean>,
+): SettingsNavBinding {
   const [current, setCurrent] = useState(() => order[0] ?? '');
   const model = useRef<SettingsNav | null>(null);
   const scroller = useRef<HTMLElement | null>(null);
@@ -62,6 +66,8 @@ export function useSettingsNav(order: readonly string[], reduced: boolean): Sett
       for (const group of element.querySelectorAll(`[${GROUP_ATTR}]`)) observer.observe(group);
 
       const onScroll = () => {
+        // 快照恢复写 scrollTop 时也会发 scroll；这时不算用户滚动，免得把亮着的组改掉。
+        if (restoring?.current) return;
         // 点选的滚动停下之后再滚，不论是滚轮、空格翻页、触摸拖动还是焦点带着卡列走，都算用户自己滚的。
         if (release.current === null) nav.userScroll();
         nav.setAtBottom(element.scrollTop + element.clientHeight >= element.scrollHeight - 2);
@@ -89,7 +95,7 @@ export function useSettingsNav(order: readonly string[], reduced: boolean): Sett
         scroller.current = null;
       };
     },
-    [order],
+    [order, restoring],
   );
 
   useEffect(() => () => release.current?.(), []);
