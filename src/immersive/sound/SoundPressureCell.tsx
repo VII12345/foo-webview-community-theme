@@ -50,8 +50,6 @@ function autoHint(auto: SoundPressureAuto): MessageKey | null {
       return 'settings.dx52NotUsb';
     case 'line':
       return 'settings.dx52LineOutput';
-    case 'wrong-output':
-      return 'settings.dx52WrongOutput';
     case 'off':
       return 'settings.dx52PoweredOff';
     default:

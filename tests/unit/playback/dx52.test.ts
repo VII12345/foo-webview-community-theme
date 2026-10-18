@@ -6,7 +6,6 @@ import {
   dx52OutputInfo,
   DX52_COMMANDS,
   isDx52ProductName,
-  outputDeviceIsDx52,
   parseDx52Frame,
   readDx52Settings,
   type Dx52Frame,
@@ -141,11 +140,9 @@ describe('DX5 II 协议', () => {
     expect(dx52AmpProfile({ ...state, route: 'line_single' })).toBeNull();
   });
 
-  it('按产品名与 foobar 输出设备识别 DX5 II', () => {
+  it('按产品名识别 DX5 II', () => {
     expect(isDx52ProductName('TOPPING DX5 II')).toBe(true);
     expect(isDx52ProductName('DX52')).toBe(true);
     expect(isDx52ProductName('E50 II')).toBe(false);
-    expect(outputDeviceIsDx52('Speakers (TOPPING DX5 II)')).toBe(true);
-    expect(outputDeviceIsDx52('Speakers (Realtek)')).toBe(false);
   });
 });

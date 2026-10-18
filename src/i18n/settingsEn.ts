@@ -184,7 +184,6 @@ export const settingsEn = {
   'settings.dx52PoweredOff': 'DX5 II is powered off',
   'settings.dx52NotUsb': 'DX5 II input is not USB',
   'settings.dx52LineOutput': 'DX5 II is on line output',
-  'settings.dx52WrongOutput': 'foobar2000 is not outputting to DX5 II',
   'settings.dx52Jack': 'Output jack',
   'settings.dx52JackAuto': 'Auto (device)',
   'settings.dx52JackSingle': '6.35mm single-ended',

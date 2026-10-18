@@ -3,7 +3,6 @@ import { mutedAtom, volumeDbAtom } from '../../playback/playback.ts';
 import {
   dx52AmpProfile,
   dx52OutputInfo,
-  outputDeviceIsDx52,
   type Dx52Jack,
   type Dx52OutputInfo,
   type Dx52State,
@@ -16,7 +15,6 @@ import {
   type Dx52Status,
 } from '../../playback/dx52Prefs.ts';
 import { headphoneRigAtom } from '../../playback/soundPressurePrefs.ts';
-import { currentOutputDeviceNameAtom } from '../../playback/outputDeviceName.ts';
 import {
   estimateSoundPressure,
   selectedRig,
@@ -36,8 +34,7 @@ export type Dx52Reason =
   | 'error'
   | 'off'
   | 'line'
-  | 'not-usb'
-  | 'wrong-output';
+  | 'not-usb';
 
 export interface SoundPressureAuto {
   readonly enabled: boolean;
@@ -70,7 +67,6 @@ function autoReason(
   enabled: boolean,
   status: Dx52Status,
   state: Dx52State | null,
-  outputName: string | undefined,
   output: Dx52OutputInfo | null,
 ): Dx52Reason | null {
   if (!enabled) return null;
@@ -83,7 +79,6 @@ function autoReason(
   }
   if (state.input !== 'usb') return 'not-usb';
   if (!output?.headphone) return 'line';
-  if (!outputDeviceIsDx52(outputName)) return 'wrong-output';
   return null;
 }
 
@@ -94,17 +89,16 @@ export interface Dx52Reading {
   readonly amp: AmpProfile | null;
 }
 
-/** 自动模式是否可用：开关、连接/电源/输入/路由/当前输出设备逐项判断。 */
+/** 自动模式是否可用：开关、连接/电源/输入/路由逐项判断；不检查 foobar 当前输出设备名。 */
 export function dx52Reading(
   enabled: boolean,
   status: Dx52Status,
   state: Dx52State | null,
-  outputName: string | undefined,
   jack: Dx52Jack,
 ): Dx52Reading {
   const output = state ? dx52OutputInfo(state.route, jack) : null;
   const profile = state ? dx52AmpProfile(state, jack) : null;
-  const reason = autoReason(enabled, status, state, outputName, output);
+  const reason = autoReason(enabled, status, state, output);
   return {
     reason,
     active: enabled && reason === null && profile !== null,
@@ -126,8 +120,7 @@ export const soundPressureViewAtom: Atom<SoundPressureView> = atom((get) => {
   const state = get(dx52StateAtom);
   const status = get(dx52StatusAtom);
   const jack = get(dx52JackAtom);
-  const outputName = get(currentOutputDeviceNameAtom);
-  const decision = dx52Reading(enabled, status, state, outputName, jack);
+  const decision = dx52Reading(enabled, status, state, jack);
   const active = decision.active;
 
   const effective =

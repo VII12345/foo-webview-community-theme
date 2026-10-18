@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { DX52_AUTO_KEY } from '../../src/playback/dx52Prefs.ts';
 import { HEADPHONE_RIG_KEY } from '../../src/playback/soundPressure.ts';
-import { outputDevice, outputEntry } from '../fixtures/hostAnswers.ts';
 import { openImmersive } from '../fixtures/immersivePage.ts';
 
 // 耳机声压：只替换图纸与聚焦视图里的 Genre；设备浮层选完立即生效，窄档不补。
@@ -179,26 +178,6 @@ test('DX5 II 自动模式下组件显示当前输出与设备音量', async ({ p
 
   const { view, errors } = await openImmersive(page, {
     config: { [DX52_AUTO_KEY]: true },
-    onHost(host) {
-      host.answer('config.getOutputDevices', {
-        success: true,
-        devices: [
-          outputDevice(
-            '{00000000-0000-0000-0000-000000000001}',
-            '{00000000-0000-0000-0000-000000000002}',
-            'Speakers (TOPPING DX5 II)',
-            true,
-          ),
-        ],
-        count: 1,
-      });
-      host.answer('output.getEntries', {
-        success: true,
-        entries: [
-          outputEntry('{00000000-0000-0000-0000-000000000001}', 'DirectSound'),
-        ],
-      });
-    },
   });
   const cell = view.locator('[data-field="soundPressure"]');
   await expect(cell).toContainText('TOPPING DX5 II');

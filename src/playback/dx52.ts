@@ -282,10 +282,6 @@ export function isDx52ProductName(name: string): boolean {
   return normalized.includes('DX5II') || normalized.includes('DX52') || normalized.includes('DX5');
 }
 
-export function outputDeviceIsDx52(name: string | undefined): boolean {
-  return !!name && /DX5\s*II|DX52|DX5/i.test(name);
-}
-
 // ---------------------------------------------------------------------------
 // WebHID 的最小类型。TypeScript 的 DOM lib 没有 `navigator.hid`。
 

@@ -181,7 +181,6 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
   'settings.dx52PoweredOff': 'DX5 II 已关机',
   'settings.dx52NotUsb': 'DX5 II 当前输入不是 USB',
   'settings.dx52LineOutput': 'DX5 II 当前为线路输出',
-  'settings.dx52WrongOutput': 'foobar2000 当前输出不是 DX5 II',
   'settings.dx52Jack': '输出接口',
   'settings.dx52JackAuto': '自动（按设备）',
   'settings.dx52JackSingle': '6.35mm 单端',

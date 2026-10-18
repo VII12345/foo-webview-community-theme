@@ -23,7 +23,7 @@ const connected = { kind: 'connected' } as const;
 
 describe('DX5 II 自动读数', () => {
   it('开关关闭时不碰自动逻辑', () => {
-    expect(dx52Reading(false, { kind: 'off' }, null, undefined, 'auto')).toMatchObject({
+    expect(dx52Reading(false, { kind: 'off' }, null, 'auto')).toMatchObject({
       reason: null,
       active: false,
       output: null,
@@ -32,25 +32,19 @@ describe('DX5 II 自动读数', () => {
   });
 
   it('WebHID 不可用、未授权、关机分别给出原因', () => {
-    expect(dx52Reading(true, { kind: 'unsupported' }, null, undefined, 'auto').reason).toBe(
+    expect(dx52Reading(true, { kind: 'unsupported' }, null, 'auto').reason).toBe(
       'unsupported',
     );
-    expect(dx52Reading(true, { kind: 'unauthorized' }, null, undefined, 'auto').reason).toBe(
+    expect(dx52Reading(true, { kind: 'unauthorized' }, null, 'auto').reason).toBe(
       'unauthorized',
     );
     expect(
-      dx52Reading(true, connected, { ...state, powered: false }, 'TOPPING DX5 II', 'auto').reason,
+      dx52Reading(true, connected, { ...state, powered: false }, 'auto').reason,
     ).toBe('off');
   });
 
-  it('USB、耳机输出且当前 foobar 输出匹配时生效', () => {
-    const reading = dx52Reading(
-      true,
-      connected,
-      state,
-      'Speakers (TOPPING DX5 II)',
-      'auto',
-    );
+  it('USB、耳机输出且当前 foobar 输出名不匹配时也生效', () => {
+    const reading = dx52Reading(true, connected, state, 'auto');
     expect(reading.active).toBe(true);
     expect(reading.reason).toBeNull();
     expect(reading.output?.label).toBe('6.35mm');
@@ -58,18 +52,13 @@ describe('DX5 II 自动读数', () => {
     expect(reading.amp?.gainDb).toBe(-60);
   });
 
-  it('线路输出、非 USB、输出设备不匹配时不生效', () => {
+  it('线路输出、非 USB 时不生效', () => {
     expect(
-      dx52Reading(true, connected, { ...state, route: 'line_single' }, 'TOPPING DX5 II', 'auto')
-        .reason,
+      dx52Reading(true, connected, { ...state, route: 'line_single' }, 'auto').reason,
     ).toBe('line');
     expect(
-      dx52Reading(true, connected, { ...state, input: 'optical' }, 'TOPPING DX5 II', 'auto')
-        .reason,
+      dx52Reading(true, connected, { ...state, input: 'optical' }, 'auto').reason,
     ).toBe('not-usb');
-    expect(dx52Reading(true, connected, state, 'Speakers (Realtek)', 'auto').reason).toBe(
-      'wrong-output',
-    );
   });
 
   it('hp_all 时按用户选择的接口消歧，平衡高增益用 48 Vpp', () => {
@@ -77,7 +66,6 @@ describe('DX5 II 自动读数', () => {
       true,
       connected,
       { ...state, route: 'hp_all', highGain: true },
-      'TOPPING DX5 II',
       'balanced',
     );
     expect(reading.active).toBe(true);
