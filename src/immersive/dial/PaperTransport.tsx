@@ -8,8 +8,8 @@ import {
 } from '@fluentui/react-components';
 import {
   Next24Regular,
-  Pause24Filled,
-  Play24Filled,
+  Pause24Regular,
+  Play24Regular,
   Previous24Regular,
 } from '@fluentui/react-icons';
 import { useAtomValueRawSync } from 'jotai/react';
@@ -52,6 +52,12 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground1,
     ':hover': { color: tokens.colorNeutralForeground1 },
     [PRESSED]: { color: tokens.colorNeutralForeground1 },
+  },
+  // 卡片两档的侧键：不画外圈，和透明播放键一致；保留 1px 边框宽度，尺寸不变。
+  sideFlat: {
+    ...shorthands.borderColor('transparent'),
+    ':hover': shorthands.borderColor('transparent'),
+    [PRESSED]: shorthands.borderColor('transparent'),
   },
   // 卡片两档两侧的模式与音量键：与两侧传输键同径，细环线，悬停/按下不换底。
   extra: {
@@ -115,9 +121,10 @@ interface KeyProps {
   readonly iconClassName: string;
   readonly disabled: boolean;
   readonly onClick: () => void;
+  readonly glyph?: string;
 }
 
-function TransportKey({ label, icon, className, iconClassName, disabled, onClick }: KeyProps) {
+function TransportKey({ label, icon, className, iconClassName, disabled, onClick, glyph }: KeyProps) {
   return (
     <Tooltip content={label} relationship="label">
       <Button
@@ -126,6 +133,7 @@ function TransportKey({ label, icon, className, iconClassName, disabled, onClick
         className={className}
         icon={{ className: iconClassName, children: icon }}
         aria-label={label}
+        data-play-glyph={glyph}
         disabled={disabled}
         onClick={onClick}
       />
@@ -180,7 +188,7 @@ export function PaperTransport({
     '--width': `${width}px`,
   };
   const disabled = !connected;
-  const sideKey = mergeClasses(classes.side, !disabled && classes.sideLive);
+  const sideKey = mergeClasses(classes.side, !disabled && classes.sideLive, extras && classes.sideFlat);
   const shown = controlsVisible || focused;
   // 只有键盘带来的焦点算：鼠标点过的键会一直留着焦点，算上的话这组键就再也不藏了。
   const onFocus = (event: FocusEvent<HTMLDivElement>) => {
@@ -217,7 +225,8 @@ export function PaperTransport({
       />
       <TransportKey
         label={playing ? t('player.pause') : t('player.play')}
-        icon={playing ? <Pause24Filled /> : <Play24Filled />}
+        icon={playing ? <Pause24Regular /> : <Play24Regular />}
+        glyph={playing ? 'pause-outline' : 'play-outline'}
         className={mergeClasses(
           classes.play,
           disabled ? classes.playOff : extras ? classes.playFlat : classes.playLive,

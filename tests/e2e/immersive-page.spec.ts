@@ -209,6 +209,15 @@ test('卡片两档的播放键透明，图纸/聚焦仍是实心', async ({ page
     await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
     await page.getByRole('menuitemradio', { name: label, exact: true }).click();
     expect(await background()).toBe('rgba(0, 0, 0, 0)');
+    const group = view.getByRole('group', { name: '播放控制' });
+    const play = group.getByRole('button', { name: /^(暂停|播放)$/ });
+    expect(await play.getAttribute('data-play-glyph')).toMatch(/outline/);
+    for (const name of ['上一首', '下一首', '播放顺序：默认', '音量与输出设备']) {
+      const button = group.getByRole('button', { name, exact: true });
+      expect(
+        await button.evaluate((node) => getComputedStyle(node).borderTopColor),
+      ).toBe('rgba(0, 0, 0, 0)');
+    }
   }
   await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
   await page.getByRole('menuitemradio', { name: '图纸舞台', exact: true }).click();
