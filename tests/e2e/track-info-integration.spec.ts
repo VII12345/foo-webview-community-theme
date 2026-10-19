@@ -168,20 +168,29 @@ test('曲目信息的“移动到…”按钮调用宿主的文件操作命令',
         items: [
           {
             type: 'submenu',
-            label: 'File Operations',
-            displayLabel: 'File Operations',
-            path: 'File Operations',
-            displayPath: 'File Operations',
+            label: '文件操作',
+            displayLabel: '文件操作',
+            path: '文件操作',
+            displayPath: '文件操作',
             children: [
               {
-                type: 'command',
-                label: 'Move to...',
-                displayLabel: 'Move to...',
-                path: 'File Operations/Move to...',
-                displayPath: 'File Operations/Move to...',
-                available: true,
-                enabled: true,
-                commandId: 42,
+                type: 'submenu',
+                label: '移动到',
+                displayLabel: '移动到',
+                path: '文件操作/移动到',
+                displayPath: '文件操作/移动到',
+                children: [
+                  {
+                    type: 'command',
+                    label: '...',
+                    displayLabel: '...',
+                    path: '文件操作/移动到/...',
+                    displayPath: '文件操作/移动到/...',
+                    available: true,
+                    enabled: true,
+                    commandId: 26,
+                  },
+                ],
               },
             ],
           },
@@ -195,7 +204,7 @@ test('曲目信息的“移动到…”按钮调用宿主的文件操作命令',
   await page.locator('[data-track-info-move]').click();
   await expect.poll(() => view.host.callsTo('menu.runContextCommandById').length).toBe(1);
   const call = view.host.callsTo('menu.runContextCommandById')[0];
-  expect(call?.['id']).toBe(42);
+  expect(call?.['id']).toBe(26);
   expect(call?.['handles']).toEqual([track.handle]);
   expect(view.errors).toEqual([]);
 });
