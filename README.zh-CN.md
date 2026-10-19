@@ -143,6 +143,8 @@ Default Theme 是 [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webv
 
 修改版组件只随本发行包提供，版权归原作者。若原作者提出要求，会从后续发行中移除。
 
+本版 `foo_ui_webview2.dll` 修正了通用文件写判定：便携版 profile 位于 `Program Files` 下时仍可写。旧 DLL 会让播放统计与 huihifi 链接导入保存不了本地数据。
+
 ## 已知问题与反馈
 
 - 在线歌词、艺人简介依赖公开接口，接口变更时可能暂时失效。

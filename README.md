@@ -143,6 +143,8 @@ Full hashes, sources and install paths: [docs/COMPONENTS.md](./docs/COMPONENTS.m
 
 The modified DLLs are distributed only with this release and remain copyright of their original authors. They will be removed from future releases if the original authors request it.
 
+This `foo_ui_webview2.dll` also fixes general file writes: a portable profile under `Program Files` stays writable. The older DLL made playback statistics and huihifi link imports unable to save local data.
+
 ## Known issues and feedback
 
 - Online lyrics and artist biographies depend on public APIs and may break temporarily.
