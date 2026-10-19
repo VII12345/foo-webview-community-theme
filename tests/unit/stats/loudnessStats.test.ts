@@ -167,7 +167,7 @@ describe('读写统计文件', () => {
     store.set(playback, { state: 'playing', position: 1, trackGeneration: 1 });
     store.set(view, {
       reading: { spl: 80 },
-      auto: { active: true, state: { updatedAtMs: start.getTime() - 60_000 } },
+      auto: { active: true, state: { updatedAtMs: start.getTime() - 10 * 60_000 } },
       headphone: { id: 'hp-1', name: 'M1' },
     });
     await vi.advanceTimersByTimeAsync(1000);

@@ -126,7 +126,7 @@
   - 响度与记录器模块经动态导入加载，主启动包仍不含 `liveLoudness`。
 - 记录器：
   - 每秒取样；时长优先用播放位置差，seek/换曲的大跳退回墙钟并夹到 2 秒；暂停、静音、读数过期不计。
-  - DX52 状态超过 30 秒没有新报告就视为过期。
+  - DX52 状态超过 5 分钟没有新报告就视为过期。
   - 内存累计，约 20 秒防抖落盘；停止/换曲、页面隐藏、dispose 时冲刷。
 - 存储：`<profile>\webview-ui-stats\loudness-v1.json`
   - `{ version: 1, days: { "YYYY-MM-DD": { "<headphoneId>": { "name", "seconds", "energy" } } } }`

@@ -238,7 +238,7 @@ export function startLoudnessStats(
   const now = deps.now ?? Date.now;
   const intervalMs = deps.intervalMs ?? 1000;
   const debounceMs = deps.debounceMs ?? 20_000;
-  const staleMs = deps.staleMs ?? 30_000;
+  const staleMs = deps.staleMs ?? 5 * 60_000;
   const documentRef = deps.document === undefined ? document : deps.document;
   let file = emptyLoudnessFile();
   let filePath: string | null = null;
