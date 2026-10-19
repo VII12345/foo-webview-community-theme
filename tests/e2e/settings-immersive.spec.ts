@@ -33,10 +33,10 @@ test('组件显示按视图与布局保存，只列当前档位可用的模块',
   expect(settings.errors).toEqual([]);
 });
 
-test('文字提亮滑杆保存并回读', async ({ page }) => {
+test('文字对比度滑杆保存并回读', async ({ page }) => {
   const settings = await openSettings(page);
   await settings.expand('背景');
-  const slider = page.getByRole('slider', { name: '歌词与卡片文字提亮' });
+  const slider = page.getByRole('slider', { name: '歌词与卡片文字对比度' });
   await expect(slider).toHaveValue('50');
   await slider.fill('80');
   await expect
@@ -45,7 +45,7 @@ test('文字提亮滑杆保存并回读', async ({ page }) => {
   await page.reload();
   await enterSettings(page);
   await settings.expand('背景');
-  await expect(page.getByRole('slider', { name: '歌词与卡片文字提亮' })).toHaveValue('80');
+  await expect(page.getByRole('slider', { name: '歌词与卡片文字对比度' })).toHaveValue('80');
   expect(settings.errors).toEqual([]);
 });
 

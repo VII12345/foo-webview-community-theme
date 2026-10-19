@@ -9,7 +9,7 @@
 
 /* 当前行：词级遮罩只改透明度，文字颜色统一取强调色；已唱部分不透明、未唱部分低透明度。 */
 .root :global([class*='_lyricMainLine'][class*='_active']) {
-  color: var(--accent);
+  color: var(--lyrics-active, var(--accent));
 }
 
 /* 拖动/滚轮预览：虚线只做视觉标记，不接指针；右侧播放按钮是唯一的交互点。 */
