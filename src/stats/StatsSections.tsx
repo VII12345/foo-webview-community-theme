@@ -34,11 +34,14 @@ export function Totals({
   totals,
   previous,
   averageSpl,
+  headphoneSeconds,
 }: {
   readonly totals: StatsTotals;
   readonly previous: StatsTotals;
   /** 当前范围全部耳机的能量加权平均 SPL；无数据为 null。 */
   readonly averageSpl?: number | null;
+  /** 当前范围 DX52 自动统计的耳机使用时长；无数据为 null。 */
+  readonly headphoneSeconds?: number | null;
 }) {
   const t = useAtomValueRawSync(translateAtom);
   return (
@@ -63,6 +66,18 @@ export function Totals({
         </span>
         <span className={styles['total-key']}>{t('stats.averageSpl')}</span>
       </div>
+      <div
+        className={styles.total}
+        data-stats-total-headphone-time
+        title={t('stats.headphoneTimeHint')}
+      >
+        <span className={styles['total-value']}>
+          {headphoneSeconds === null || headphoneSeconds === undefined
+            ? '—'
+            : formatDuration(headphoneSeconds, t)}
+        </span>
+        <span className={styles['total-key']}>{t('stats.headphoneTime')}</span>
+      </div>
     </div>
   );
 }
@@ -72,38 +87,49 @@ export function PeriodBlock({
   period,
   topArtists,
   averageSpl,
+  headphoneSeconds,
+  showTracks = true,
   showTotals = true,
 }: {
   readonly title: string;
   readonly period: StatsPeriod;
   readonly topArtists?: boolean;
   readonly averageSpl?: number | null;
+  readonly headphoneSeconds?: number | null;
+  readonly showTracks?: boolean;
   readonly showTotals?: boolean;
 }) {
   const t = useAtomValueRawSync(translateAtom);
   return (
     <div className={styles.period}>
       {showTotals && (
-        <Totals totals={period.totals} previous={period.previous} averageSpl={averageSpl} />
+        <Totals
+          totals={period.totals}
+          previous={period.previous}
+          averageSpl={averageSpl}
+          headphoneSeconds={headphoneSeconds}
+        />
       )}
       <div className={styles.columns}>
-        <section className={styles.section} aria-label={t('stats.topTracks')}>
-          <h2>{t('stats.topTracks')}</h2>
-          <ol className={styles.list} data-stats-top-tracks={title}>
-            {period.tracks.slice(0, 10).map((row, index) => (
-              <li key={`${row.title}\u0000${row.artist}\u0000${index}`}>
-                <span className={styles.rank}>{index + 1}</span>
-                <StatsArt path={row.path} title={row.title || t('stats.unknown')} />
-                <span className={styles.name}>
-                  <span className={styles['name-main']}>{row.title || t('stats.unknown')}</span>
-                  <span className={styles['name-sub']}>{row.artist}</span>
-                </span>
-                <span className={styles.amount}>{formatDuration(row.seconds, t)}</span>
-                <span className={styles.plays}>{row.plays}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
+        {showTracks && (
+          <section className={styles.section} aria-label={t('stats.topTracks')}>
+            <h2>{t('stats.topTracks')}</h2>
+            <ol className={styles.list} data-stats-top-tracks={title}>
+              {period.tracks.slice(0, 10).map((row, index) => (
+                <li key={`${row.title}\u0000${row.artist}\u0000${index}`}>
+                  <span className={styles.rank}>{index + 1}</span>
+                  <StatsArt path={row.path} title={row.title || t('stats.unknown')} />
+                  <span className={styles.name}>
+                    <span className={styles['name-main']}>{row.title || t('stats.unknown')}</span>
+                    <span className={styles['name-sub']}>{row.artist}</span>
+                  </span>
+                  <span className={styles.amount}>{formatDuration(row.seconds, t)}</span>
+                  <span className={styles.plays}>{row.plays}</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
         {topArtists && (
           <section className={styles.section} aria-label={t('stats.topArtists')}>
             <h2>{t('stats.topArtists')}</h2>

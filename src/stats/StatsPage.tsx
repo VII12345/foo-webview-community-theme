@@ -168,6 +168,7 @@ export function StatsPage() {
                 title={scope}
                 period={period}
                 averageSpl={summary?.overall.spl ?? null}
+                headphoneSeconds={summary?.overall.seconds ?? null}
                 topArtists
               />
               <Trend points={period.trend} />

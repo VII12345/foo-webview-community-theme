@@ -3,7 +3,9 @@ import { ArrowLeft16Regular } from '@fluentui/react-icons';
 import { useAtomValueRawSync } from 'jotai/react';
 import { translateAtom } from '../i18n/locale.ts';
 import { headphoneRigAtom } from '../playback/soundPressurePrefs.ts';
+import { durationText } from '../table/cellText.ts';
 import { formatDuration } from './format.ts';
+import { AllSongsTable } from './AllSongsTable.tsx';
 import type { LoudnessLoad, LoudnessSummary } from './loudnessStats.ts';
 import type { StatsData } from './monthlyStats.ts';
 import type { StatsScope } from './statsRange.ts';
@@ -53,6 +55,8 @@ export function StatsDetailsPage({ data, loudness, summaries, onBack }: StatsDet
         : loudness.state === 'ready' && headphoneIds.length > 0
           ? 'ready'
           : 'empty';
+  const durationCell = (seconds: number | null | undefined): string =>
+    seconds === null || seconds === undefined ? '—' : durationText(seconds) || '0:00';
 
   return (
     <div className={styles.details} data-stats-details-page>
@@ -158,8 +162,70 @@ export function StatsDetailsPage({ data, loudness, summaries, onBack }: StatsDet
         )}
       </section>
 
-      <section className={styles.section} aria-label={t('stats.detailsTop')}>
-        <h2>{t('stats.detailsTop')}</h2>
+      <section className={styles.section} aria-label={t('stats.headphoneTimeByPeriod')}>
+        <h2>{t('stats.headphoneTimeByPeriod')}</h2>
+        <p className={styles['section-hint']}>{t('stats.headphoneTimeHint')}</p>
+        {volumeUnavailable === 'loading' ? (
+          <Spinner size="tiny" label={t('stats.loading')} />
+        ) : volumeUnavailable === 'unavailable' ? (
+          <p className={styles.empty} role="status">
+            {t('stats.loudnessUnavailable')}
+          </p>
+        ) : volumeUnavailable === 'empty' ? (
+          <p className={styles.empty} role="status">
+            {t('stats.headphoneTimeEmpty')}
+          </p>
+        ) : (
+          <div className={styles['detail-scroll']}>
+            <table className={styles['detail-table']} data-stats-detail-duration>
+              <thead>
+                <tr>
+                  <th>{t('stats.headphoneTime')}</th>
+                  {SCOPES.map((scope) => (
+                    <th key={scope}>{t(SCOPE_LABELS[scope])}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {headphoneIds.map((id) => (
+                  <tr key={id} data-stats-detail-duration-headphone={id}>
+                    <th scope="row">{nameOf(id)}</th>
+                    {SCOPES.map((scope) => {
+                      const seconds =
+                        summaryOf(scope)?.perHeadphone.find((item) => item.id === id)?.seconds ??
+                        null;
+                      return <td key={scope}>{durationCell(seconds)}</td>;
+                    })}
+                  </tr>
+                ))}
+                <tr
+                  className={styles['detail-overall']}
+                  data-stats-detail-duration-all
+                >
+                  <th scope="row">{t('stats.allHeadphones')}</th>
+                  {SCOPES.map((scope) => (
+                    <td key={scope}>{durationCell(summaryOf(scope)?.overall.seconds)}</td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {data ? (
+        <AllSongsTable songs={data.songs} />
+      ) : (
+        <section className={styles.section} aria-label={t('stats.allSongs')}>
+          <h2>{t('stats.allSongs')}</h2>
+          <p className={styles.empty} role="status">
+            {t('stats.empty')}
+          </p>
+        </section>
+      )}
+
+      <section className={styles.section} aria-label={t('stats.detailsArtists')}>
+        <h2>{t('stats.detailsArtists')}</h2>
         {data ? (
           <div className={styles['detail-periods']}>
             {SCOPES.map((scope) => (
@@ -167,8 +233,8 @@ export function StatsDetailsPage({ data, loudness, summaries, onBack }: StatsDet
                 <PeriodBlock
                   title={scope}
                   period={data[scope]}
-                  averageSpl={summaryOf(scope)?.overall.spl ?? null}
                   showTotals={false}
+                  showTracks={false}
                   topArtists
                 />
               </div>
