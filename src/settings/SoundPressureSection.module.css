@@ -53,6 +53,19 @@
   gap: 4px;
 }
 
+.profile-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.imported {
+  margin: 0;
+  color: var(--colorPaletteGreenForeground1, var(--colorNeutralForeground2));
+  font-size: var(--fontSizeBase200);
+}
+
 .error {
   grid-column: 1 / -1;
   margin: 0;

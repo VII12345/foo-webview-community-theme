@@ -85,7 +85,7 @@ test('设置页增删改耳放与耳机，切换当前设备并持久化', async
     '102.23',
   );
   await hpForm.getByRole('combobox', { name: '测量配置', exact: true }).click();
-  await page.getByRole('option', { name: 'FiiO FT1', exact: true }).click();
+  await page.getByRole('option', { name: /FiiO FT1/ }).click();
   await hpForm.getByRole('button', { name: '保存', exact: true }).click();
   await expect(settings.row('Open 300')).toBeVisible();
   await expect

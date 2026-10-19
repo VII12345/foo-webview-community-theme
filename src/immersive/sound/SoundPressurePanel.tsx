@@ -10,6 +10,7 @@ import { useState, type PointerEventHandler, type Ref } from 'react';
 import { translateAtom } from '../../i18n/locale.ts';
 import { useService } from '../../kit/useService.ts';
 import { HEADPHONE_MEASUREMENT_OPTIONS } from '../../playback/headphoneMeasurementOptions.ts';
+import { customMeasurementProfilesAtom } from '../../playback/customHeadphoneMeasurements.ts';
 import { splUnit, type SplWeighting } from '../../playback/splWeighting.ts';
 import {
   AMP_GAIN_DEFAULT,
@@ -91,6 +92,7 @@ export function SoundPressurePanel({
 }: SoundPressurePanelProps) {
   const t = useAtomValueRawSync(translateAtom);
   const service = useService(soundPressureKey);
+  const customProfiles = useAtomValueRawSync(customMeasurementProfilesAtom);
   const [page, setPage] = useState<'amp' | 'headphone'>('amp');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -358,6 +360,22 @@ export function SoundPressurePanel({
                       {option.name}
                     </option>
                   ))}
+                  {customProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </option>
+                  ))}
+                  {draft.measurementProfileId &&
+                  !HEADPHONE_MEASUREMENT_OPTIONS.some(
+                    (option) => option.id === draft.measurementProfileId,
+                  ) &&
+                  !customProfiles.some(
+                    (profile) => profile.id === draft.measurementProfileId,
+                  ) ? (
+                    <option value={draft.measurementProfileId} disabled>
+                      {t('settings.measurementProfileMissing')}
+                    </option>
+                  ) : null}
                 </select>
               </label>
             </>

@@ -2,6 +2,7 @@ import { Button, Input, Switch, Tooltip } from '@fluentui/react-components';
 import {
   Add16Regular,
   ArrowClockwise16Regular,
+  ArrowDownload16Regular,
   Copy16Regular,
   Delete16Regular,
   Edit16Regular,
@@ -32,6 +33,12 @@ import {
 } from '../playback/soundPressure.ts';
 import { soundPressureKey } from '../playback/soundPressurePrefs.ts';
 import { HEADPHONE_MEASUREMENT_OPTIONS } from '../playback/headphoneMeasurementOptions.ts';
+import {
+  customHeadphoneMeasurementsKey,
+  type CustomHeadphoneMeasurement,
+} from '../playback/customHeadphoneMeasurements.ts';
+import { CustomMeasurementList } from './CustomMeasurementList.tsx';
+import { MeasurementImportDialog } from './MeasurementImportDialog.tsx';
 import {
   SPL_WEIGHTING_KEY,
   SPL_WEIGHTINGS,
@@ -130,12 +137,14 @@ function AmpForm({
 function HeadphoneForm({
   draft,
   failed,
+  customProfiles,
   onChange,
   onSave,
   onCancel,
 }: {
   readonly draft: HeadphoneDraft;
   readonly failed: boolean;
+  readonly customProfiles: readonly CustomHeadphoneMeasurement[];
   readonly onChange: (draft: HeadphoneDraft) => void;
   readonly onSave: () => void;
   readonly onCancel: () => void;
@@ -143,12 +152,31 @@ function HeadphoneForm({
   const t = useAtomValueRawSync(translateAtom);
   const unitId = useId();
   const profileId = useId();
+  const [importOpen, setImportOpen] = useState(false);
+  const [importedName, setImportedName] = useState<string | null>(null);
   const profileOptions = [
     { value: '', label: t('settings.measurementProfileNone') },
     ...HEADPHONE_MEASUREMENT_OPTIONS.map((option) => ({
       value: option.id,
       label: option.name,
+      description: t('settings.measurementProfileBundled'),
     })),
+    ...customProfiles.map((profile) => ({
+      value: profile.id,
+      label: profile.name,
+      description: t('settings.measurementProfileCustom'),
+    })),
+    ...(draft.measurementProfileId &&
+    !HEADPHONE_MEASUREMENT_OPTIONS.some((option) => option.id === draft.measurementProfileId) &&
+    !customProfiles.some((profile) => profile.id === draft.measurementProfileId)
+      ? [
+          {
+            value: draft.measurementProfileId,
+            label: t('settings.measurementProfileMissing'),
+            description: '',
+          },
+        ]
+      : []),
   ];
   const changeUnit = (unit: SensitivityUnit) => {
     if (unit === draft.unit) return;
@@ -219,15 +247,39 @@ function HeadphoneForm({
       </div>
       <div className={`${styles.field} ${styles.wide}`}>
         <span id={profileId}>{t('settings.measurementProfile')}</span>
-        <SettingsSelect
-          labelId={profileId}
-          descriptionId={profileId}
-          options={profileOptions}
-          value={draft.measurementProfileId ?? ''}
-          onChange={(value) =>
-            onChange({ ...draft, measurementProfileId: value || null })
-          }
-        />
+        <div className={styles['profile-row']}>
+          <SettingsSelect
+            labelId={profileId}
+            descriptionId={profileId}
+            options={profileOptions}
+            value={draft.measurementProfileId ?? ''}
+            onChange={(value) => {
+              setImportedName(null);
+              onChange({ ...draft, measurementProfileId: value || null });
+            }}
+          />
+          <Button
+            size="small"
+            icon={<ArrowDownload16Regular />}
+            onClick={() => setImportOpen(true)}
+          >
+            {t('settings.measurementImport')}
+          </Button>
+        </div>
+        {importedName && (
+          <p className={styles.imported} role="status">
+            {t('settings.measurementImportDone', { name: importedName })}
+          </p>
+        )}
+        {importOpen && (
+          <MeasurementImportDialog
+            onClose={() => setImportOpen(false)}
+            onImported={({ id, name }) => {
+              setImportedName(name);
+              onChange({ ...draft, measurementProfileId: id });
+            }}
+          />
+        )}
       </div>
       {failed && <p className={styles.error} role="alert">{t('settings.saveFailed')}</p>}
       <div className={`${styles.actions} ${styles.wide}`}>
@@ -249,8 +301,10 @@ const SHOW_DX52_DIAGNOSTICS = false;
 export function SoundPressureSection() {
   const t = useAtomValueRawSync(translateAtom);
   const service = useService(soundPressureKey);
+  const customMeasurements = useService(customHeadphoneMeasurementsKey);
   const dx52 = useService(dx52Key);
   const rig = useAtomValueRawSync(service.rig);
+  const customProfiles = useAtomValueRawSync(customMeasurements.profiles);
   const weighting = useAtomValueRawSync(service.weighting);
   const dx52Enabled = useAtomValueRawSync(dx52.enabled);
   const dx52Jack = useAtomValueRawSync(dx52.jack);
@@ -570,6 +624,7 @@ export function SoundPressureSection() {
               key={headphone.id}
               draft={draft}
               failed={failed}
+              customProfiles={customProfiles}
               onChange={setDraft}
               onSave={save}
               onCancel={() => setDraft(null)}
@@ -611,6 +666,7 @@ export function SoundPressureSection() {
           <HeadphoneForm
             draft={draft}
             failed={failed}
+            customProfiles={customProfiles}
             onChange={setDraft}
             onSave={save}
             onCancel={() => setDraft(null)}
@@ -626,6 +682,16 @@ export function SoundPressureSection() {
             {t('settings.addHeadphone')}
           </Button>
         </div>
+      </div>
+      <div className={styles.group}>
+        <h3 className={styles.groupTitle}>{t('settings.customMeasurements')}</h3>
+        <CustomMeasurementList
+          onDeleted={(id) => {
+            if (draft?.kind === 'headphone' && draft.measurementProfileId === id) {
+              setDraft({ ...draft, measurementProfileId: null });
+            }
+          }}
+        />
       </div>
       {/* 默认关闭；把 SHOW_DX52_DIAGNOSTICS 改成 true 恢复面板。 */}
       {SHOW_DX52_DIAGNOSTICS && dx52Enabled && (
