@@ -187,6 +187,8 @@ export const en = {
   'sidebar.label': 'Sidebar',
   'sidebar.search': 'Search',
   'sidebar.library': 'Library',
+  'sidebar.headphones': 'My headphones',
+  'sidebar.headphonesEmpty': 'No headphones configured',
   'sidebar.playlists': 'Playlists',
   'sidebar.toggleSection': 'Expand or collapse {name}',
   'sidebar.comingSoon': 'Coming soon',

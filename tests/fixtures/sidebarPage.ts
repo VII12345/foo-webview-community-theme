@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import type { PlaylistInfo } from 'foo-webview-sdk';
 import { FakePlaylists, makePlaylist } from './fakePlaylists.ts';
+import type { FakeHostOptions } from './fakeHost.ts';
 import { collectPageErrors, installPageHost, type PageHost } from './pageHost.ts';
 
 // 侧边栏的 e2e 共用：装上带一份记账播放列表的宿主替身再打开页面，按名字找列表行。
@@ -30,9 +31,10 @@ export interface SidebarPage {
 export async function openSidebar(
   page: Page,
   initial: readonly PlaylistInfo[] = DEFAULT_LISTS,
+  options?: FakeHostOptions,
 ): Promise<SidebarPage> {
   const errors = collectPageErrors(page);
-  const host = await installPageHost(page);
+  const host = await installPageHost(page, options);
   const lists = new FakePlaylists(host, initial, (event, payload) => host.emit(event, payload));
   await page.goto('/');
   const nav = page.getByRole('navigation', { name: '侧边栏' });

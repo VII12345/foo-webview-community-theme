@@ -280,7 +280,7 @@ test('删除非空列表先确认；确认时按 GUID 删，清单跟着少一�
   await entry('Road Trip').click({ button: 'right' });
   await menuOf(page).getByRole('menuitem', { name: '删除' }).click();
   const dialog = page.getByRole('alertdialog');
-  await expect(dialog).toContainText('「Road Trip」里有 48 首曲目');
+  await expect(dialog).toContainText('「Road Trip」包含 48 首曲目');
   await dialog.getByRole('button', { name: '删除' }).click();
   await expect.poll(() => host.callsTo('playlist.remove')).toEqual([{ playlistGuid: road }]);
   await expect(nav.locator(`[data-playlist-entry="${road}"]`)).toHaveCount(0);
@@ -397,6 +397,8 @@ test('放大镜再点一次收起筛选、清掉词；这一节收着时点它�
 test('拖动重排：过阈值才算拖，松手按插入位发整份排列、不当单击；Alt+↓ 下移一位', async ({
   page,
 }) => {
+  // 媒体库与播放列表之间多了“我的耳机”分节，给拖动目标留出完整可见的高度。
+  await page.setViewportSize({ width: 1280, height: 800 });
   const sidebar = await openSidebar(page);
   const { host, entry, albumsPage, errors } = sidebar;
   await dragBy(page, await middleOf(sidebar, 'Default'), await middleOf(sidebar, 'Road Trip', 12));

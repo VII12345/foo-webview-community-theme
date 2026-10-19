@@ -28,6 +28,7 @@ import {
 } from '../../nav/sidebar/sidebarNav.ts';
 import { sidebarPrefsAtom, sidebarPrefsKey } from '../../nav/sidebar/sidebarPrefs.ts';
 import { SidebarSection } from '../../nav/sidebar/SidebarSection.tsx';
+import { SidebarHeadphones } from './SidebarHeadphones.tsx';
 import { useSelectionIndicator } from '../../kit/useSelectionIndicator.ts';
 import { useService } from '../../kit/useService.ts';
 
@@ -108,6 +109,7 @@ export function Sidebar({ className }: { readonly className?: string }) {
       >
         {LIBRARY_ITEMS.map(entry)}
       </SidebarSection>
+      <SidebarHeadphones className={styles.group} />
       <div className={styles.playlists} {...PANE_ONLY}>
         <slots.SidebarPlaylists className={styles.fill} selected={selected} />
       </div>

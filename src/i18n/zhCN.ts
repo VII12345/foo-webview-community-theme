@@ -183,6 +183,8 @@ export const zhCN: Messages = {
   'sidebar.label': '侧边栏',
   'sidebar.search': '搜索',
   'sidebar.library': '媒体库',
+  'sidebar.headphones': '我的耳机',
+  'sidebar.headphonesEmpty': '还没有耳机',
   'sidebar.playlists': '播放列表',
   'sidebar.toggleSection': '展开或收起「{name}」',
   'sidebar.comingSoon': '即将推出',
