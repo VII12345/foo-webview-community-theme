@@ -73,16 +73,21 @@ export function loudnessOf(energy: number): number | null {
 const energyAt = (lufs: number): number => 10 ** ((lufs + 0.691) / 10);
 
 export interface BlockMeter {
-  /** 喂一段逐声道样本：每路取 `[from, to)`。每凑满一块回调一次该块的能量。 */
+  /** 喂一段逐声道样本：每路取 `[from, to)`。每凑满一块回调一次该块的能量与未加权均方。 */
   push(planes: readonly Float32Array[], from?: number, to?: number): void;
   /** 清滤波状态与没凑满的那一块：seek、换曲、丢帧之后前后的样本不连续。 */
   reset(): void;
 }
 
+export type BlockCallback = (
+  energy: number,
+  rawMeanSquares: readonly number[],
+) => void;
+
 export function createBlockMeter(
   sampleRate: number,
   channels: number,
-  onBlock: (energy: number) => void,
+  onBlock: BlockCallback,
 ): BlockMeter {
   const [shelf, pass] = kWeighting(sampleRate);
   const weights = channelWeights(channels);
@@ -90,6 +95,7 @@ export function createBlockMeter(
   // 每路四个状态：两级各两个，转置直接 II 型。
   const state = new Float64Array(channels * 4);
   const sums = new Float64Array(channels);
+  const rawSums = new Float64Array(channels);
   let filled = 0;
 
   function filter(input: Float32Array, channel: number, from: number, to: number): void {
@@ -99,8 +105,10 @@ export function createBlockMeter(
     let p1 = state[at + 2] ?? 0;
     let p2 = state[at + 3] ?? 0;
     let sum = 0;
+    let raw = 0;
     for (let index = from; index < to; index += 1) {
       const x = input[index] ?? 0;
+      raw += x * x;
       const u = shelf.b0 * x + s1;
       s1 = shelf.b1 * x - shelf.a1 * u + s2;
       s2 = shelf.b2 * x - shelf.a2 * u;
@@ -114,6 +122,16 @@ export function createBlockMeter(
     state[at + 2] = p1;
     state[at + 3] = p2;
     sums[channel] = (sums[channel] ?? 0) + sum;
+    rawSums[channel] = (rawSums[channel] ?? 0) + raw;
+  }
+
+  function sumRaw(input: Float32Array, channel: number, from: number, to: number): void {
+    let raw = 0;
+    for (let index = from; index < to; index += 1) {
+      const x = input[index] ?? 0;
+      raw += x * x;
+    }
+    rawSums[channel] = (rawSums[channel] ?? 0) + raw;
   }
 
   return {
@@ -123,7 +141,9 @@ export function createBlockMeter(
         const take = Math.min(to - at, blockFrames - filled);
         for (let channel = 0; channel < channels; channel += 1) {
           const input = planes[channel];
-          if (input && weights[channel] !== 0) filter(input, channel, at, at + take);
+          if (!input) continue;
+          if (weights[channel] !== 0) filter(input, channel, at, at + take);
+          else sumRaw(input, channel, at, at + take);
         }
         filled += take;
         at += take;
@@ -132,14 +152,17 @@ export function createBlockMeter(
         for (let channel = 0; channel < channels; channel += 1) {
           energy += (weights[channel] ?? 0) * (sums[channel] ?? 0);
         }
+        const rawMeanSquares = Array.from(rawSums, (sum) => sum / blockFrames);
         sums.fill(0);
+        rawSums.fill(0);
         filled = 0;
-        onBlock(energy / blockFrames);
+        onBlock(energy / blockFrames, rawMeanSquares);
       }
     },
     reset() {
       state.fill(0);
       sums.fill(0);
+      rawSums.fill(0);
       filled = 0;
     },
   };

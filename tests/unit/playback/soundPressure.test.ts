@@ -3,16 +3,21 @@ import {
   convertSensitivity,
   emptyRig,
   estimateSoundPressure,
+  estimateSoundPressureFromBands,
+  estimateSoundPressureFromRms,
   formatMargin,
   formatPower,
   formatSpl,
   formatVoltage,
+  loadVoltage,
   normalizeAmp,
   normalizeHeadphone,
   parseHeadphoneRig,
+  rmsDbfsOfMeanSquare,
   selectedRig,
   sensitivityDbPerMw,
   sensitivityDbPerV,
+  voltageFromRms,
   type HeadphoneProfile,
   type HeadphoneRig,
 } from '../../../src/playback/soundPressure.ts';
@@ -173,6 +178,103 @@ describe('耳机声压估算', () => {
   });
 });
 
+describe('频谱/RMS 声压', () => {
+  it('满幅正弦的 RMS 是 0 dBFS，0 dBFS 正弦电压等于 V0', () => {
+    expect(rmsDbfsOfMeanSquare(0.5)).toBeCloseTo(0, 9);
+    expect(rmsDbfsOfMeanSquare(0)).toBeNull();
+    expect(voltageFromRms(0, 0, 0, 2)).toBeCloseTo(2, 9);
+    expect(loadVoltage(2, 16, 0.2)).toBeCloseTo((2 * 16) / 16.2, 9);
+  });
+
+  it('平坦响应下 RMS 路径与频带路径给出同一个 SPL', () => {
+    const bands = 31;
+    const shares = new Float32Array(bands);
+    shares[bands - 1] = 1;
+    const zero = new Float32Array(bands);
+    const response = new Float32Array(bands);
+    const band = estimateSoundPressureFromBands(
+      {
+        sharesByChannel: [shares, shares],
+        rmsDbfsByChannel: [0, 0],
+        bandResponseDb: response,
+        bandWeightDb: { A: zero, K: zero, Z: zero },
+        volumeDb: 0,
+        muted: false,
+        weighting: 'Z',
+        referenceImpedanceOhm: 300,
+        ampOutputImpedanceOhm: 0,
+      },
+      rig(),
+    );
+    const rms = estimateSoundPressureFromRms(
+      {
+        rmsDbfsByChannel: [0, 0],
+        volumeDb: 0,
+        muted: false,
+        weighting: 'Z',
+        referenceImpedanceOhm: 300,
+        ampOutputImpedanceOhm: 0,
+      },
+      rig(),
+    );
+    expect(band.spl).toBeCloseTo(108.25, 1);
+    expect(band.spl).toBeCloseTo(rms.spl ?? 0, 6);
+    expect(band.method).toBe('bands');
+  });
+
+  it('立体声取较响声道，不把左右功率相加', () => {
+    const bands = 31;
+    const left = new Float32Array(bands);
+    const right = new Float32Array(bands);
+    left[bands - 1] = 1;
+    right[bands - 1] = 1;
+    const zero = new Float32Array(bands);
+    const reading = estimateSoundPressureFromBands(
+      {
+        sharesByChannel: [left, right],
+        rmsDbfsByChannel: [0, 0],
+        bandResponseDb: zero,
+        bandWeightDb: { A: zero, K: zero, Z: zero },
+        volumeDb: 0,
+        muted: false,
+        weighting: 'Z',
+        referenceImpedanceOhm: 300,
+        ampOutputImpedanceOhm: 0,
+      },
+      rig(),
+    );
+    expect(reading.spl).toBeCloseTo(108.25, 1);
+    expect(reading.spl).not.toBeCloseTo(111.26, 1);
+  });
+
+  it('安全余量固定按 A 加权，显示加权可以不同', () => {
+    const bands = 31;
+    const shares = new Float32Array(bands);
+    shares[bands - 1] = 1;
+    const zero = new Float32Array(bands);
+    const a = new Float32Array(bands).fill(-10);
+    const reading = estimateSoundPressureFromBands(
+      {
+        sharesByChannel: [shares],
+        rmsDbfsByChannel: [0],
+        bandResponseDb: zero,
+        bandWeightDb: { A: a, K: zero, Z: zero },
+        volumeDb: 0,
+        muted: false,
+        weighting: 'Z',
+        referenceImpedanceOhm: 300,
+        ampOutputImpedanceOhm: 0,
+      },
+      rig(),
+    );
+    expect(reading.splZ).toBeCloseTo(108.25, 1);
+    expect(reading.splA).toBeCloseTo(98.25, 1);
+    expect(reading.spl).toBeCloseTo(108.25, 1);
+    expect(reading.marginDb).toBeCloseTo(80 - 98.25, 1);
+    expect(reading.state).toBe('over');
+  });
+});
+
 describe('耳机设备的校验', () => {
   it('越界参数夹回区间，非法条目丢弃', () => {
     expect(normalizeAmp({ id: 'a', name: '  Amp  ', vrmsAt0db: 50, gainDb: -99 })).toEqual({
@@ -187,6 +289,7 @@ describe('耳机设备的校验', () => {
       impedanceOhm: 8,
       sensitivity: 140,
       sensitivityUnit: 'dbPerMw',
+      measurementProfileId: null,
     });
     expect(normalizeAmp({ id: '', name: 'Amp' })).toBeUndefined();
     expect(normalizeHeadphone({ id: 'h', name: '   ' })).toBeUndefined();

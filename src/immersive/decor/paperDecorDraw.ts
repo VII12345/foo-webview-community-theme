@@ -205,12 +205,24 @@ function drawMarks(ctx: DecorContext, decor: Decor, style: DecorStyle): void {
   }
 }
 
-export function drawDecor(ctx: DecorContext, decor: Decor, style: DecorStyle): void {
+export interface DecorParts {
+  readonly grid: boolean;
+  readonly arcs: boolean;
+}
+
+export function drawDecor(
+  ctx: DecorContext,
+  decor: Decor,
+  style: DecorStyle,
+  parts: DecorParts = { grid: true, arcs: true },
+): void {
   ctx.clearRect(0, 0, decor.width, decor.height);
-  drawGlow(ctx, decor, style);
-  drawArcs(ctx, decor, style);
-  drawGrid(ctx, decor, style);
-  drawCells(ctx, decor, style);
-  drawMarks(ctx, decor, style);
+  if (parts.grid) {
+    drawGlow(ctx, decor, style);
+    drawGrid(ctx, decor, style);
+    drawCells(ctx, decor, style);
+    drawMarks(ctx, decor, style);
+  }
+  if (parts.arcs) drawArcs(ctx, decor, style);
   ctx.globalAlpha = 1;
 }

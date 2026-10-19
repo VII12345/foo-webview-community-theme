@@ -27,12 +27,13 @@ Default Theme is the default theme for [foo_ui_webview2](https://github.com/Nere
 
 | Area | Upstream 0.2.0 | This fork |
 |---|---|---|
-| Immersive view | Paper stage, focus view | Five scenes: paper, focus, lyrics, card, card lyrics; per-view/per-layout component visibility with automatic reflow |
-| Lyrics | Line/word highlighting | Word highlighting, multi-source online search, local-word priority, drag/wheel preview seeking, automatic online word lyrics saved back to tags |
+| Immersive view | Paper stage, focus view | Five scenes: paper, focus, lyrics, card, card lyrics; per-element visibility with automatic reflow; contrast-first text correction; in-view lyric search |
+| Lyrics | Line/word highlighting | Word highlighting, multi-source online search (ID mode defaults to Kugou hash), local-word priority, drag/wheel preview seeking, automatic online word lyrics saved back to tags |
 | Playback | Stock experience | Restore track/playlist/position after closing and reopening; reworked card transport keys, volume and seek bar |
+| Sidebar | Fixed sections | A “My headphones” section between Library and Playlists; click a headphone to switch immediately, with a matching rail flyout |
 | Track info | Read-only | Tag editing, create missing summary tags, Credits, inline edit/copy actions |
-| Statistics | None | Today/month/year, top tracks/artists, trend chart and covers from `foo_monthly_stats` |
-| Headphones | None | Real-time SPL, power, voltage, 80 dB headroom and played-part average from the amp/headphone rig and Short-term LUFS; optional automatic TOPPING DX5 II jack/gain/volume reading |
+| Statistics | None | Today/week/month/year, top tracks/artists, trend chart and covers from `foo_monthly_stats`; DX52 per-headphone average SPL, headphone listening time, a top-row all-headphones average/time, and an all-statistics detail page with a searchable/sortable all-songs table |
+| Headphones | None | Real-time SPL from PCM RMS + FFT spectrum with optional measured FR/impedance profiles and A/K/Z weighting; power, voltage, 80 dB headroom and played-part average; optional automatic TOPPING DX5 II jack/gain/volume reading, automatic reconnect, explicit partial-settings reporting, retry with a non-blocking failure notice, and an HID diagnostics panel with descriptor-aware output/feature transport probing |
 | Narrow layouts | Tables without covers | All tables keep a 32 px cover with tighter rows |
 
 ## Features
@@ -43,17 +44,25 @@ Default Theme is the default theme for [foo_ui_webview2](https://github.com/Nere
 - The bottom player bar restores the cover; the mini player has cover and compact layouts.
 - The five card transport keys are centred; order and volume keys use transparent outlines.
 
+### Sidebar
+
+- A **My headphones** section sits between Library and Playlists. It lists the configured headphones in stored order; clicking one switches immediately, without a confirmation dialog or leaving the current page.
+- The current headphone is marked with a check and `aria-pressed`. Selecting a headphone does not change the selected amplifier. In rail mode, a headphone icon opens the same list in a flyout.
+- The section expansion is stored with the other sidebar preferences; an older sidebar setting opens it by default.
+
 ### Immersive view
 
 - **Paper stage**: 1920 × 1080 layout with spectrum, stereo field, full-track waveform, gauges, lyric card and headphone SPL.
 - **Focus view**: compact meters with large lyrics.
 - **Lyrics view**: dial on the left, word-level lyrics on the right.
 - **Card view** / **Card lyrics**: cover, title, rating, more button, seek bar and transport keys.
-- Settings → Components: hide background, dial, card and right-panel modules per view and layout tier; remaining content reflows while analysis services keep running.
+- Settings → Components: hide individual elements per view and layout tier — background grid/arcs, the four header lines, meter cells, gauges, the six file-info fields, dial/card cells, lyric main/sub lines and more; remaining content reflows while analysis services keep running.
+- In the lyrics, card and card-lyrics scenes, text is corrected for contrast: the theme picks black or white by the cover-tinted background and the slider controls the strength; raising it never lowers contrast. The background and the paper/focus views are unchanged.
+- A search button in the top-right opens the lyric search panel without leaving the immersive view; Escape closes the panel first and leaves the view on the second press.
 
 ### Lyrics
 
-- Local embedded/sidecar lyrics, LRCLIB, NetEase, Kugou, QQ Music, AMLL TTML DB and lrcmux; manual lookup by source ID/hash.
+- Local embedded/sidecar lyrics, LRCLIB, NetEase, Kugou, QQ Music, AMLL TTML DB and lrcmux; manual lookup by source ID/hash, with ID mode defaulting to a Kugou hash.
 - Word-level highlighting, translations/romanisation, grouped candidates with duration and cover; words already sung in the active line follow the current accent color.
 - Reorderable priority: local word → online word → local other → online line → plain.
 - Drag or mouse wheel enters a dashed preview; only the play chip seeks. The preview disappears after 3 seconds.
@@ -68,16 +77,18 @@ Default Theme is the default theme for [foo_ui_webview2](https://github.com/Nere
 
 ### Statistics
 
-- Today/month/year play counts and duration, top tracks/artists and a monthly trend chart.
+- Today/week/month/year play counts and duration, top tracks/artists and a monthly trend chart; weeks start on Monday.
 - Top tracks show a 32 px cover; trend bars show duration labels and omit some labels in dense views.
+- Headphone average volume: only time with the DX52 auto reading active, headphones selected and playback running is counted. Per-headphone energy-weighted average SPL and an all-headphones average are shown for day/week/month/year and stored independently in `<profile>\webview-ui-stats\loudness-v2.json`. A/K/Z energies are recorded together; the page follows the SPL weighting setting (default A). The old `loudness-v1.json` is read as legacy duration only. The section still works when `foo_monthly_stats` is missing. The totals row also shows the selected period's all-headphones average and headphone listening time.
+- **All statistics** opens a detail page with the four-period overview, per-headphone SPL and listening-time matrices, the per-period top artists, and a table of every song over all time. Each song row has a 32 px cover and shows title, artist, album, listened time, plays and last-played date, with title/artist/album search, sortable headers and 100-row pages.
 - Requires the bundled modified `foo_monthly_stats` (official v1.6 lacks the duration fields used by the page).
 
 ### Headphone SPL estimate
 
 - Replaces Genre in paper/focus views with live dB SPL, power, voltage and 80 dB headroom.
 - Multiple amplifiers/headphones, selected independently, switched immediately; managed in Settings → Headphones.
-- Calibrated to the BS.1770 stereo reference with mono/5.1 channel-weight correction. The cell shows the average SPL and LUFS of the played part since the start of the track.
-- Optional “Read DAC/amp automatically” (tooltip: “Topping DX52 only”): authorize WebHID once on the switch, then read the DX5 II output jack, high/low gain, device volume, mute and sample rate. Device volume and foobar volume are independent and both apply. The cell shows the current output (e.g. `4.4mm XLR · High`) and the popover lists the device state. With the switch off, no DX5 II-specific information is shown and the manual amplifier profile is used.
+- Calibrated to the BS.1770 stereo reference with mono/5.1 channel-weight correction. SPL is now computed from raw PCM RMS plus the host FFT spectrum, optional measured FR/impedance profiles (FiiO FT1, FiiO JT7, Sony MDR-M1), and selectable A/K/Z weighting (default A). The Loudness gauge remains K-weighted LUFS, and the 80 dB margin is always A-weighted. ReplayGain is not added separately; if the host already applies it upstream, the reading includes it. Settings → Headphones can also import additional huihifi evaluation links into a local profile file (`webview-ui-headphones\measurements-v1.json`).
+- Optional “Read DAC/amp automatically” (tooltip: “Topping DX52 only”): authorize WebHID once on the switch, then read the DX5 II output jack, high/low gain, device volume, mute and sample rate. Device volume and foobar volume are independent and both apply. The cell shows the current output (e.g. `4.4mm XLR · High`) and the popover lists the device state. With the switch off, no DX5 II-specific information is shown and the manual amplifier profile is used. A disconnected device shows “waiting” and reconnects automatically; a short reply is never mistaken for full settings, a partial read is marked as incomplete, and a failed read can be retried from a non-blocking notice. The client reads the HID report descriptor, fits each frame to the declared report size, records whether the write was actually accepted, and falls back to feature reports with polling when no input report arrives. The HID diagnostics panel is kept in the code but hidden by default; set `SHOW_DX52_DIAGNOSTICS` to `true` in `SoundPressureSection.tsx` when debugging.
 
 ## Screenshots
 
@@ -131,6 +142,8 @@ Full hashes, sources and install paths: [docs/COMPONENTS.md](./docs/COMPONENTS.m
 | `foo_monthly_stats/foo_monthly_stats.dll` | **Modified (unofficial)** | Adds the duration fields and alternate-version fallback used by the statistics page; hash differs from official v1.6 |
 
 The modified DLLs are distributed only with this release and remain copyright of their original authors. They will be removed from future releases if the original authors request it.
+
+This `foo_ui_webview2.dll` also fixes general file writes: a portable profile under `Program Files` stays writable. The older DLL made playback statistics and huihifi link imports unable to save local data.
 
 ## Known issues and feedback
 

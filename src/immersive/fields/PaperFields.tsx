@@ -1,6 +1,10 @@
 import { useAtomValueRawSync } from 'jotai/react';
 import { useRef, type CSSProperties, type ReactNode } from 'react';
 import { currentTrackAtom } from '../../playback/playback.ts';
+import {
+  moduleHidden,
+  type ImmersivePanelId,
+} from '../page/immersiveComponents.ts';
 import { MISSING, qualityLine } from '../paper/paperScale.ts';
 import type { FieldsMode } from '../paper/paperTiers.ts';
 import styles from './PaperFields.module.css';
@@ -13,6 +17,36 @@ const TITLE_SCROLL: TitleScrollOptions = { font: { max: 48, min: 36, step: 12 } 
 
 const FOOTNOTE =
   'DR: TT DR Meter · LUFS: ITU-R BS.1770 (short-term 3 s; bar momentary; I whole track)';
+
+const HEADER_IDS = [
+  'right.header.from',
+  'right.header.title',
+  'right.header.by',
+  'right.header.quality',
+] as const satisfies readonly ImmersivePanelId[];
+
+const META_IDS = [
+  'right.meta.stereo',
+  'right.meta.soundPressure',
+  'right.meta.year',
+  'right.meta.label',
+  'right.meta.duration',
+  'right.meta.elapsed',
+] as const satisfies readonly ImmersivePanelId[];
+
+const GAUGE_IDS = [
+  'right.gauges.dynamicRange',
+  'right.gauges.loudness',
+] as const satisfies readonly ImmersivePanelId[];
+
+const FILE_INFO_IDS = [
+  'right.fileInfo.sampleRate',
+  'right.fileInfo.bitDepth',
+  'right.fileInfo.channels',
+  'right.fileInfo.bitrate',
+  'right.fileInfo.fileSize',
+  'right.fileInfo.format',
+] as const satisfies readonly ImmersivePanelId[];
 
 /** 右栏里由场景填的五块；场景没填的留出空位，格子照样占高。 */
 export interface PaperFieldSlots {
@@ -67,7 +101,15 @@ export function PaperFields({
   const titleText = useRef<HTMLSpanElement>(null);
   const { rolling } = useTitleScroll(titleBox, titleText, title, TITLE_SCROLL);
   const { mode } = placement;
-  const show = (id: string) => !hidden.has(id);
+  const anyShown = (ids: readonly ImmersivePanelId[]) =>
+    ids.some((id) => !moduleHidden(hidden, id));
+  const shown = (id: ImmersivePanelId) => !moduleHidden(hidden, id);
+  const showHeader = anyShown(HEADER_IDS);
+  const showMeta = anyShown(META_IDS);
+  const showGauges = anyShown(GAUGE_IDS);
+  const showFileInfo = anyShown(FILE_INFO_IDS);
+  const showBy = shown('right.header.by');
+  const showQuality = mode !== 'narrow' && shown('right.header.quality');
   const box: CSSProperties = {
     left: placement.x,
     top: placement.y,
@@ -76,70 +118,79 @@ export function PaperFields({
   };
   return (
     <div className={styles.fields} data-paper-fields={mode} style={box}>
-      {show('right.header') && (
+      {showHeader && (
         <>
-          <div className={styles.from} data-decor-guard="36">
-            <span className={styles['hot-square']} aria-hidden />
-            <span>From:</span>
-            <span className={styles['from-album']} data-field="album">
-              {track?.album || MISSING}
-            </span>
-            <span className={styles['hot-line']} aria-hidden />
-          </div>
-          <h1
-            ref={titleBox}
-            className={styles.title}
-            data-rolling={rolling || undefined}
-            data-field="title"
-          >
-            <span ref={titleText} className={styles['title-text']}>
-              {title}
-            </span>
-          </h1>
-          <div className={styles.byline} data-decor-guard="36">
-            <div>
-              <span className={styles.key}>By</span>
-              <div className={styles.artist} data-field="artist">
-                {track?.artist || MISSING}
-              </div>
+          {shown('right.header.from') && (
+            <div className={styles.from} data-decor-guard="36">
+              <span className={styles['hot-square']} aria-hidden />
+              <span>From:</span>
+              <span className={styles['from-album']} data-field="album">
+                {track?.album || MISSING}
+              </span>
+              <span className={styles['hot-line']} aria-hidden />
             </div>
-            {quality && mode !== 'narrow' && (
-              <div className={styles.quality}>
-                <span className={styles.key}>Quality</span>
-                <div className={styles['quality-value']} data-field="quality">
-                  {quality}
+          )}
+          {shown('right.header.title') && (
+            <h1
+              ref={titleBox}
+              className={styles.title}
+              data-rolling={rolling || undefined}
+              data-field="title"
+            >
+              <span ref={titleText} className={styles['title-text']}>
+                {title}
+              </span>
+            </h1>
+          )}
+          {(showBy || showQuality) && (
+            <div className={styles.byline} data-decor-guard="36">
+              {showBy && (
+                <div>
+                  <span className={styles.key}>By</span>
+                  <div className={styles.artist} data-field="artist">
+                    {track?.artist || MISSING}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+              {showQuality && quality && (
+                <div className={styles.quality}>
+                  <span className={styles.key}>Quality</span>
+                  <div className={styles['quality-value']} data-field="quality">
+                    {quality}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <hr className={styles.rule} />
         </>
       )}
-      {!lyricsOnly && mode !== 'narrow' && show('right.meta') && (
+      {!lyricsOnly && mode !== 'narrow' && showMeta && (
         <PaperMetaRow
           compact={mode === 'compact'}
           stereo={slots.stereo}
           soundPressure={slots.soundPressure}
+          hidden={hidden}
         />
       )}
-      {!lyricsOnly && slots.spectrum !== null && show('right.spectrum') && (
+      {!lyricsOnly && slots.spectrum !== null && shown('right.spectrum') && (
         <div className={styles.spectrum} data-field-slot="spectrum">{slots.spectrum}</div>
       )}
-      {!lyricsOnly && show('right.waveform') && (
+      {!lyricsOnly && shown('right.waveform') && (
         <div className={styles.waveform}>{slots.waveform}</div>
       )}
       {!lyricsOnly &&
         mode !== 'narrow' &&
-        (show('right.gauges') || (mode === 'full' && show('right.fileInfo'))) && (
+        (showGauges || (mode === 'full' && showFileInfo)) && (
           <div className={styles['row-file']}>
-            {show('right.gauges') && <div className={styles.gauges}>{slots.gauges}</div>}
-            {mode === 'full' && show('right.fileInfo') && <PaperFileInfo />}
+            {showGauges && <div className={styles.gauges}>{slots.gauges}</div>}
+            {mode === 'full' && showFileInfo && <PaperFileInfo hidden={hidden} />}
           </div>
         )}
-      {!lyricsOnly && mode !== 'narrow' && show('right.footnote') && (
+      {!lyricsOnly && mode !== 'narrow' && shown('right.footnote') && (
         <p className={styles.footnote}>{FOOTNOTE}</p>
       )}
-      {show('right.lyrics') && (
+      {shown('right.lyrics') && (
         <div className={styles.lyrics} data-lyrics-slot>
           {slots.lyrics}
         </div>

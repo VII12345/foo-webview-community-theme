@@ -39,6 +39,8 @@ const RATING_LEAVES = ['1', '2', '3', '4', '5'].map((value) =>
 const CLEAR = command('<not set>');
 const PROPERTIES = command('&Properties');
 const SEND_TO = command('Send to playlist...');
+const MOVE_TO = command('Move to...');
+const COPY_TO = command('Copy to...');
 const TREE: ContextTree = {
   roots: [
     command('Play'),
@@ -46,6 +48,7 @@ const TREE: ContextTree = {
     { type: 'separator' },
     PROPERTIES,
     submenu('Utilities', [SEND_TO]),
+    submenu('File Operations', [MOVE_TO, COPY_TO]),
   ],
   target: { mode: 'handles', handles: ['file://E:\\a.flac'] },
 };
@@ -71,7 +74,7 @@ describe('readContextTree', () => {
       { mode: 'handles', handles: ['file://E:\\a.flac|subsong:2'], locale: 'zh-CN' },
     ]);
     expect(tree.target).toEqual(target);
-    expect(tree.roots).toHaveLength(5);
+    expect(tree.roots).toHaveLength(6);
   });
 
   it('读取失败与正常空树分开', async () => {
@@ -116,7 +119,31 @@ describe('knownCommandsOf', () => {
     const known = knownCommandsOf(TREE);
     expect(known.properties).toBe(PROPERTIES);
     expect(known.sendToDialog).toBe(SEND_TO);
+    expect(known.moveTo).toBe(MOVE_TO);
     expect(normalizeLabel('  &Send To Playlist…')).toBe('send to playlist');
+  });
+
+  it('认「移动到…」，不把播放列表移动或「移动到这里」当成它', () => {
+    const moved: ContextTree = {
+      roots: [command('移动到…')],
+      target: { mode: 'selection' },
+    };
+    expect(knownCommandsOf(moved).moveTo?.label).toBe('移动到…');
+    const longer: ContextTree = {
+      roots: [command('移动到指定文件夹…')],
+      target: { mode: 'selection' },
+    };
+    expect(knownCommandsOf(longer).moveTo?.label).toBe('移动到指定文件夹…');
+    const playlist: ContextTree = {
+      roots: [command('移动到播放列表')],
+      target: { mode: 'selection' },
+    };
+    expect(knownCommandsOf(playlist).moveTo).toBeNull();
+    const here: ContextTree = {
+      roots: [command('Move here')],
+      target: { mode: 'selection' },
+    };
+    expect(knownCommandsOf(here).moveTo).toBeNull();
   });
 
   it('评分子菜单靠 1–5 子项认，勾选照搬宿主', () => {
@@ -127,6 +154,45 @@ describe('knownCommandsOf', () => {
     expect(ratingValueOf(rating ?? null, RATING_LEAVES[1]!)).toBe(2);
     expect(ratingValueOf(rating ?? null, CLEAR)).toBe(0);
     expect(ratingValueOf(rating ?? null, PROPERTIES)).toBeNull();
+  });
+
+  it('radioChecked 与 checked 都算勾选', () => {
+    const radio = command('3', { radioChecked: true });
+    const tree: ContextTree = {
+      roots: [
+        submenu('Rating', [
+          command('1'),
+          command('2'),
+          radio,
+          command('4'),
+          command('5'),
+        ]),
+      ],
+      target: { mode: 'selection' },
+    };
+    expect(knownCommandsOf(tree).rating?.current).toBe(3);
+  });
+
+  it('宿主响应经过 SDK 后 radioChecked 仍在', async () => {
+    const host = installFakeHost();
+    host.answer('menu.getContextMenu', {
+      success: true,
+      mode: 'selection',
+      locale: 'en',
+      i18n: true,
+      withAvailability: true,
+      items: [
+        submenu('Rating', [
+          command('1'),
+          command('2'),
+          command('3', { radioChecked: true }),
+          command('4'),
+          command('5'),
+        ]),
+      ],
+    });
+    const tree = await readContextTree(host.fb, { mode: 'selection' }, 'en');
+    expect(knownCommandsOf(tree).rating?.current).toBe(3);
   });
 
   it('同一标签匹到几条、或已置灰时当没有', () => {
@@ -143,6 +209,7 @@ describe('knownCommandsOf', () => {
       properties: null,
       sendToDialog: null,
       rating: null,
+      moveTo: null,
     });
   });
 });

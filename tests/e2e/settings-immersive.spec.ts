@@ -10,9 +10,9 @@ test('组件显示按视图与布局保存，只列当前档位可用的模块',
 
   await settings.choose('视图', '聚焦视图');
   await expect(page.getByRole('switch', { name: '频谱', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('switch', { name: '文件信息', exact: true })).toBeVisible();
+  await expect(page.getByRole('switch', { name: '采样率', exact: true })).toBeVisible();
   await settings.choose('布局', '紧凑');
-  await expect(page.getByRole('switch', { name: '文件信息', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('switch', { name: '采样率', exact: true })).toHaveCount(0);
 
   await settings.choose('视图', '卡片视图');
   await expect(settings.select('布局')).toHaveText('完整舞台');
@@ -30,6 +30,22 @@ test('组件显示按视图与布局保存，只列当前档位可用的模块',
   await enterSettings(page);
   await settings.expand('组件显示');
   await expect(page.getByRole('switch', { name: '频谱', exact: true })).not.toBeChecked();
+  expect(settings.errors).toEqual([]);
+});
+
+test('文字对比度滑杆保存并回读', async ({ page }) => {
+  const settings = await openSettings(page);
+  await settings.expand('背景');
+  const slider = page.getByRole('slider', { name: '歌词与卡片文字对比度' });
+  await expect(slider).toHaveValue('50');
+  await slider.fill('80');
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('default-theme.immersive.textBoost.v1')))
+    .toBe('80');
+  await page.reload();
+  await enterSettings(page);
+  await settings.expand('背景');
+  await expect(page.getByRole('slider', { name: '歌词与卡片文字对比度' })).toHaveValue('80');
   expect(settings.errors).toEqual([]);
 });
 

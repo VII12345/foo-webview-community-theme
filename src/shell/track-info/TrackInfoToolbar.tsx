@@ -8,6 +8,7 @@ import {
   MenuList,
   MenuPopover,
   MenuTrigger,
+  Tooltip,
   makeStyles,
   tokens,
 } from '@fluentui/react-components';
@@ -17,6 +18,7 @@ import {
   Copy16Regular,
   Dismiss16Regular,
   Eye16Regular,
+  FolderArrowRight16Regular,
   MoreHorizontal16Regular,
   Play12Regular,
 } from '@fluentui/react-icons';
@@ -107,6 +109,22 @@ export function TrackInfoToolbar({
         </MenuPopover>
       </Menu>
       <div className={cardStyles.toolbarActions}>
+        <Tooltip content={t('trackInfo.moveTo')} relationship="label">
+          <Button
+            className={mergeClasses(classes.icon, controls.icon)}
+            appearance="subtle"
+            size="small"
+            icon={<FolderArrowRight16Regular />}
+            aria-label={t('trackInfo.moveTo')}
+            data-track-info-move
+            disabled={
+              !state.track ||
+              infoMediaKind(state.track) === 'stream' ||
+              state.action === 'moving'
+            }
+            onClick={() => void service.moveTo(locale)}
+          />
+        </Tooltip>
         <Menu surfaceMotion={MENU_SURFACE_MOTION}>
           <MenuTrigger disableButtonEnhancement>
             <Button

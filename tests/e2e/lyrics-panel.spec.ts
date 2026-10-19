@@ -941,6 +941,9 @@ test('按来源与标识类型手动搜词：网易云歌曲 ID 直接出候选�
   await panel(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
   const search = panel(page).locator('[data-lyrics-search]');
   await search.getByRole('combobox', { name: '搜索方式' }).selectOption('id');
+  await expect(search.getByRole('combobox', { name: '来源' })).toHaveValue('kugou');
+  await expect(search.getByRole('combobox', { name: '标识类型' })).toHaveValue('kugouHash');
+  await search.getByRole('combobox', { name: '来源' }).selectOption('netease');
   await expect(search.getByRole('combobox', { name: '标识类型' })).toHaveValue('neteaseSongId');
   await search.getByRole('textbox', { name: '歌曲 ID / MID / Hash' }).fill('2048982668');
   await expect(search.locator('[data-lyrics-candidate]')).toHaveCount(1);
@@ -977,6 +980,7 @@ test('手动搜词可选 QQ MID 与酷狗 Hash', async ({ page }) => {
   await panel(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
   const search = panel(page).locator('[data-lyrics-search]');
   await search.getByRole('combobox', { name: '搜索方式' }).selectOption('id');
+  await expect(search.getByRole('combobox', { name: '来源' })).toHaveValue('kugou');
   await search.getByRole('combobox', { name: '来源' }).selectOption('qq');
   await expect(search.getByRole('combobox', { name: '标识类型' })).toHaveValue('qqSongId');
   await search.getByRole('textbox', { name: '歌曲 ID / MID / Hash' }).fill('0039MnYb0qxYhV');
@@ -1042,7 +1046,9 @@ test('右卡历史独立、页签位置固定，候选预览与使用分开', as
     synced: true,
   }));
   onlineReplies(env);
+  await panel(page).hover();
   const tabs = page.getByRole('tablist', { name: '面板分页' });
+  await expect(tabs).toBeVisible();
   const before = await tabs.boundingBox();
   if (!before) throw new Error('页签不可见');
   for (const name of ['队列', '信息', '简介', '歌词']) {
@@ -1079,6 +1085,7 @@ test('右卡历史独立、页签位置固定，候选预览与使用分开', as
 
 test('显示面板与设置同步，校正应用于句首跳转且返回不重播', async ({ page }) => {
   const env = await openLyrics(page);
+  await panel(page).hover();
   await panel(page).getByRole('button', { name: '显示', exact: true }).click();
   const surface = page
     .locator('[data-right-card-surface]')
@@ -1211,13 +1218,12 @@ test('跨查询后退等待结果提交，再恢复滚动与候选焦点', async
     .getByRole('button', { name: '歌词预览', exact: true });
   await target.scrollIntoViewIfNeeded();
   const scroll = await search
-    .locator('[data-lyrics-candidate]')
-    .first()
-    .locator('..')
+    .locator('[class*="results"]')
     .evaluate((element) => element.scrollTop);
   expect(scroll).toBeGreaterThan(0);
   await target.click();
   await expect(panel(page).locator('[data-lyrics-candidate-preview]')).toBeVisible();
+  await panel(page).hover();
   await page
     .getByRole('tablist', { name: '面板分页' })
     .getByRole('tab', { name: '歌词', exact: true })
@@ -1234,9 +1240,7 @@ test('跨查询后退等待结果提交，再恢复滚动与候选焦点', async
   await expect
     .poll(() =>
       search
-        .locator('[data-lyrics-candidate]')
-        .first()
-        .locator('..')
+        .locator('[class*="results"]')
         .evaluate((element) => element.scrollTop),
     )
     .toBe(scroll);

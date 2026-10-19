@@ -29,8 +29,8 @@ test('图纸与聚焦显示声压，歌词与卡片三档不显示；设备浮�
   await expect(cell).toBeVisible();
   await expect(cell).toHaveAttribute('data-state', 'no-loudness');
   await expect(cell).toContainText('Desktop DAC · Open 300');
-  await expect(cell).toContainText('— dB SPL');
-  await expect(cell.locator('[data-sound-pressure-average]')).toContainText('平均 — dB SPL');
+  await expect(cell).toContainText('— dBA');
+  await expect(cell.locator('[data-sound-pressure-average]')).toContainText('平均 — dBA');
 
   // 点开浮层：两页设备、当前选中项打勾；没有实时 PCM 时仍是等待响度。
   await cell.locator('button').first().click();

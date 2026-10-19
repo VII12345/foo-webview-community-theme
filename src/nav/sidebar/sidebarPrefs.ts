@@ -18,9 +18,13 @@ import { serviceKey } from '../../kit/serviceKey.ts';
  * 存档谁都能改：读回逐项校验，坏了哪一项就用缺省补哪一项，不为一个坏值丢掉整份。
  * 这里存的是用户定的形态；窗口窄时强制的图标态与浮层只改呈现，不写进存档，窗口变宽回来照存的摆。
  */
-export type SidebarSectionId = 'library' | 'playlists';
+export type SidebarSectionId = 'library' | 'headphones' | 'playlists';
 
-export const SIDEBAR_SECTIONS: readonly SidebarSectionId[] = ['library', 'playlists'];
+export const SIDEBAR_SECTIONS: readonly SidebarSectionId[] = [
+  'library',
+  'headphones',
+  'playlists',
+];
 
 export const SIDEBAR_STORAGE_KEY = 'default-theme.sidebar.v1';
 
@@ -41,7 +45,7 @@ export const DEFAULT_SIDEBAR_PREFS: SidebarPrefs = {
   hidden: false,
   rail: false,
   width: SIDEBAR_WIDTH.initial,
-  sections: { library: true, playlists: true },
+  sections: { library: true, headphones: true, playlists: true },
 };
 
 /** 展开宽度夹进范围并取整。 */
@@ -65,7 +69,11 @@ export function parseSidebarPrefs(raw: string | null): SidebarPrefs {
       typeof width === 'number' && Number.isFinite(width)
         ? clampWidth(width)
         : SIDEBAR_WIDTH.initial,
-    sections: { library: open('library'), playlists: open('playlists') },
+    sections: {
+      library: open('library'),
+      headphones: open('headphones'),
+      playlists: open('playlists'),
+    },
   };
 }
 

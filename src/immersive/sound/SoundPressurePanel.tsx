@@ -9,6 +9,9 @@ import { useAtomValueRawSync } from 'jotai/react';
 import { useState, type PointerEventHandler, type Ref } from 'react';
 import { translateAtom } from '../../i18n/locale.ts';
 import { useService } from '../../kit/useService.ts';
+import { HEADPHONE_MEASUREMENT_OPTIONS } from '../../playback/headphoneMeasurementOptions.ts';
+import { customMeasurementProfilesAtom } from '../../playback/customHeadphoneMeasurements.ts';
+import { splUnit, type SplWeighting } from '../../playback/splWeighting.ts';
 import {
   AMP_GAIN_DEFAULT,
   AMP_GAIN_MAX,
@@ -48,6 +51,7 @@ type HeadphoneDraft = {
   readonly impedance: string;
   readonly sensitivity: string;
   readonly unit: SensitivityUnit;
+  readonly measurementProfileId: string | null;
 };
 
 type Draft = AmpDraft | HeadphoneDraft;
@@ -60,6 +64,7 @@ export interface SoundPressurePanelProps {
   readonly reading: SoundPressureReading;
   readonly averageReading: SoundPressureReading;
   readonly averageLufs: number | null;
+  readonly weighting: SplWeighting;
   readonly autoDetail?: string;
   readonly panelSide: 'below' | 'above';
   readonly variant: 'stage' | 'sheet';
@@ -77,6 +82,7 @@ export function SoundPressurePanel({
   reading,
   averageReading,
   averageLufs,
+  weighting,
   autoDetail,
   panelSide,
   variant,
@@ -86,6 +92,7 @@ export function SoundPressurePanel({
 }: SoundPressurePanelProps) {
   const t = useAtomValueRawSync(translateAtom);
   const service = useService(soundPressureKey);
+  const customProfiles = useAtomValueRawSync(customMeasurementProfilesAtom);
   const [page, setPage] = useState<'amp' | 'headphone'>('amp');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -117,6 +124,7 @@ export function SoundPressurePanel({
       impedance: String(item?.impedanceOhm ?? HEADPHONE_IMPEDANCE_DEFAULT),
       sensitivity: String(item?.sensitivity ?? HEADPHONE_SENS_DEFAULT),
       unit: item?.sensitivityUnit ?? 'dbPerMw',
+      measurementProfileId: item?.measurementProfileId ?? null,
     });
     setConfirm(null);
     setFailed(false);
@@ -148,7 +156,13 @@ export function SoundPressurePanel({
         setFailed(true);
         return;
       }
-      const input = { name, impedanceOhm, sensitivity, sensitivityUnit: draft.unit };
+      const input = {
+        name,
+        impedanceOhm,
+        sensitivity,
+        sensitivityUnit: draft.unit,
+        measurementProfileId: draft.measurementProfileId,
+      };
       if (draft.id) service.updateHeadphone(draft.id, input);
       else if (!service.addHeadphone(input)) {
         setFailed(true);
@@ -233,11 +247,12 @@ export function SoundPressurePanel({
           </span>
         )}
         <span>
-          {t('immersive.soundPressureCurrent')} {formatSpl(reading.spl)} dB SPL
+          {t('immersive.soundPressureCurrent')} {formatSpl(reading.spl)}{' '}
+          {splUnit(weighting)}
         </span>
         <span title={t('immersive.soundPressureAverageHint')}>
-          {t('immersive.soundPressureAverage')} {formatSpl(averageReading.spl)} dB SPL ·{' '}
-          {lufsText(averageLufs)} LUFS
+          {t('immersive.soundPressureAverage')} {formatSpl(averageReading.spl)}{' '}
+          {splUnit(weighting)} · {lufsText(averageLufs)} LUFS
         </span>
       </div>
       {draft ? (
@@ -327,6 +342,42 @@ export function SoundPressurePanel({
                   dB/V
                 </Button>
               </div>
+              <label className={styles.field}>
+                <span>{t('settings.measurementProfile')}</span>
+                <select
+                  className={styles.select}
+                  value={draft.measurementProfileId ?? ''}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      measurementProfileId: event.currentTarget.value || null,
+                    })
+                  }
+                >
+                  <option value="">{t('settings.measurementProfileNone')}</option>
+                  {HEADPHONE_MEASUREMENT_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                  {customProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </option>
+                  ))}
+                  {draft.measurementProfileId &&
+                  !HEADPHONE_MEASUREMENT_OPTIONS.some(
+                    (option) => option.id === draft.measurementProfileId,
+                  ) &&
+                  !customProfiles.some(
+                    (profile) => profile.id === draft.measurementProfileId,
+                  ) ? (
+                    <option value={draft.measurementProfileId} disabled>
+                      {t('settings.measurementProfileMissing')}
+                    </option>
+                  ) : null}
+                </select>
+              </label>
             </>
           )}
           {failed && <p className={styles.error} role="alert">{t('settings.saveFailed')}</p>}

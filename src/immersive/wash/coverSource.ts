@@ -1,7 +1,7 @@
 import { atom, type Atom } from 'jotai/vanilla';
 import type { Store } from '../../kit/store.ts';
 import { samplePixels } from '../../theme/coverColor.ts';
-import { blurSource, SOURCE_SIZE } from './coverWarp.ts';
+import { blurSource, imageLuminance, SOURCE_SIZE } from './coverWarp.ts';
 import { immersiveCoverAtom } from '../cover/immersiveCover.ts';
 
 export interface CoverSource {
@@ -33,6 +33,12 @@ const sourceAtom = atom<CoverSource | null>(null);
 
 /** 封面底色用的源图；缺图、读取失败、读不出像素或没有曲目时为 `null`，底色层不出现。 */
 export const coverSourceAtom: Atom<CoverSource | null> = atom((get) => get(sourceAtom));
+
+/** 当前源图的平均线性亮度；没有源图时为 `null`。 */
+export const coverLumaAtom: Atom<number | null> = atom((get) => {
+  const source = get(sourceAtom);
+  return source ? imageLuminance(source.image) : null;
+});
 
 /**
  * 启动封面底色的源图：跟着 `immersiveCoverAtom` 走，只在封面解码成功（`shown`）后才取，缺图不取。不另问

@@ -6,6 +6,7 @@ import { trackKeyOf } from './playback/playbackContract.ts';
 import { playingAudibleAtom, playingTrackKeyAtom } from './playback/playingTrack.ts';
 import { TableContext } from './table/tableContext.ts';
 import { AppToasts } from './shell/AppToasts.tsx';
+import { Dx52FailureDialog } from './shell/Dx52FailureDialog.tsx';
 import type { AppServices } from './app/services.ts';
 import { MainWindow } from './shell/MainWindow.tsx';
 import { ShellSlotsContext } from './shell/shellSlots.ts';
@@ -72,6 +73,7 @@ export function App({ services }: AppProps) {
                                 </WindowRoot>
                               </ShellSlotsContext>
                               <AppToasts />
+                              <Dx52FailureDialog />
                               <OnboardingDialog />
                             </ImmersiveSettingsContext>
                           </UpdateRoot>

@@ -37,7 +37,7 @@ describe('parseSidebarPrefs', () => {
       hidden: false,
       rail: true,
       width: 300,
-      sections: { library: false, playlists: true },
+      sections: { library: false, headphones: true, playlists: true },
     });
     expect(parseSidebarPrefs(JSON.stringify({ hidden: true })).hidden).toBe(true);
   });
@@ -53,12 +53,13 @@ describe('parseSidebarPrefs', () => {
       hidden: false,
       rail: false,
       width: SIDEBAR_WIDTH.max,
-      sections: { library: true, playlists: false },
+      sections: { library: true, headphones: true, playlists: false },
     });
     expect(parseSidebarPrefs(JSON.stringify({ width: 199.6 })).width).toBe(SIDEBAR_WIDTH.min);
     expect(parseSidebarPrefs(JSON.stringify({ width: 'wide' })).width).toBe(SIDEBAR_WIDTH.initial);
     expect(parseSidebarPrefs(JSON.stringify({ sections: [] })).sections).toEqual({
       library: true,
+      headphones: true,
       playlists: true,
     });
   });
@@ -70,15 +71,21 @@ describe('startSidebarPrefs', () => {
     const store = createStore();
     const prefs = startSidebarPrefs(store, storage);
     prefs.toggleSection('playlists');
-    expect(store.get(sidebarPrefsAtom).sections).toEqual({ library: true, playlists: false });
+    expect(store.get(sidebarPrefsAtom).sections).toEqual({
+      library: true,
+      headphones: true,
+      playlists: false,
+    });
     expect(storage.saved()).toEqual({
       hidden: false,
       rail: true,
       width: 280,
-      sections: { library: true, playlists: false },
+      sections: { library: true, headphones: true, playlists: false },
     });
     prefs.toggleSection('playlists');
     expect(store.get(sidebarPrefsAtom).sections.playlists).toBe(true);
+    prefs.toggleSection('headphones');
+    expect(store.get(sidebarPrefsAtom).sections.headphones).toBe(false);
   });
 
   it('换形态就落盘，宽度夹进范围并取整；和此刻一样不写', () => {
@@ -126,7 +133,7 @@ describe('startSidebarPrefs', () => {
       hidden: true,
       rail: true,
       width: 300,
-      sections: { library: false, playlists: true },
+      sections: { library: false, headphones: true, playlists: true },
     });
     expect(parseSidebarPrefs(JSON.stringify(storage.saved())).hidden).toBe(true);
     prefs.toggleHidden();

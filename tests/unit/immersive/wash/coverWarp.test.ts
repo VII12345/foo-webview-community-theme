@@ -5,6 +5,7 @@ import {
   controlOffsets,
   coverUv,
   GRID,
+  imageLuminance,
   keys,
   rotationAt,
   ROTATION_PERIOD,
@@ -129,4 +130,19 @@ test('shade：比例 0 是纸面色，比例 1 且饱和度 1 是原色，饱和
   const gray = shade([200, 40, 90], paper, 1, 0);
   near(gray[0], gray[1], 1e-9);
   near(gray[1], gray[2], 1e-9);
+});
+
+test('imageLuminance：按线性 Rec.709 取平均，忽略 alpha，空图为 0', () => {
+  const image = (color: readonly [number, number, number], alpha = 255) => ({
+    data: Uint8ClampedArray.from([...color, alpha]),
+    width: 1,
+    height: 1,
+  });
+  near(imageLuminance(image([0, 0, 0])), 0);
+  near(imageLuminance(image([255, 255, 255])), 1);
+  near(imageLuminance(image([255, 0, 0])), 0.2126);
+  near(imageLuminance(image([0, 255, 0])), 0.7152);
+  near(imageLuminance(image([0, 0, 255])), 0.0722);
+  near(imageLuminance(image([128, 128, 128], 0)), imageLuminance(image([128, 128, 128])));
+  near(imageLuminance({ data: new Uint8ClampedArray(), width: 0, height: 0 }), 0);
 });

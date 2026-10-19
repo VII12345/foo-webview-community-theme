@@ -11,6 +11,8 @@
  * 的片元着色器是同一套算法：着色器负责流动档，这里负责静态档；改其中一边必须同步另一边。
  */
 
+import { luminanceOfSrgb } from '../../theme/luminance.ts';
+
 /** 源图边长：要 2 的幂，WebGL 1 才允许镜像环绕。 */
 export const SOURCE_SIZE = 128;
 /** 源图预糊的盒式模糊半径（源图像素）与遍数，三遍盒式接近高斯；糊到只剩大块色域。 */
@@ -196,6 +198,24 @@ export function shade(
     const base = paper[channel] ?? 0;
     return encode(base + (saturated - base) * strength);
   }) as [number, number, number];
+}
+
+/** 源图平均线性亮度（0…1），按像素等权；空图回答 0。用于判断封面是否会让纸面偏暗。 */
+export function imageLuminance(
+  image: Pick<ImageData, 'data' | 'width' | 'height'>,
+): number {
+  const count = image.width * image.height;
+  if (count <= 0 || image.data.length < count * 4) return 0;
+  let sum = 0;
+  for (let index = 0; index < count; index += 1) {
+    const at = index * 4;
+    sum += luminanceOfSrgb(
+      (image.data[at] ?? 0) / 255,
+      (image.data[at + 1] ?? 0) / 255,
+      (image.data[at + 2] ?? 0) / 255,
+    );
+  }
+  return sum / count;
 }
 
 /** 源图预糊：逐行、逐列各做 `BLUR_PASSES` 遍盒式模糊，边界按镜像取，与纹理环绕方式一致。原地改写。 */

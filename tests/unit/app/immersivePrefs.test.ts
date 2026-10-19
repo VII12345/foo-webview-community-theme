@@ -7,12 +7,14 @@ import {
   chooseImmersiveFpsCap,
   chooseImmersiveHostFullscreen,
   chooseImmersiveTerrain,
+  chooseImmersiveTextBoost,
   chooseImmersiveWash,
   chooseWaveformMode,
   immersiveFpsCapAtom,
   immersiveHostFullscreenAtom,
   immersiveSceneAtom,
   immersiveTerrainAtom,
+  immersiveTextBoostAtom,
   immersiveWashAtom,
   waveformModeAtom,
 } from '../../../src/immersive/page/immersivePrefs.ts';
@@ -31,6 +33,7 @@ const saved = {
   'default-theme.immersive.fpsCap.v1': '60',
   'default-theme.immersive.waveformMode.v1': 'lanes',
   'default-theme.immersive.scene.v1': 'paper',
+  'default-theme.immersive.textBoost.v1': '70',
   'default-theme.immersive.perfOverlay.v1': 'on',
   'default-theme.immersive.components.v1': JSON.stringify({
     version: 1,
@@ -46,6 +49,7 @@ function prefs(store: Store) {
     fps: store.get(immersiveFpsCapAtom),
     waveform: store.get(waveformModeAtom),
     scene: store.get(immersiveSceneAtom),
+    textBoost: store.get(immersiveTextBoostAtom),
     perf: store.get(perfOverlayEnabledAtom),
     components: store.get(immersiveComponentsAtom).hidden,
   };
@@ -58,7 +62,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('沿用七个存储键，按 store 初始化一次，新 store 独立加载', () => {
+it('沿用九个存储键，按 store 初始化一次，新 store 独立加载', () => {
   const map = new Map(Object.entries(saved));
   const getItem = vi.fn((key: string) => map.get(key) ?? null);
   const setItem = vi.fn();
@@ -72,19 +76,20 @@ it('沿用七个存储键，按 store 初始化一次，新 store 独立加载',
     fps: 60,
     waveform: 'lanes',
     scene: 'paper',
+    textBoost: 70,
     perf: true,
     components: { 'paper/full': ['right.spectrum'] },
   });
   expect(new Set(getItem.mock.calls.map(([key]) => key))).toEqual(new Set(Object.keys(saved)));
-  expect(getItem).toHaveBeenCalledTimes(8);
+  expect(getItem).toHaveBeenCalledTimes(9);
   expect(setItem).not.toHaveBeenCalled();
   expect(paintFpsCap()).toBe(60);
   initializeImmersivePrefs(store);
-  expect(getItem).toHaveBeenCalledTimes(8);
+  expect(getItem).toHaveBeenCalledTimes(9);
   const another = createStore();
   initializeImmersivePrefs(another);
   expect(prefs(another)).toEqual(prefs(store));
-  expect(getItem).toHaveBeenCalledTimes(16);
+  expect(getItem).toHaveBeenCalledTimes(18);
 });
 
 it('先改设置但存储写入失败，再初始化不能用旧存档覆盖当前值', () => {
@@ -103,6 +108,7 @@ it('先改设置但存储写入失败，再初始化不能用旧存档覆盖当�
   chooseImmersiveHostFullscreen(store, false);
   chooseImmersiveFpsCap(store, 144);
   chooseWaveformMode(store, 'weighted');
+  chooseImmersiveTextBoost(store, 30);
   choosePerfOverlay(store, false);
   initializeImmersivePrefs(store);
   expect(prefs(store)).toEqual({
@@ -112,10 +118,11 @@ it('先改设置但存储写入失败，再初始化不能用旧存档覆盖当�
     fps: 144,
     waveform: 'weighted',
     scene: 'paper',
+    textBoost: 30,
     perf: false,
     components: { 'paper/full': ['right.spectrum'] },
   });
-  expect(getItem).toHaveBeenCalledTimes(8);
+  expect(getItem).toHaveBeenCalledTimes(9);
   expect(paintFpsCap()).toBe(144);
 });
 

@@ -449,7 +449,7 @@ test('展开 ↔ 图标态播 200 ms：窗格裁剪、内容位移，只在一�
   ]);
   // 收起途中窗格里还是展开态的内容；搜索框、分节标题与播放列表节当场淡出，停在透明。
   await expect(shell.nav.getByRole('button', { name: '新建', exact: true })).toHaveCount(1);
-  expect(await takeFades(page)).toEqual(Array(3).fill('1→0 0 forwards'));
+  expect(await takeFades(page)).toEqual(Array(4).fill('1→0 0 forwards'));
   await settleMotion(page);
   await expect(shell.nav.getByRole('button', { name: '新建', exact: true })).toHaveCount(0);
   await expect(shell.nav.getByRole('button', { name: '播放列表' })).toBeVisible();
@@ -463,7 +463,7 @@ test('展开 ↔ 图标态播 200 ms：窗格裁剪、内容位移，只在一�
     'translate 200 -212px 0 → 0 0',
   ]);
   // 展开时当场换上展开态，那几部分先透明着等 100 ms 再淡入。
-  expect(await takeFades(page)).toEqual(Array(3).fill('0→1 100 backwards'));
+  expect(await takeFades(page)).toEqual(Array(4).fill('0→1 100 backwards'));
   await settleMotion(page);
   // 收成图标态时封面墙多出一列，展开回来又少一列；两次换列都直接到位，一块都不滑。
   expect(await columns()).toBe(wide);
@@ -523,7 +523,7 @@ test('收起到一半又展开：窗格从此刻露出的宽度起步，半透�
   expect(inset).toBeGreaterThan(0);
   expect(inset).toBeLessThan(212);
   const fades = await takeFades(page);
-  expect(fades).toHaveLength(3);
+  expect(fades).toHaveLength(4);
   for (const fade of fades) expect(fade).toMatch(/^0\.\d+→1 0 backwards$/);
   expect(shell.errors).toEqual([]);
 });

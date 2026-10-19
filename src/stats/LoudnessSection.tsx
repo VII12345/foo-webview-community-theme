@@ -1,0 +1,94 @@
+import { Spinner } from '@fluentui/react-components';
+import { useAtomValueRawSync } from 'jotai/react';
+import { translateAtom } from '../i18n/locale.ts';
+import { headphoneRigAtom } from '../playback/soundPressurePrefs.ts';
+import { splUnit, type SplWeighting } from '../playback/splWeighting.ts';
+import { formatDuration } from './format.ts';
+import { loudnessStorageAtom, type LoudnessLoad, type LoudnessSummary } from './loudnessStats.ts';
+import type { StatsScope } from './statsRange.ts';
+import styles from './LoudnessSection.module.css';
+
+/** 播放统计里的耳机平均音量：只含 DX52 自动读数生效的耳机输出时段，按日/周/月/年聚合。 */
+export function LoudnessSection({
+  scope,
+  load,
+  summary,
+  weighting = 'A',
+}: {
+  readonly scope: StatsScope;
+  readonly load: LoudnessLoad | null;
+  readonly summary: LoudnessSummary | null;
+  readonly weighting?: SplWeighting;
+}) {
+  const t = useAtomValueRawSync(translateAtom);
+  const rig = useAtomValueRawSync(headphoneRigAtom);
+  const storage = useAtomValueRawSync(loudnessStorageAtom);
+  const nameOf = (id: string, fallback: string): string =>
+    rig.headphones.find((item) => item.id === id)?.name ?? fallback;
+  return (
+    <section className={styles.root} aria-label={t('stats.headphoneSpl')} data-stats-headphone-spl>
+      <h2>{t('stats.headphoneSpl')}</h2>
+      <p className={styles.hint}>{t('stats.headphoneSplHint')}</p>
+      {storage.lastFailure && (
+        <p className={styles.storageError} role="status" data-stats-loudness-storage="failed">
+          {t('stats.loudnessWriteFailed', {
+            code:
+              storage.lastFailure.code ??
+              (storage.lastFailure.win32 === null ? 'UNKNOWN' : `WIN32_${storage.lastFailure.win32}`),
+          })}
+        </p>
+      )}
+      {load === null ? (
+        <Spinner size="tiny" label={t('stats.loading')} />
+      ) : load.state === 'denied' || load.state === 'failed' ? (
+        <p className={styles.empty} role="status">
+          {t('stats.loudnessUnavailable')}
+        </p>
+      ) : summary && summary.perHeadphone.length > 0 ? (
+        <ul className={styles.list} data-stats-headphone-list>
+          {summary.perHeadphone.map((item) => (
+            <li key={item.id} data-stats-headphone={item.id}>
+              <span className={styles.name}>{nameOf(item.id, item.name)}</span>
+              <span className={styles.spl}>
+                {item.spl === null ? '—' : `${item.spl.toFixed(1)} ${splUnit(weighting)}`}
+              </span>
+              <span className={styles.time}>
+                {formatDuration(item.seconds + item.legacySeconds, t)}
+              </span>
+            </li>
+          ))}
+          <li className={styles.overall} data-stats-headphone-all>
+            <span className={styles.name}>{t('stats.allHeadphones')}</span>
+            <span className={styles.spl}>
+              {summary.overall.spl === null
+                ? '—'
+                : `${summary.overall.spl.toFixed(1)} ${splUnit(weighting)}`}
+            </span>
+            <span className={styles.time}>
+              {formatDuration(
+                summary.overall.seconds + summary.overall.legacySeconds,
+                t,
+              )}
+            </span>
+          </li>
+        </ul>
+      ) : (
+        <div
+          className={styles.emptyGroup}
+          data-stats-loudness-storage={storage.lastSampleAtMs === null ? 'no-sample' : 'pending'}
+        >
+          <p className={styles.empty} role="status">
+            {t('stats.headphoneSplEmpty')}
+          </p>
+          <p className={styles.hint}>
+            {t(
+              storage.lastSampleAtMs === null
+                ? 'stats.loudnessNoSample'
+                : 'stats.loudnessPending',
+            )}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}

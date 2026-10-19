@@ -5,7 +5,6 @@ import { hostFullRatePcm, hostPcmSource } from '../immersive/analysis/hostPcmSou
 import { startTrackAnalysis } from '../immersive/analysis/trackAnalysis.ts';
 import { startImmersiveCover } from '../immersive/cover/immersiveCover.ts';
 import { startTrackExtras } from '../immersive/fields/trackExtras.ts';
-import { startLiveLoudness } from '../immersive/gauges/liveLoudness.ts';
 import { startTrackDynamics } from '../immersive/gauges/trackDynamics.ts';
 import { NowPlayingPage } from '../immersive/page/NowPlayingPage.tsx';
 import { immersiveTerrainAtom, waveformModeAtom } from '../immersive/page/immersivePrefs.ts';
@@ -65,7 +64,6 @@ export function ImmersivePage() {
         stereo,
         startFullWaveform(store, { active }),
         startTrackDynamics(store, { source: hostFullRatePcm, active }),
-        startLiveLoudness(store, { active }),
         startTrackAnalysis(store, { wanted, source: hostPcmSource }),
       ];
       return {

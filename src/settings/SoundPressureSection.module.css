@@ -53,9 +53,62 @@
   gap: 4px;
 }
 
+.profile-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.imported {
+  margin: 0;
+  color: var(--colorPaletteGreenForeground1, var(--colorNeutralForeground2));
+  font-size: var(--fontSizeBase200);
+}
+
 .error {
   grid-column: 1 / -1;
   margin: 0;
   color: var(--colorPaletteRedForeground1);
   font-size: var(--fontSizeBase200);
+}
+
+.diagHint {
+  margin: 0 0 var(--spacingVerticalXS);
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+}
+
+.diagSummary {
+  display: grid;
+  gap: 2px;
+  margin-bottom: var(--spacingVerticalS);
+  color: var(--colorNeutralForeground2);
+  font-family: var(--fontFamilyMonospace);
+  font-size: var(--fontSizeBase200);
+  overflow-wrap: anywhere;
+}
+
+.diagActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacingHorizontalS);
+  margin-bottom: var(--spacingVerticalS);
+}
+
+.diagLog {
+  box-sizing: border-box;
+  max-height: 240px;
+  margin: 0;
+  padding: var(--spacingVerticalS) var(--spacingHorizontalM);
+  overflow: auto;
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground2);
+  font-family: var(--fontFamilyMonospace);
+  font-size: var(--fontSizeBase200);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { HEADPHONE_RIG_KEY } from '../../src/playback/soundPressure.ts';
+import { SPL_WEIGHTING_KEY } from '../../src/playback/splWeighting.ts';
 import { enterSettings, openSettings } from '../fixtures/settingsPage.ts';
 
 // 「耳机」设置组：耳放与耳机分开维护，当前设备用下拉切换；改动写宿主 config，刷新后还在。
@@ -26,6 +27,29 @@ test('DX52 自动读取开关与提示', async ({ page }) => {
   await expect(expander.getByText(/未授权/)).toBeVisible();
   await expect(settings.select('输出接口')).toBeVisible();
   await expect(settings.select('当前耳放')).toBeDisabled();
+  expect(settings.errors).toEqual([]);
+});
+
+test('声压加权默认 A，切换 K/Z 后持久化', async ({ page }) => {
+  const settings = await openSettings(page);
+  const expander = settings.expander('耳机输出估算');
+  const select = settings.select('声压加权');
+  await expect(select).toHaveText('A 加权');
+  await select.click();
+  await page.getByRole('option', { name: 'K 加权（BS.1770）', exact: true }).click();
+  await expect
+    .poll(() => settings.host.config.get(SPL_WEIGHTING_KEY))
+    .toBe('K');
+  await page.reload();
+  await enterSettings(page);
+  const reloaded = settings.expander('耳机输出估算');
+  await expect(settings.select('声压加权')).toHaveText('K 加权（BS.1770）');
+  await settings.select('声压加权').click();
+  await page.getByRole('option', { name: 'Z 加权（平坦）', exact: true }).click();
+  await expect
+    .poll(() => settings.host.config.get(SPL_WEIGHTING_KEY))
+    .toBe('Z');
+  expect(reloaded).toBeVisible();
   expect(settings.errors).toEqual([]);
 });
 
@@ -60,8 +84,15 @@ test('设置页增删改耳放与耳机，切换当前设备并持久化', async
   await expect(hpForm.getByRole('spinbutton', { name: '灵敏度', exact: true })).toHaveValue(
     '102.23',
   );
+  await hpForm.getByRole('combobox', { name: '测量配置', exact: true }).click();
+  await page.getByRole('option', { name: /FiiO FT1/ }).click();
   await hpForm.getByRole('button', { name: '保存', exact: true }).click();
   await expect(settings.row('Open 300')).toBeVisible();
+  await expect
+    .poll(() => settings.host.config.get(HEADPHONE_RIG_KEY))
+    .toMatchObject({
+      headphones: [{ name: 'Open 300', measurementProfileId: 'huihifi-ft1' }],
+    });
 
   // 切换当前设备。
   await settings.select('当前耳放').click();

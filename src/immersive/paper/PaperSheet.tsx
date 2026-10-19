@@ -4,6 +4,7 @@ import { PaperGauges } from '../gauges/PaperGauges.tsx';
 import { LyricLog } from '../lyrics/LyricLog.tsx';
 import { FocusLyricLog } from '../lyrics/FocusLyricLog.tsx';
 import { ImmersiveLyricsPlayer } from '../lyrics/ImmersiveLyricsPlayer.tsx';
+import { moduleHidden } from '../page/immersiveComponents.ts';
 import { PaperSpectrum } from '../spectrum/PaperSpectrum.tsx';
 import { SoundPressureCell } from '../sound/SoundPressureCell.tsx';
 import { PaperStereo } from '../stereo/PaperStereo.tsx';
@@ -40,8 +41,8 @@ export function PaperSheet({ geometry, variant = 'paper', hidden = new Set<strin
       <PaperMarks
         crosses={geometry.crosses}
         pad={geometry.pad}
-        showCrosses={!hidden.has('marks')}
-        showPad={!lyricsOnly && !hidden.has('pad')}
+        showCrosses={!moduleHidden(hidden, 'marks')}
+        showPad={!lyricsOnly && !moduleHidden(hidden, 'pad')}
       />
       <PaperDial dial={geometry.dial} column={fields} hidden={hidden} />
       <PaperFields
@@ -54,7 +55,7 @@ export function PaperSheet({ geometry, variant = 'paper', hidden = new Set<strin
           soundPressure: <SoundPressureCell variant="sheet" />,
           spectrum: variant === 'paper' ? <PaperSpectrum /> : null,
           waveform: <PaperWaveform />,
-          gauges: <PaperGauges />,
+          gauges: <PaperGauges hidden={hidden} />,
           lyrics: lyricsOnly ? (
             <ImmersiveLyricsPlayer />
           ) : variant === 'focus' ? (

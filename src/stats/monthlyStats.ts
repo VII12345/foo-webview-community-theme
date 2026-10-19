@@ -1,6 +1,12 @@
 import type { fb } from 'foo-webview-sdk/bridge';
 import { settle } from '../host/hostCall.ts';
 import initSqlJs from 'sql.js/dist/sql-wasm-inline.js';
+import {
+  previousRangeForScope,
+  rangeForScope,
+  rangeWhere,
+  type StatsScope,
+} from './statsRange.ts';
 
 /**
  * `foo_monthly_stats` 的统计读取：这个组件没有任何 API，唯一可读的是它在 profile 目录下的 SQLite 库
@@ -46,6 +52,19 @@ export interface StatsTrackRow {
   readonly plays: number;
 }
 
+/** 全部时间按曲目聚合的一行；`crc` 是插件自己的稳定曲目标识。 */
+export interface StatsSongRow {
+  readonly crc: string;
+  readonly title: string;
+  readonly artist: string;
+  readonly album: string;
+  readonly path: string;
+  readonly seconds: number;
+  readonly plays: number;
+  readonly firstYmd: string;
+  readonly lastYmd: string;
+}
+
 export interface StatsArtistRow {
   readonly artist: string;
   readonly seconds: number;
@@ -72,8 +91,11 @@ export interface StatsPeriod {
 
 export interface StatsData {
   readonly today: StatsPeriod;
+  readonly week: StatsPeriod;
   readonly month: StatsPeriod;
   readonly year: StatsPeriod;
+  /** 全部时间按曲目聚合，供“全部统计”里的所有歌曲表使用。 */
+  readonly songs: readonly StatsSongRow[];
 }
 
 /** 一张曲目表一行：时长、次数、标题、艺人。 */
@@ -84,47 +106,34 @@ interface CategoryRow {
   readonly artist: string;
 }
 
-/** 每期都要给的几条查询；`key` 是 `YYYY-MM-DD` 的前缀（今天整串、本月 `YYYY-MM`、今年 `YYYY`）。 */
-const PERIOD_QUERIES = {
-  totals: (key: string) =>
-    `SELECT COALESCE(SUM(total_time_seconds),0) AS seconds, COALESCE(SUM(playcount),0) AS plays,
-            COUNT(DISTINCT track_crc) AS tracks
-     FROM monthly_count WHERE ${bound('ymd', key)}`,
-  tracks: (key: string, hasPath: boolean) =>
-    `SELECT title, artist, ${hasPath ? 'MAX(path)' : "''"} AS path,
-            SUM(total_time_seconds) AS seconds, SUM(playcount) AS plays
-     FROM monthly_count WHERE ${bound('ymd', key)}
-     GROUP BY track_crc ORDER BY seconds DESC, plays DESC LIMIT 20`,
-  trend: (key: string) =>
-    `SELECT ymd, SUM(total_time_seconds) AS seconds, SUM(playcount) AS plays
-     FROM monthly_count WHERE ${bound('ymd', key)} GROUP BY ymd ORDER BY ymd`,
-  /** 上一期：整段移位（今天-1 天、本月-1 月、今年-1 年）由调用方把 key 换成上一期后再查。 */
-} as const;
-
-/** 前缀匹配：`ymd` 以 `key` 开头。整串相等时也成立（今天）。 */
-const bound = (column: string, key: string) => `${column} LIKE '${escapeLike(key)}%'`;
-
-/** SQL 字面量里的单引号转义，避免 key 里带引号时拼坏。 */
-const escapeLike = (value: string) => value.replace(/'/g, "''");
-
-/** 日期位移：把 `YYYY-MM-DD` / `YYYY-MM` / `YYYY` 各减一天/一月/一年。 */
-function shiftDate(ymd: string, unit: 'day' | 'month' | 'year'): string {
-  const parts = ymd.split('-').map(Number);
-  const year = parts[0] ?? 1970;
-  const month = parts[1];
-  const day = parts[2];
-  if (unit === 'year') return String(year - 1);
-  if (unit === 'month') {
-    const date = new Date(Date.UTC(year, (month ?? 1) - 1, 1));
-    date.setUTCMonth(date.getUTCMonth() - 1);
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
-  }
-  const date = new Date(Date.UTC(year, (month ?? 1) - 1, (day ?? 1)));
-  date.setUTCDate(date.getUTCDate() - 1);
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(
-    date.getUTCDate(),
-  ).padStart(2, '0')}`;
+/** 老版插件的库可能缺这些列；查询时按探测结果换成空串或 0。 */
+interface StatsColumns {
+  readonly path: boolean;
+  readonly album: boolean;
+  readonly playcount: boolean;
+  readonly totalTime: boolean;
 }
+
+const secondsExpr = (columns: StatsColumns): string =>
+  columns.totalTime ? 'total_time_seconds' : '0';
+const playsExpr = (columns: StatsColumns): string => (columns.playcount ? 'playcount' : '0');
+
+/** 每期都要给的几条查询；`where` 是 `ymd` 的闭区间条件，按 ISO 文本比较。 */
+const PERIOD_QUERIES = {
+  totals: (where: string, columns: StatsColumns) =>
+    `SELECT COALESCE(SUM(${secondsExpr(columns)}),0) AS seconds,
+            COALESCE(SUM(${playsExpr(columns)}),0) AS plays,
+            COUNT(DISTINCT track_crc) AS tracks
+     FROM monthly_count WHERE ${where}`,
+  tracks: (where: string, columns: StatsColumns) =>
+    `SELECT title, artist, ${columns.path ? 'MAX(path)' : "''"} AS path,
+            SUM(${secondsExpr(columns)}) AS seconds, SUM(${playsExpr(columns)}) AS plays
+     FROM monthly_count WHERE ${where}
+     GROUP BY track_crc ORDER BY seconds DESC, plays DESC LIMIT 20`,
+  trend: (where: string, columns: StatsColumns) =>
+    `SELECT ymd, SUM(${secondsExpr(columns)}) AS seconds, SUM(${playsExpr(columns)}) AS plays
+     FROM monthly_count WHERE ${where} GROUP BY ymd ORDER BY ymd`,
+} as const;
 
 /** 拆艺人：顿号、斜杠、分号、`feat.` 之类的常见写法；结果去重、去空。 */
 export function splitArtists(artist: string): string[] {
@@ -167,6 +176,9 @@ interface SqlDatabase {
 
 const num = (value: unknown): number => (typeof value === 'number' ? value : Number(value) || 0);
 const text = (value: unknown): string => (typeof value === 'string' ? value : '');
+/** `track_crc` 正常是文本，但旧库/异常库可能回数字；空值不要拼成 "null"。 */
+const idText = (value: unknown): string =>
+  typeof value === 'string' ? value : typeof value === 'number' ? String(value) : '';
 
 function firstRow(db: SqlDatabase, sql: string): Record<string, unknown> {
   const result = db.exec(sql);
@@ -185,27 +197,28 @@ function rows(db: SqlDatabase, sql: string): Record<string, unknown>[] {
 
 function periodOf(
   db: SqlDatabase,
-  key: string,
-  previousKey: string,
-  label: string,
-  hasPath: boolean,
+  scope: StatsScope,
+  now: Date,
+  columns: StatsColumns,
 ): StatsPeriod {
-  const totals = firstRow(db, PERIOD_QUERIES.totals(key));
-  const previous = firstRow(db, PERIOD_QUERIES.totals(previousKey));
-  const rawTracks = rows(db, PERIOD_QUERIES.tracks(key, hasPath)).map((row) => ({
+  const where = rangeWhere(rangeForScope(scope, now));
+  const previousWhere = rangeWhere(previousRangeForScope(scope, now));
+  const totals = firstRow(db, PERIOD_QUERIES.totals(where, columns));
+  const previous = firstRow(db, PERIOD_QUERIES.totals(previousWhere, columns));
+  const rawTracks = rows(db, PERIOD_QUERIES.tracks(where, columns)).map((row) => ({
     title: text(row['title']),
     artist: text(row['artist']),
     path: text(row['path']),
     seconds: num(row['seconds']),
     plays: num(row['plays']),
   }));
-  const trend = rows(db, PERIOD_QUERIES.trend(key)).map((row) => ({
+  const trend = rows(db, PERIOD_QUERIES.trend(where, columns)).map((row) => ({
     ymd: text(row['ymd']),
     seconds: num(row['seconds']),
     plays: num(row['plays']),
   }));
   return {
-    label,
+    label: scope,
     totals: {
       seconds: num(totals['seconds']),
       plays: num(totals['plays']),
@@ -222,29 +235,56 @@ function periodOf(
   };
 }
 
-/** 用本地的 `YYYY-MM-DD` 作今天（趋势与今天那期都用它）。 */
-function todayYmd(now: Date): string {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-    now.getDate(),
-  ).padStart(2, '0')}`;
+/** 一次读表结构，后面所有查询按实际存在的列拼接。 */
+function probeColumns(db: SqlDatabase): StatsColumns {
+  const names = new Set(
+    rows(db, 'PRAGMA table_info(monthly_count)').map((column) => text(column['name'])),
+  );
+  return {
+    path: names.has('path'),
+    album: names.has('album'),
+    playcount: names.has('playcount'),
+    totalTime: names.has('total_time_seconds'),
+  };
 }
 
-/** 打开内存里的库、算出三期数据。`bytes` 是 `foo_monthly_stats.db` 的字节。 */
+/** 全部时间按曲目聚合；与四个时段无关，供所有歌曲表使用。 */
+function queryAllSongs(db: SqlDatabase, columns: StatsColumns): StatsSongRow[] {
+  const sql = `SELECT track_crc AS crc,
+                      MAX(title) AS title, MAX(artist) AS artist,
+                      ${columns.album ? 'MAX(album)' : "''"} AS album,
+                      ${columns.path ? 'MAX(path)' : "''"} AS path,
+                      COALESCE(SUM(${secondsExpr(columns)}),0) AS seconds,
+                      COALESCE(SUM(${playsExpr(columns)}),0) AS plays,
+                      MIN(ymd) AS first_ymd, MAX(ymd) AS last_ymd
+               FROM monthly_count
+               GROUP BY track_crc
+               ORDER BY seconds DESC, plays DESC`;
+  return rows(db, sql).map((row) => ({
+    crc: idText(row['crc']),
+    title: text(row['title']),
+    artist: text(row['artist']),
+    album: text(row['album']),
+    path: text(row['path']),
+    seconds: num(row['seconds']),
+    plays: num(row['plays']),
+    firstYmd: text(row['first_ymd']),
+    lastYmd: text(row['last_ymd']),
+  }));
+}
+
+/** 打开内存里的库、算出四期数据与全部时间的所有歌曲。`bytes` 是 `foo_monthly_stats.db` 的字节。 */
 export async function queryStats(bytes: Uint8Array, now: Date): Promise<StatsData> {
   const SQL = await initSqlJs();
   const db = new SQL.Database(bytes) as unknown as SqlDatabase;
-  const today = todayYmd(now);
-  const month = today.slice(0, 7);
-  const year = today.slice(0, 4);
-  // 老版插件的库没有 path 列；直接 SELECT 会让整页 failed，先探测再决定查询。
-  const hasPath = rows(db, 'PRAGMA table_info(monthly_count)').some(
-    (column) => text(column['name']) === 'path',
-  );
+  const columns = probeColumns(db);
   try {
     return {
-      today: periodOf(db, today, shiftDate(today, 'day'), today, hasPath),
-      month: periodOf(db, month, shiftDate(month, 'month'), month, hasPath),
-      year: periodOf(db, year, shiftDate(year, 'year'), year, hasPath),
+      today: periodOf(db, 'today', now, columns),
+      week: periodOf(db, 'week', now, columns),
+      month: periodOf(db, 'month', now, columns),
+      year: periodOf(db, 'year', now, columns),
+      songs: queryAllSongs(db, columns),
     };
   } finally {
     db.close();

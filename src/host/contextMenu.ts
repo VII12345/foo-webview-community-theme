@@ -81,6 +81,11 @@ const LABELS = {
   properties: ['properties', '属性'],
   sendToPlaylist: ['send to playlist', '发送到播放列表'],
 };
+/** `foo_fileops` 的「移动到…」：英文原文与汉化版的常见写法；按前缀认，后缀可能带“文件夹”。 */
+const MOVE_TO_LABELS = ['move to', 'move files to', '移动到', '移动文件到'];
+const MOVE_TO_BARE = ['move', '移动'];
+/** 同一份菜单里容易和「移动」混淆的项：播放列表移动、拖放「移动到这里」、标签页左右移动。 */
+const NOT_MOVE_TO = ['playlist', '播放列表', 'here', '这里', 'left', 'right', '左边', '右边'];
 const RATING_VALUES = [1, 2, 3, 4, 5] as const;
 
 export interface RatingCommands {
@@ -97,6 +102,8 @@ export interface KnownCommands {
   /** 宿主的「发送到播放列表…」对话框，行数太多不便自己列目标时用。 */
   readonly sendToDialog: MenuCommand | null;
   readonly rating: RatingCommands | null;
+  /** `foo_fileops` 的「移动到…」：打开宿主的文件夹选择框并移动当前文件。 */
+  readonly moveTo: MenuCommand | null;
 }
 
 function collect(nodes: readonly MenuItem[], commands: MenuCommand[], submenus: MenuSubmenu[]) {
@@ -145,17 +152,26 @@ function ratingOf(submenus: readonly MenuSubmenu[]): RatingCommands | null {
   return { values, clear, current };
 }
 
-/** 从树里认出属性、发送到对话框与评分三样；认不出的为 null，对应的菜单项置灰。 */
+/** 从树里认出属性、发送到对话框、评分与「移动到…」；认不出的为 null，对应按钮置灰。 */
 export function knownCommandsOf(tree: ContextTree): KnownCommands {
   const commands: MenuCommand[] = [];
   const submenus: MenuSubmenu[] = [];
   collect(tree.roots, commands, submenus);
   const find = (labels: readonly string[]) =>
     usable(only(commands.filter((node) => labels.includes(normalizeLabel(node.label)))));
+  const moveTo = commands.filter((node) => {
+    const label = normalizeLabel(node.label);
+    const display = normalizeLabel(node.displayLabel ?? '');
+    const matches = (value: string) =>
+      MOVE_TO_BARE.includes(value) || MOVE_TO_LABELS.some((prefix) => value.startsWith(prefix));
+    if (!matches(label) && !matches(display)) return false;
+    return !NOT_MOVE_TO.some((bad) => label.includes(bad) || display.includes(bad));
+  });
   return {
     properties: find(LABELS.properties),
     sendToDialog: find(LABELS.sendToPlaylist),
     rating: ratingOf(submenus),
+    moveTo: usable(only(moveTo)),
   };
 }
 

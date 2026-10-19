@@ -13,6 +13,25 @@
   --paper-ring: var(--colorNeutralStencil1Alpha);
   --paper-cross: var(--colorNeutralStroke2);
   --paper-waveform-idle: var(--colorNeutralForegroundDisabled);
+  /* 文字提亮的基色：在根上先取到继承值，内容层再用它们与白色混合，避免自定义属性自引用。 */
+  --paper-fg1-base: var(--colorNeutralForeground1);
+  --paper-fg2-base: var(--colorNeutralForeground2);
+  --paper-fg3-base: var(--colorNeutralForeground3);
+  --paper-ink-base: var(--colorBrandForeground1);
+  --paper-hot-base: var(--colorBrandForeground2);
+  /* 对比度修正的目标色与混合比例；由 PaperScene 按封面亮度现算，0% 保持原色。 */
+  --paper-fg1-target: #fff;
+  --paper-fg1-pct: 0%;
+  --paper-fg2-target: #fff;
+  --paper-fg2-pct: 0%;
+  --paper-fg3-target: #fff;
+  --paper-fg3-pct: 0%;
+  --paper-ink-target: #fff;
+  --paper-ink-pct: 0%;
+  --paper-hot-target: #fff;
+  --paper-hot-pct: 0%;
+  --lyrics-active-target: #fff;
+  --lyrics-active-pct: 0%;
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -52,3 +71,43 @@
 }
 
 /* Focus uses the same paper and right-side pad as the default scene. */
+
+/* 歌词/卡片/卡片歌词三档：封面暗到一定程度时只提亮内容层的文字，背景与封面底色不变。
+   基色定义在 .paper 上、覆盖落在 [data-paper-content] 上，避免同名自定义属性自引用。 */
+.paper:is([data-scene='lyrics'], [data-scene='card'], [data-scene='cardLyrics'])
+  [data-paper-content] {
+  --colorNeutralForeground1: color-mix(
+    in srgb,
+    var(--paper-fg1-target) var(--paper-fg1-pct),
+    var(--paper-fg1-base)
+  );
+  --colorNeutralForeground2: color-mix(
+    in srgb,
+    var(--paper-fg2-target) var(--paper-fg2-pct),
+    var(--paper-fg2-base)
+  );
+  --colorNeutralForeground3: color-mix(
+    in srgb,
+    var(--paper-fg3-target) var(--paper-fg3-pct),
+    var(--paper-fg3-base)
+  );
+  --paper-ink: color-mix(
+    in srgb,
+    var(--paper-ink-target) var(--paper-ink-pct),
+    var(--paper-ink-base)
+  );
+  --paper-hot: color-mix(
+    in srgb,
+    var(--paper-hot-target) var(--paper-hot-pct),
+    var(--paper-hot-base)
+  );
+}
+
+/* 当前行强调色只在确实要修正时覆盖；0% 时没有这个变量，LyricsPlayer 回退到原 accent。 */
+.paper[data-lyrics-boost] [data-paper-content] {
+  --lyrics-active: color-mix(
+    in srgb,
+    var(--lyrics-active-target) var(--lyrics-active-pct),
+    var(--accent)
+  );
+}

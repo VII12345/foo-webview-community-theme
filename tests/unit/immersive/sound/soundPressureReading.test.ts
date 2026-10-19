@@ -17,6 +17,7 @@ const state: Dx52State = {
   lineMode: 'preamp',
   balanceDb: 0,
   updatedAtMs: 1,
+  partial: false,
 };
 
 const connected = { kind: 'connected' } as const;
@@ -31,16 +32,23 @@ describe('DX5 II 自动读数', () => {
     });
   });
 
-  it('WebHID 不可用、未授权、关机分别给出原因', () => {
+  it('WebHID 不可用、未授权、等待设备、关机分别给出原因', () => {
     expect(dx52Reading(true, { kind: 'unsupported' }, null, 'auto').reason).toBe(
       'unsupported',
     );
     expect(dx52Reading(true, { kind: 'unauthorized' }, null, 'auto').reason).toBe(
       'unauthorized',
     );
+    expect(dx52Reading(true, { kind: 'waiting' }, null, 'auto').reason).toBe('waiting');
     expect(
       dx52Reading(true, connected, { ...state, powered: false }, 'auto').reason,
     ).toBe('off');
+    expect(
+      dx52Reading(true, connected, { ...state, powered: false, partial: true }, 'auto').reason,
+    ).toBe('partial');
+    expect(
+      dx52Reading(true, connected, { ...state, partial: true }, 'auto').active,
+    ).toBe(true);
   });
 
   it('USB、耳机输出且当前 foobar 输出名不匹配时也生效', () => {

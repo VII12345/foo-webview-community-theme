@@ -1,6 +1,10 @@
 import type { PaperTier } from './paperTiers.ts';
 import type { ImmersiveScene } from '../page/immersivePrefs.ts';
-import { panelsFor } from '../page/immersiveComponents.ts';
+import {
+  groupVisible,
+  panelsFor,
+  type ImmersivePanelId,
+} from '../page/immersiveComponents.ts';
 
 /** full 舞台右侧可重排的纵向块。 */
 export interface StageRightTops {
@@ -18,9 +22,9 @@ export interface StageRightTops {
 interface Band {
   readonly top: number;
   readonly height: number;
-  readonly ids: readonly string[];
+  readonly ids: readonly ImmersivePanelId[];
   /** 每个模块的实际高度；只给同一条带里高度不同的媒体行。 */
-  readonly heights?: Readonly<Record<string, number>>;
+  readonly heights?: Partial<Record<ImmersivePanelId, number>>;
 }
 
 const PAPER_BANDS: readonly Band[] = [
@@ -54,9 +58,9 @@ function shownIn(
   scene: ImmersiveScene,
   tier: PaperTier,
   hidden: ReadonlySet<string>,
-  id: string,
+  id: ImmersivePanelId,
 ): boolean {
-  return panelsFor(scene, tier).has(id as never) && !hidden.has(id);
+  return groupVisible(scene, tier, hidden, id);
 }
 
 function applyBands(
@@ -157,8 +161,7 @@ export function cardTops(
   scene: ImmersiveScene,
   hidden: ReadonlySet<string>,
 ): CardTops {
-  const available = panelsFor(scene, 'full');
-  const show = (id: string) => available.has(id as never) && !hidden.has(id);
+  const show = (id: ImmersivePanelId) => groupVisible(scene, 'full', hidden, id);
   let cursor = 220;
   const cover = show('card.cover') ? cursor : null;
   if (cover !== null) cursor += 480; // 460 封面 + 20 间隔

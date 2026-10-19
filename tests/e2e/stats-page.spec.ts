@@ -41,12 +41,16 @@ test('侧边栏打开播放统计页，读出概览、Top 榜与趋势', async (
   const env = await openPlayer(page, {
     onHost(host) {
       host.answer('file.exists', () => ({ success: true, path: DB_PATH, exists: true }));
-      host.answer('file.read', () => ({
-        success: true,
-        content: base64,
-        size: base64.length,
-        encoding: 'base64',
-      }));
+      host.answer('file.read', (params) => {
+        if (String(params['path'] ?? '').endsWith('loudness-v2.json'))
+          return { success: false, error: 'not found', code: 'NOT_FOUND' };
+        return {
+          success: true,
+          content: base64,
+          size: base64.length,
+          encoding: 'base64',
+        };
+      });
     },
   });
   const nav = page.getByRole('navigation', { name: '侧边栏' });
@@ -70,6 +74,7 @@ test('侧边栏打开播放统计页，读出概览、Top 榜与趋势', async (
   await expect(stats.locator('[data-stats-trend] [data-stats-bar]')).toHaveCount(1);
   await expect(stats.locator('[data-stats-bar-value]')).toHaveCount(1);
   await expect(stats.locator('[data-stats-bar-value]')).toHaveText('40:00');
+  await expect(stats.locator('[data-stats-total-spl]')).toContainText('—');
   expect(env.errors).toEqual([]);
 });
 
@@ -78,12 +83,16 @@ test('趋势点多时只标最高柱与首尾日期', async ({ page }) => {
   const env = await openPlayer(page, {
     onHost(host) {
       host.answer('file.exists', () => ({ success: true, path: DB_PATH, exists: true }));
-      host.answer('file.read', () => ({
-        success: true,
-        content: base64,
-        size: base64.length,
-        encoding: 'base64',
-      }));
+      host.answer('file.read', (params) => {
+        if (String(params['path'] ?? '').endsWith('loudness-v2.json'))
+          return { success: false, error: 'not found', code: 'NOT_FOUND' };
+        return {
+          success: true,
+          content: base64,
+          size: base64.length,
+          encoding: 'base64',
+        };
+      });
     },
   });
   await page.getByRole('navigation', { name: '侧边栏' }).getByRole('button', { name: '播放统计', exact: true }).click();
@@ -123,5 +132,119 @@ test('宿主按路径安全拒读时写明原因，不显示成「没有统计�
   await expect(empty).toHaveAttribute('data-stats-state', 'denied');
   await expect(empty).toContainText('路径安全');
   await expect(empty).not.toContainText('还没有播放统计');
+  expect(env.errors).toEqual([]);
+});
+
+function loudnessJson(): string {
+  const now = new Date();
+  const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+    now.getDate(),
+  ).padStart(2, '0')}`;
+  return JSON.stringify({
+    version: 2,
+    days: {
+      [ymd]: {
+        'hp-1': {
+          name: 'M1',
+          seconds: 100,
+          energyA: 1e10,
+          energyK: 1e10,
+          energyZ: 1e10,
+        },
+        'hp-2': {
+          name: 'JT7',
+          seconds: 50,
+          energyA: 5e9,
+          energyK: 5e9,
+          energyZ: 5e9,
+        },
+      },
+    },
+  });
+}
+
+test('本周范围与耳机平均音量：按耳机与全部耳机展示', async ({ page }) => {
+  const base64 = await statsDbBase64();
+  const loudness = loudnessJson();
+  const env = await openPlayer(page, {
+    onHost(host) {
+      host.answer('file.exists', () => ({ success: true, path: DB_PATH, exists: true }));
+      host.answer('file.read', (params) => {
+        const path = String(params['path'] ?? '');
+        if (path.endsWith('loudness-v2.json'))
+          return { success: true, content: loudness, size: loudness.length, encoding: 'utf8' };
+        return { success: true, content: base64, size: base64.length, encoding: 'base64' };
+      });
+    },
+  });
+  await page
+    .getByRole('navigation', { name: '侧边栏' })
+    .getByRole('button', { name: '播放统计', exact: true })
+    .click();
+  await expect(page.locator('[data-stats-page]')).toBeVisible();
+  await page.locator('[data-stats-scope="week"]').click();
+  await expect(page.locator('[data-stats-scope="week"]')).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  const section = page.locator('[data-stats-headphone-spl]');
+  await expect(section).toBeVisible();
+  await expect(section).toContainText('耳机平均音量');
+  await expect(section.locator('[data-stats-headphone]')).toHaveCount(2);
+  await expect(section).toContainText('M1');
+  await expect(section).toContainText('JT7');
+  await expect(section).toContainText('80.0 dBA');
+  await expect(section.locator('[data-stats-headphone-all]')).toContainText('全部耳机');
+  await expect(page.locator('[data-stats-total-spl]')).toContainText('80.0 dBA');
+  await expect(page.locator('[data-stats-total-headphone-time]')).toContainText('2 分');
+
+  const loudnessReads = () =>
+    env.host
+      .callsTo('file.read')
+      .filter((call) => String(call['path'] ?? '').endsWith('loudness-v2.json')).length;
+  const beforeReads = loudnessReads();
+  await page.getByRole('button', { name: '全部统计', exact: true }).click();
+  await expect(page.locator('[data-stats-page]')).toHaveAttribute('data-stats-view', 'details');
+  await expect(page.locator('[data-stats-detail-overview-row]')).toHaveCount(4);
+  await expect(page.locator('[data-stats-detail-spl]')).toContainText('M1');
+  await expect(page.locator('[data-stats-detail-spl]')).toContainText('JT7');
+  await expect(page.locator('[data-stats-detail-headphone-all]')).toContainText('全部耳机');
+  await expect(page.locator('[data-stats-detail-duration]')).toContainText('M1');
+  await expect(page.locator('[data-stats-detail-duration-headphone]')).toHaveCount(2);
+  await expect(page.locator('[data-stats-detail-duration-all]')).toContainText('全部耳机');
+  await expect(page.locator('[data-stats-all-songs]')).toContainText('晨曲');
+  await expect(page.locator('[data-stats-songs-row]')).toHaveCount(2);
+  await expect(page.locator('[data-stats-detail-period]')).toHaveCount(4);
+  await expect(page.locator('[data-stats-top-artists]')).toHaveCount(4);
+  await expect(page.locator('[data-stats-top-tracks]')).toHaveCount(0);
+  expect(loudnessReads()).toBe(beforeReads);
+  await page.getByRole('button', { name: '返回', exact: true }).click();
+  await expect(page.locator('[data-stats-page]')).toHaveAttribute('data-stats-view', 'main');
+  await expect(page.locator('[data-stats-scope="week"]')).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  expect(env.errors).toEqual([]);
+});
+
+test('统计库不存在时耳机音量仍独立显示', async ({ page }) => {
+  const loudness = loudnessJson();
+  const env = await openPlayer(page, {
+    onHost(host) {
+      host.answer('file.exists', () => ({ success: true, path: DB_PATH, exists: false }));
+      host.answer('file.read', (params) => {
+        if (String(params['path'] ?? '').endsWith('loudness-v2.json'))
+          return { success: true, content: loudness, size: loudness.length, encoding: 'utf8' };
+        return { success: false, error: 'not found', code: 'NOT_FOUND' };
+      });
+    },
+  });
+  await page
+    .getByRole('navigation', { name: '侧边栏' })
+    .getByRole('button', { name: '播放统计', exact: true })
+    .click();
+  await expect(page.locator('[data-stats-empty]')).toBeVisible();
+  await expect(page.locator('[data-stats-headphone-spl]')).toBeVisible();
+  await expect(page.locator('[data-stats-headphone-spl]')).toContainText('M1');
   expect(env.errors).toEqual([]);
 });

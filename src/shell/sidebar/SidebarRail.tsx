@@ -31,6 +31,7 @@ import {
 import { sidebarPrefsAtom } from '../../nav/sidebar/sidebarPrefs.ts';
 import { useSelectionIndicator } from '../../kit/useSelectionIndicator.ts';
 import { useService } from '../../kit/useService.ts';
+import { SidebarHeadphonesRail } from './SidebarHeadphones.tsx';
 
 /** 图标态里代表整个播放列表节的那一项的选中键。 */
 const RAIL_PLAYLISTS = 'rail:playlists';
@@ -183,6 +184,9 @@ export function SidebarRail() {
       <NavDivider className={classes.divider} {...PANE_ONLY} />
       {/* 资料库那一节在展开态里收着时，这几项也只在图标态里有。 */}
       {LIBRARY_ITEMS.map((item) => entry(item, false, !sections.library))}
+      <div className={styles.anchor}>
+        <SidebarHeadphonesRail />
+      </div>
       <NavDivider className={classes.divider} {...PANE_ONLY} />
       <div ref={anchor} className={styles.anchor} {...PANE_ONLY}>
         <SidebarItem

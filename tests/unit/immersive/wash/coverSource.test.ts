@@ -2,6 +2,7 @@ import type { Track } from 'foo-webview-sdk';
 import { createStore } from 'jotai/vanilla';
 import { describe, expect, onTestFinished, test, vi } from 'vitest';
 import {
+  coverLumaAtom,
   coverSourceAtom,
   startCoverSource,
   type CoverSampler,
@@ -25,6 +26,7 @@ import {
 import { hostFailure } from '../../../fixtures/hostAnswers.ts';
 import { makeTrack } from '../../../fixtures/tracks.ts';
 import { installFakeHost, type UnitHost } from '../../../fixtures/unitHost.ts';
+import { luminanceOfSrgb } from '../../../../src/theme/luminance.ts';
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -138,6 +140,15 @@ describe('startCoverSource', () => {
     expect(log.closed).toBe(1);
     expect(current()).toStrictEqual({ token: 1, image: blurred(pixelsOf(1)) });
     expect(current()?.image.data, '预糊过，不是原图').not.toStrictEqual(pixelsOf(1));
+  });
+
+  test('coverLumaAtom：源图就绪后给出平均线性亮度，没有源图时为 null', async () => {
+    const host = installFakeHost();
+    const flat = new Uint8ClampedArray(SOURCE_SIZE * SOURCE_SIZE * 4).fill(128);
+    const { store, show } = await start(host, async () => flat);
+    expect(store.get(coverLumaAtom)).toBeNull();
+    await show(FEATHER);
+    expect(store.get(coverLumaAtom)).toBeCloseTo(luminanceOfSrgb(128 / 255, 128 / 255, 128 / 255), 9);
   });
 
   test('新封面加载期间留着上一张，解码成功、取样完才换', async () => {

@@ -113,6 +113,7 @@ export const lyricsZhCN = {
   'lyrics.backgroundLast': '背景人声始终放在主唱下方',
   'lyrics.overscan': '屏外渲染距离 (px)',
   'lyrics.search': '搜索歌词',
+  'lyrics.searchClose': '关闭搜索',
   'lyrics.preview': '歌词预览',
   'lyrics.details': '歌词详情',
   'lyrics.timing': '时间校正',

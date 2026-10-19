@@ -1,6 +1,9 @@
 import { Button, Input, Switch, Tooltip } from '@fluentui/react-components';
 import {
   Add16Regular,
+  ArrowClockwise16Regular,
+  ArrowDownload16Regular,
+  Copy16Regular,
   Delete16Regular,
   Edit16Regular,
   Headphones20Regular,
@@ -29,11 +32,24 @@ import {
   type SensitivityUnit,
 } from '../playback/soundPressure.ts';
 import { soundPressureKey } from '../playback/soundPressurePrefs.ts';
+import { HEADPHONE_MEASUREMENT_OPTIONS } from '../playback/headphoneMeasurementOptions.ts';
+import {
+  customHeadphoneMeasurementsKey,
+  type CustomHeadphoneMeasurement,
+} from '../playback/customHeadphoneMeasurements.ts';
+import { CustomMeasurementList } from './CustomMeasurementList.tsx';
+import { MeasurementImportDialog } from './MeasurementImportDialog.tsx';
+import {
+  SPL_WEIGHTING_KEY,
+  SPL_WEIGHTINGS,
+  type SplWeighting,
+} from '../playback/splWeighting.ts';
 import {
   dx52OutputInfo,
   type Dx52Jack,
 } from '../playback/dx52.ts';
-import { DX52_AUTO_KEY, DX52_JACK_KEY, dx52Key } from '../playback/dx52Prefs.ts';
+import { DX52_AUTO_KEY, DX52_JACK_KEY, dx52Key, formatDx52Diagnostics } from '../playback/dx52Prefs.ts';
+import { copyText } from './hostActions.ts';
 import { SettingsExpander } from './SettingsExpander.tsx';
 import { SettingsRow } from './SettingsRow.tsx';
 import { SettingsSaveNotice } from './SettingsSaveNotice.tsx';
@@ -55,6 +71,7 @@ type HeadphoneDraft = {
   readonly impedance: string;
   readonly sensitivity: string;
   readonly unit: SensitivityUnit;
+  readonly measurementProfileId: string | null;
 };
 
 type Draft = AmpDraft | HeadphoneDraft;
@@ -120,18 +137,47 @@ function AmpForm({
 function HeadphoneForm({
   draft,
   failed,
+  customProfiles,
   onChange,
   onSave,
   onCancel,
 }: {
   readonly draft: HeadphoneDraft;
   readonly failed: boolean;
+  readonly customProfiles: readonly CustomHeadphoneMeasurement[];
   readonly onChange: (draft: HeadphoneDraft) => void;
   readonly onSave: () => void;
   readonly onCancel: () => void;
 }) {
   const t = useAtomValueRawSync(translateAtom);
   const unitId = useId();
+  const profileId = useId();
+  const [importOpen, setImportOpen] = useState(false);
+  const [importedName, setImportedName] = useState<string | null>(null);
+  const profileOptions = [
+    { value: '', label: t('settings.measurementProfileNone') },
+    ...HEADPHONE_MEASUREMENT_OPTIONS.map((option) => ({
+      value: option.id,
+      label: option.name,
+      description: t('settings.measurementProfileBundled'),
+    })),
+    ...customProfiles.map((profile) => ({
+      value: profile.id,
+      label: profile.name,
+      description: t('settings.measurementProfileCustom'),
+    })),
+    ...(draft.measurementProfileId &&
+    !HEADPHONE_MEASUREMENT_OPTIONS.some((option) => option.id === draft.measurementProfileId) &&
+    !customProfiles.some((profile) => profile.id === draft.measurementProfileId)
+      ? [
+          {
+            value: draft.measurementProfileId,
+            label: t('settings.measurementProfileMissing'),
+            description: '',
+          },
+        ]
+      : []),
+  ];
   const changeUnit = (unit: SensitivityUnit) => {
     if (unit === draft.unit) return;
     const impedance = Number(draft.impedance);
@@ -199,6 +245,42 @@ function HeadphoneForm({
           </Button>
         </div>
       </div>
+      <div className={`${styles.field} ${styles.wide}`}>
+        <span id={profileId}>{t('settings.measurementProfile')}</span>
+        <div className={styles['profile-row']}>
+          <SettingsSelect
+            labelId={profileId}
+            descriptionId={profileId}
+            options={profileOptions}
+            value={draft.measurementProfileId ?? ''}
+            onChange={(value) => {
+              setImportedName(null);
+              onChange({ ...draft, measurementProfileId: value || null });
+            }}
+          />
+          <Button
+            size="small"
+            icon={<ArrowDownload16Regular />}
+            onClick={() => setImportOpen(true)}
+          >
+            {t('settings.measurementImport')}
+          </Button>
+        </div>
+        {importedName && (
+          <p className={styles.imported} role="status">
+            {t('settings.measurementImportDone', { name: importedName })}
+          </p>
+        )}
+        {importOpen && (
+          <MeasurementImportDialog
+            onClose={() => setImportOpen(false)}
+            onImported={({ id, name }) => {
+              setImportedName(name);
+              onChange({ ...draft, measurementProfileId: id });
+            }}
+          />
+        )}
+      </div>
       {failed && <p className={styles.error} role="alert">{t('settings.saveFailed')}</p>}
       <div className={`${styles.actions} ${styles.wide}`}>
         <Button appearance="primary" onClick={onSave}>
@@ -213,15 +295,44 @@ function HeadphoneForm({
 }
 
 /** 「耳机」组：耳放与耳机分开维护，当前设备用下拉切换；改动写宿主 config，设置页与沉浸浮层共用。 */
+/** 真机诊断面板默认隐藏；排查时改成 true 即可恢复，记录与复制代码保留。 */
+const SHOW_DX52_DIAGNOSTICS = false;
+
 export function SoundPressureSection() {
   const t = useAtomValueRawSync(translateAtom);
   const service = useService(soundPressureKey);
+  const customMeasurements = useService(customHeadphoneMeasurementsKey);
   const dx52 = useService(dx52Key);
   const rig = useAtomValueRawSync(service.rig);
+  const customProfiles = useAtomValueRawSync(customMeasurements.profiles);
+  const weighting = useAtomValueRawSync(service.weighting);
   const dx52Enabled = useAtomValueRawSync(dx52.enabled);
   const dx52Jack = useAtomValueRawSync(dx52.jack);
   const dx52Status = useAtomValueRawSync(dx52.status);
   const dx52State = useAtomValueRawSync(dx52.state);
+  const dx52Diagnostics = useAtomValueRawSync(dx52.diagnostics);
+  const descriptor = dx52Diagnostics.descriptor;
+  const reportList = (reports: readonly { reportId: number; length: number }[]): string =>
+    reports.length ? reports.map((report) => `${report.reportId}@${report.length}`).join(',') : '—';
+  const descriptorText = descriptor
+    ? `collections=${descriptor.collectionCount} input=${reportList(
+        descriptor.inputs,
+      )} output=${reportList(descriptor.outputs)} feature=${reportList(descriptor.features)}`
+    : 'unavailable';
+  const transport = dx52Diagnostics.transport;
+  const transportText = `send=${
+    transport.send ? `${transport.send.kind}#${transport.send.reportId}@${transport.send.length}` : '—'
+  } receive=${
+    transport.receive
+      ? `${transport.receive.kind}#${transport.receive.reportId ?? '—'}`
+      : '—'
+  } locked=${transport.locked}`;
+  const [copied, setCopied] = useState(false);
+  const copyDiagnostics = async () => {
+    if (!(await copyText(formatDx52Diagnostics(dx52Diagnostics)))) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
   const [draft, setDraft] = useState<Draft | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -246,6 +357,7 @@ export function SoundPressureSection() {
       impedance: String(item?.impedanceOhm ?? HEADPHONE_IMPEDANCE_DEFAULT),
       sensitivity: String(item?.sensitivity ?? HEADPHONE_SENS_DEFAULT),
       unit: item?.sensitivityUnit ?? 'dbPerMw',
+      measurementProfileId: item?.measurementProfileId ?? null,
     });
     setConfirm(null);
     setFailed(false);
@@ -277,7 +389,13 @@ export function SoundPressureSection() {
         setFailed(true);
         return;
       }
-      const input = { name, impedanceOhm, sensitivity, sensitivityUnit: draft.unit };
+      const input = {
+        name,
+        impedanceOhm,
+        sensitivity,
+        sensitivityUnit: draft.unit,
+        measurementProfileId: draft.measurementProfileId,
+      };
       if (draft.id) service.updateHeadphone(draft.id, input);
       else if (!service.addHeadphone(input)) {
         setFailed(true);
@@ -320,14 +438,20 @@ export function SoundPressureSection() {
     { value: 'single', label: t('settings.dx52JackSingle') },
     { value: 'balanced', label: t('settings.dx52JackBalanced') },
   ];
+  const weightingOptions = SPL_WEIGHTINGS.map((value) => ({
+    value,
+    label: t(`settings.splWeighting${value}`),
+  }));
   const dx52Description = (() => {
     if (!dx52Enabled) return t('settings.dx52OffHint');
     if (dx52Status.kind === 'unsupported') return t('settings.dx52Unsupported');
     if (dx52Status.kind === 'unauthorized') return t('settings.dx52Unauthorized');
+    if (dx52Status.kind === 'waiting') return t('settings.dx52Waiting');
     if (dx52Status.kind === 'connecting') return t('settings.dx52Connecting');
     if (dx52Status.kind === 'busy') return t('settings.dx52Busy');
     if (dx52Status.kind === 'error') return t('settings.dx52Error');
     if (!dx52State) return t('settings.dx52Connecting');
+    if (dx52State.partial) return t('settings.dx52Partial');
     if (!dx52State.powered) return t('settings.dx52PoweredOff');
     if (dx52State.input !== 'usb') return t('settings.dx52NotUsb');
     const output = dx52OutputInfo(dx52State.route, dx52Jack);
@@ -339,11 +463,16 @@ export function SoundPressureSection() {
         : '';
     return `${dx52State.deviceName || 'TOPPING DX5 II'} · ${output.label} · ${gain} · ${dx52State.volumeDb.toFixed(1)} dB${rate}`;
   })();
-  const dx52CanAuthorize =
-    dx52Enabled &&
-    (dx52Status.kind === 'unauthorized' ||
-      dx52Status.kind === 'busy' ||
-      dx52Status.kind === 'error');
+  const dx52Action: {
+    readonly label: 'settings.dx52Authorize' | 'settings.dx52Retry';
+    run(): void;
+  } | null = !dx52Enabled
+    ? null
+    : dx52Status.kind === 'unauthorized' || dx52Status.kind === 'waiting'
+      ? { label: 'settings.dx52Authorize', run: () => dx52.authorize() }
+      : dx52Status.kind === 'error' || dx52Status.kind === 'busy'
+        ? { label: 'settings.dx52Retry', run: () => dx52.retry() }
+        : null;
   return (
     <SettingsExpander
       icon={<Headphones20Regular />}
@@ -353,7 +482,7 @@ export function SoundPressureSection() {
         <>
           <SettingsSaveNotice
             persistence={service.persistence}
-            keys={[HEADPHONE_RIG_KEY]}
+            keys={[HEADPHONE_RIG_KEY, SPL_WEIGHTING_KEY]}
           />
           <SettingsSaveNotice
             persistence={dx52.persistence}
@@ -373,9 +502,9 @@ export function SoundPressureSection() {
                 onChange={(_, data) => dx52.setEnabled(data.checked)}
               />
             </Tooltip>
-            {dx52CanAuthorize && (
-              <Button size="small" onClick={() => dx52.authorize()}>
-                {t('settings.dx52Authorize')}
+            {dx52Action && (
+              <Button size="small" onClick={() => dx52Action.run()}>
+                {t(dx52Action.label)}
               </Button>
             )}
           </div>
@@ -393,6 +522,16 @@ export function SoundPressureSection() {
           )}
         </SettingsRow>
       )}
+      <SettingsRow title={t('settings.splWeighting')} description={t('settings.splWeightingHint')} field>
+        {(ids) => (
+          <SettingsSelect
+            {...ids}
+            options={weightingOptions}
+            value={weighting}
+            onChange={(value) => service.setWeighting(value as SplWeighting)}
+          />
+        )}
+      </SettingsRow>
       <SettingsRow title={t('settings.currentAmp')} field>
         {(ids) => (
           <SettingsSelect
@@ -485,6 +624,7 @@ export function SoundPressureSection() {
               key={headphone.id}
               draft={draft}
               failed={failed}
+              customProfiles={customProfiles}
               onChange={setDraft}
               onSave={save}
               onCancel={() => setDraft(null)}
@@ -526,6 +666,7 @@ export function SoundPressureSection() {
           <HeadphoneForm
             draft={draft}
             failed={failed}
+            customProfiles={customProfiles}
             onChange={setDraft}
             onSave={save}
             onCancel={() => setDraft(null)}
@@ -542,6 +683,68 @@ export function SoundPressureSection() {
           </Button>
         </div>
       </div>
+      <div className={styles.group}>
+        <h3 className={styles.groupTitle}>{t('settings.customMeasurements')}</h3>
+        <CustomMeasurementList
+          onDeleted={(id) => {
+            if (draft?.kind === 'headphone' && draft.measurementProfileId === id) {
+              setDraft({ ...draft, measurementProfileId: null });
+            }
+          }}
+        />
+      </div>
+      {/* 默认关闭；把 SHOW_DX52_DIAGNOSTICS 改成 true 恢复面板。 */}
+      {SHOW_DX52_DIAGNOSTICS && dx52Enabled && (
+        <div className={styles.group} data-dx52-diagnostics>
+          <h3 className={styles.groupTitle}>{t('settings.dx52Diagnostics')}</h3>
+          <p className={styles.diagHint}>{t('settings.dx52DiagnosticsHint')}</p>
+          <div
+            className={styles.diagSummary}
+            data-dx52-diag-status={dx52Diagnostics.status.kind}
+            data-dx52-diag-snapshot={`total=${dx52Diagnostics.snapshot.total} received=${dx52Diagnostics.snapshot.received}`}
+            data-dx52-diag-missing={dx52Diagnostics.snapshot.missing.join(',')}
+          >
+            <span>
+              {t('settings.dx52DiagStatus')}: {dx52Diagnostics.status.kind}
+            </span>
+            <span>
+              {t('settings.dx52DiagSnapshot')}: total={dx52Diagnostics.snapshot.total} · received=
+              {dx52Diagnostics.snapshot.received}/{dx52Diagnostics.snapshot.expected}
+              {dx52Diagnostics.snapshot.missing.length
+                ? ` · missing=${dx52Diagnostics.snapshot.missing.join(',')}`
+                : ''}
+            </span>
+            <span data-dx52-diag-descriptor={descriptorText}>
+              {t('settings.dx52DiagDescriptor')}: {descriptorText}
+            </span>
+            <span data-dx52-diag-transport={transportText}>
+              {t('settings.dx52DiagTransport')}: {transportText}
+            </span>
+            <span>
+              {t('settings.dx52DiagLastError')}: {dx52Diagnostics.lastError ?? '—'}
+            </span>
+          </div>
+          <div className={styles.diagActions}>
+            <Button
+              size="small"
+              icon={<Copy16Regular />}
+              onClick={() => void copyDiagnostics()}
+            >
+              {t(copied ? 'settings.dx52Copied' : 'settings.dx52Copy')}
+            </Button>
+            <Button
+              size="small"
+              icon={<ArrowClockwise16Regular />}
+              onClick={() => dx52.retry()}
+            >
+              {t('settings.dx52Reread')}
+            </Button>
+          </div>
+          <pre className={styles.diagLog} data-dx52-diag-log>
+            {formatDx52Diagnostics(dx52Diagnostics)}
+          </pre>
+        </div>
+      )}
     </SettingsExpander>
   );
 }

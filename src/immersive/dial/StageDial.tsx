@@ -1,6 +1,7 @@
 import { useAtomValueRawSync } from 'jotai/react';
 import type { CSSProperties } from 'react';
 import { currentTrackAtom } from '../../playback/playback.ts';
+import { moduleHidden } from '../page/immersiveComponents.ts';
 import { STAGE_COVER, STAGE_DIAL, STAGE_ORBIT, STAGE_RINGS, STAGE_TICKS, STAGE_TRANSPORT } from '../paper/paperStage.ts';
 import { DialCells } from './DialCells.tsx';
 import { DialCover } from './DialCover.tsx';
@@ -61,7 +62,7 @@ export function StageDial({
   readonly hidden?: ReadonlySet<string>;
 } = {}) {
   const track = useAtomValueRawSync(currentTrackAtom);
-  const show = (id: string) => !hidden.has(id);
+  const show = (id: string) => !moduleHidden(hidden, id as never);
   return (
     <div className={styles.dial} style={offsetX ? { left: offsetX } : undefined}>
       {show('dial.rings') &&
@@ -80,14 +81,14 @@ export function StageDial({
             {tick.text}
           </span>
         ))}
-      {show('dial.album') && (
+      {show('dial.albumText') && (
         <div className={`${styles.base} ${styles.album}`} data-field="dialAlbum">
           {track?.album ?? ''}
         </div>
       )}
       {show('dial.cover') && <DialCover box={COVER_BOX} guard={72} />}
       {show('dial.brackets') && <PaperBrackets box={BRACKET_BOX} arm={BRACKET_ARM} />}
-      {show('dial.cells') && <DialCells />}
+      {show('dial.cells') && <DialCells hidden={hidden} />}
       {show('dial.transport') && (
         <PaperTransport
           className={styles.transport}

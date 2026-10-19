@@ -19,6 +19,12 @@ import {
   type HeadphoneProfile,
   type HeadphoneRig,
 } from './soundPressure.ts';
+import {
+  parseSplWeighting,
+  SPL_WEIGHTING_DEFAULT,
+  SPL_WEIGHTING_KEY,
+  type SplWeighting,
+} from './splWeighting.ts';
 
 const RIG_PREF = defineConfigPref<HeadphoneRig>(
   HEADPHONE_RIG_KEY,
@@ -26,12 +32,20 @@ const RIG_PREF = defineConfigPref<HeadphoneRig>(
   (raw) => parseHeadphoneRig(raw),
 );
 
+const WEIGHTING_PREF = defineConfigPref<SplWeighting>(
+  SPL_WEIGHTING_KEY,
+  SPL_WEIGHTING_DEFAULT,
+  parseSplWeighting,
+);
+
 export const headphoneRigAtom: Atom<HeadphoneRig> = RIG_PREF.atom;
+export const splWeightingAtom: Atom<SplWeighting> = WEIGHTING_PREF.atom;
 
 export interface SoundPressureService {
   readonly ready: Promise<void>;
   readonly persistence: ConfigPersistence;
   readonly rig: Atom<HeadphoneRig>;
+  readonly weighting: Atom<SplWeighting>;
   /** 新增并返回 id；到达上限或参数非法时答 null。 */
   addAmp(input: Omit<AmpProfile, 'id'>): string | null;
   updateAmp(id: string, input: Omit<AmpProfile, 'id'>): void;
@@ -41,6 +55,7 @@ export interface SoundPressureService {
   removeHeadphone(id: string): void;
   selectAmp(id: string | null): void;
   selectHeadphone(id: string | null): void;
+  setWeighting(value: SplWeighting): void;
   dispose(): void;
 }
 
@@ -64,7 +79,7 @@ export function startSoundPressure(
   host: ConfigPrefFace | undefined = undefined,
   newId: () => string = defaultId,
 ): SoundPressureService {
-  const prefs = startConfigPrefs(store, [RIG_PREF], host, writer);
+  const prefs = startConfigPrefs(store, [RIG_PREF, WEIGHTING_PREF], host, writer);
   const read = () => store.get(RIG_PREF.atom);
   const write = (next: HeadphoneRig) => {
     void prefs.set(RIG_PREF, next);
@@ -130,6 +145,7 @@ export function startSoundPressure(
     ready: prefs.ready,
     persistence: prefs,
     rig: RIG_PREF.atom,
+    weighting: WEIGHTING_PREF.atom,
     addAmp,
     updateAmp,
     removeAmp,
@@ -145,6 +161,9 @@ export function startSoundPressure(
       const current = read();
       if (id !== null && !current.headphones.some((item) => item.id === id)) return;
       write({ ...current, selectedHeadphoneId: id });
+    },
+    setWeighting(value) {
+      void prefs.set(WEIGHTING_PREF, value);
     },
     dispose: prefs.dispose,
   };
