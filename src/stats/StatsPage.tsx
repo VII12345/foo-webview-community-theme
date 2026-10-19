@@ -9,6 +9,7 @@ import { durationText } from '../table/cellText.ts';
 import { formatDuration } from './format.ts';
 import { LoudnessSection } from './LoudnessSection.tsx';
 import {
+  flushLoudnessStats,
   loadLoudnessStats,
   summarizeLoudnessScopes,
   type LoudnessLoad,
@@ -92,9 +93,11 @@ export function StatsPage() {
   }, [host]);
   useEffect(() => {
     let alive = true;
-    void loadLoudnessStats(loudnessHost).then((result) => {
-      if (alive) setLoudness(result);
-    });
+    void flushLoudnessStats()
+      .then(() => loadLoudnessStats(loudnessHost))
+      .then((result) => {
+        if (alive) setLoudness(result);
+      });
     return () => {
       alive = false;
     };

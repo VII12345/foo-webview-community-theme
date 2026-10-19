@@ -3,7 +3,9 @@ import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import {
   averageSpl,
   emptyLoudnessFile,
+  flushLoudnessStats,
   loadLoudnessStats,
+  loudnessStorageAtom,
   parseLoudnessFile,
   recordLoudness,
   startLoudnessStats,
@@ -60,7 +62,10 @@ function fileOf(): LoudnessFile {
   };
 }
 
-function hostWith(read: unknown): {
+function hostWith(
+  read: unknown,
+  writeAnswer?: (path: string, text: string) => unknown,
+): {
   host: LoudnessStatsHost;
   writes: { path: string; text: string }[];
 } {
@@ -73,7 +78,7 @@ function hostWith(read: unknown): {
       read: async () => read,
       write: async (path: string, text: string) => {
         writes.push({ path, text });
-        return { success: true };
+        return writeAnswer ? writeAnswer(path, text) : { success: true };
       },
     },
   } as unknown as LoudnessStatsHost;
@@ -341,6 +346,56 @@ describe('读写统计文件', () => {
     await service.flush();
     const second = JSON.parse(writes.at(-1)!.text) as LoudnessFile;
     expect(second.days[ymdOf(start)]?.['hp-1']?.seconds).toBeCloseTo(3, 6);
+    service.dispose();
+  });
+
+  it('发布采样与写入状态；失败保留 dirty，下一次 flush 成功后清除', async () => {
+    vi.useFakeTimers();
+    onTestFinished(() => vi.useRealTimers());
+    const start = new Date(2026, 9, 17, 12, 0, 0);
+    vi.setSystemTime(start);
+    const store = createStore();
+    const view = atom<LoudnessSampleView>({
+      reading: { splA: 80, splK: 80, splZ: 80 },
+      auto: { active: true, state: { updatedAtMs: start.getTime() } },
+      headphone: { id: 'hp-1', name: 'M1' },
+    });
+    const playback = atom<LoudnessPlaybackView>({
+      state: 'playing',
+      position: 0,
+      trackGeneration: 1,
+    });
+    let fail = true;
+    const { host, writes } = hostWith(NOT_FOUND, () =>
+      fail
+        ? { success: false, code: 'PERMISSION_DENIED', error: 'denied' }
+        : { success: true },
+    );
+    const service = startLoudnessStats(store, {
+      view,
+      playback,
+      host,
+      document: null,
+      intervalMs: 1000,
+      debounceMs: 1000,
+      now: () => Date.now(),
+    });
+    await service.ready;
+    await vi.advanceTimersByTimeAsync(1000);
+    await flushLoudnessStats();
+
+    const failedState = store.get(loudnessStorageAtom);
+    expect(failedState.lastSampleAtMs).toBe(start.getTime() + 1000);
+    expect(failedState.lastFailure).toMatchObject({ code: 'PERMISSION_DENIED', win32: null });
+    expect(failedState.lastWriteAtMs).toBeNull();
+
+    fail = false;
+    await service.flush();
+    const saved = store.get(loudnessStorageAtom);
+    expect(saved.lastFailure).toBeNull();
+    expect(saved.lastWriteAtMs).not.toBeNull();
+    const text = JSON.parse(writes.at(-1)!.text) as LoudnessFile;
+    expect(text.days[ymdOf(start)]?.['hp-1']?.seconds).toBeCloseTo(1, 6);
     service.dispose();
   });
 });

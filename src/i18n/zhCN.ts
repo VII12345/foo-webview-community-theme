@@ -395,6 +395,10 @@ export const zhCN: Messages = {
   'stats.headphoneSplEmpty': '暂无 DX52 耳机音量数据',
   'stats.allHeadphones': '全部耳机',
   'stats.loudnessUnavailable': '耳机音量统计读取失败',
+  'stats.loudnessWriteFailed':
+    '耳机统计写入失败（{code}）。便携版位于 Program Files 时需更新 foo_ui_webview2。',
+  'stats.loudnessNoSample': '还没有采样：需要 DX52 自动读数生效且正在播放。',
+  'stats.loudnessPending': '已记录，等待写入。',
   'stats.averageSpl': '平均声压',
   'stats.averageSplHint': '全部耳机，按所选时段做能量平均',
   'stats.allStats': '全部统计',

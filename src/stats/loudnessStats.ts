@@ -1,5 +1,6 @@
 import type { fb } from 'foo-webview-sdk/bridge';
 import { atom, type Atom } from 'jotai/vanilla';
+import { writeTextFile, type TextFileWriteResult } from '../host/fileWrite.ts';
 import { settle } from '../host/hostCall.ts';
 import type { Store } from '../kit/store.ts';
 import {
@@ -310,9 +311,8 @@ export async function writeLoudnessStats(
   host: LoudnessStatsHost,
   filePath: string,
   text: string,
-): Promise<boolean> {
-  const answer = await settle(() => host.file.write(filePath, text, { atomic: true }));
-  return answer?.success === true;
+): Promise<TextFileWriteResult> {
+  return writeTextFile(host.file, filePath, text);
 }
 
 /** 记录器只依赖这几个字段；由装配层把 `soundPressureViewAtom` 与 `playbackAtom` 传进来。 */
@@ -357,10 +357,46 @@ export interface LoudnessStatsService {
   dispose(): void;
 }
 
+export interface LoudnessStorageStatus {
+  /** 读取阶段是否允许写；只有加载被宿主拒绝时才为 false。 */
+  readonly canWrite: boolean;
+  /** 最近一次真正记入内存的采样时间；没有采样时为 null。 */
+  readonly lastSampleAtMs: number | null;
+  /** 最近一次成功落盘的时间。 */
+  readonly lastWriteAtMs: number | null;
+  /** 最近一次失败；成功写入后清空。 */
+  readonly lastFailure: {
+    readonly code: string | null;
+    readonly win32: number | null;
+    readonly atMs: number;
+  } | null;
+}
+
+const INITIAL_STORAGE: LoudnessStorageStatus = {
+  canWrite: true,
+  lastSampleAtMs: null,
+  lastWriteAtMs: null,
+  lastFailure: null,
+};
+
+const storageStateAtom = atom<LoudnessStorageStatus>(INITIAL_STORAGE);
+export const loudnessStorageAtom: Atom<LoudnessStorageStatus> = atom((get) =>
+  get(storageStateAtom),
+);
+
+let activeFlush: (() => Promise<void>) | null = null;
+
+/** 统计页打开前把记录器内存中的累计落盘；记录器还没启动时什么也不做。 */
+export function flushLoudnessStats(): Promise<void> {
+  const flush = activeFlush;
+  return flush ? flush() : Promise.resolve();
+}
+
 export function startLoudnessStats(
   store: Store,
   deps: LoudnessStatsDeps,
 ): LoudnessStatsService {
+  store.set(storageStateAtom, INITIAL_STORAGE);
   const statsHost = deps.host;
   if (!statsHost) {
     return { ready: Promise.resolve(), flush: async () => {}, dispose: () => {} };
@@ -384,6 +420,10 @@ export function startLoudnessStats(
   let lastGeneration = store.get(deps.playback).trackGeneration;
   let lastPlaybackState = store.get(deps.playback).state;
 
+  const patchStorage = (change: Partial<LoudnessStorageStatus>) => {
+    if (!disposed) store.set(storageStateAtom, { ...store.get(storageStateAtom), ...change });
+  };
+
   function scheduleSave(): void {
     if (saveTimer || disposed) return;
     saveTimer = setTimeout(() => {
@@ -402,8 +442,15 @@ export function startLoudnessStats(
     const path = filePath;
     const text = JSON.stringify(file);
     saving = saving.then(async () => {
-      const ok = await writeLoudnessStats(host, path, text);
-      if (!ok) dirty = true;
+      const result = await writeLoudnessStats(host, path, text);
+      if (result.ok) {
+        patchStorage({ lastWriteAtMs: now(), lastFailure: null });
+      } else {
+        dirty = true;
+        patchStorage({
+          lastFailure: { code: result.code, win32: result.win32, atMs: now() },
+        });
+      }
     });
     return saving;
   }
@@ -445,6 +492,7 @@ export function startLoudnessStats(
       K: 10 ** (splK / 10) * seconds,
       Z: 10 ** (splZ / 10) * seconds,
     });
+    patchStorage({ lastSampleAtMs: stamp });
     dirty = true;
     scheduleSave();
   }
@@ -466,7 +514,10 @@ export function startLoudnessStats(
     const load = await loadLoudnessStats(host);
     if (disposed) return;
     if (load.state === 'ready') file = load.data;
-    else if (load.state === 'denied') canWrite = false;
+    else if (load.state === 'denied') {
+      canWrite = false;
+      patchStorage({ canWrite: false });
+    }
     const profile = await profilePathOf(host);
     if (!disposed && profile) filePath = loudnessStatsPath(profile);
     if (disposed) return;
@@ -475,6 +526,7 @@ export function startLoudnessStats(
     documentRef?.addEventListener('visibilitychange', onVisibility);
   })();
 
+  activeFlush = flush;
   return {
     ready,
     flush,
@@ -487,6 +539,7 @@ export function startLoudnessStats(
       saveTimer = null;
       offPlayback();
       documentRef?.removeEventListener('visibilitychange', onVisibility);
+      if (activeFlush === flush) activeFlush = null;
       void flush();
     },
   };

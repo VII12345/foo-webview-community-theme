@@ -4,7 +4,7 @@ import { translateAtom } from '../i18n/locale.ts';
 import { headphoneRigAtom } from '../playback/soundPressurePrefs.ts';
 import { splUnit, type SplWeighting } from '../playback/splWeighting.ts';
 import { formatDuration } from './format.ts';
-import type { LoudnessLoad, LoudnessSummary } from './loudnessStats.ts';
+import { loudnessStorageAtom, type LoudnessLoad, type LoudnessSummary } from './loudnessStats.ts';
 import type { StatsScope } from './statsRange.ts';
 import styles from './LoudnessSection.module.css';
 
@@ -22,12 +22,22 @@ export function LoudnessSection({
 }) {
   const t = useAtomValueRawSync(translateAtom);
   const rig = useAtomValueRawSync(headphoneRigAtom);
+  const storage = useAtomValueRawSync(loudnessStorageAtom);
   const nameOf = (id: string, fallback: string): string =>
     rig.headphones.find((item) => item.id === id)?.name ?? fallback;
   return (
     <section className={styles.root} aria-label={t('stats.headphoneSpl')} data-stats-headphone-spl>
       <h2>{t('stats.headphoneSpl')}</h2>
       <p className={styles.hint}>{t('stats.headphoneSplHint')}</p>
+      {storage.lastFailure && (
+        <p className={styles.storageError} role="status" data-stats-loudness-storage="failed">
+          {t('stats.loudnessWriteFailed', {
+            code:
+              storage.lastFailure.code ??
+              (storage.lastFailure.win32 === null ? 'UNKNOWN' : `WIN32_${storage.lastFailure.win32}`),
+          })}
+        </p>
+      )}
       {load === null ? (
         <Spinner size="tiny" label={t('stats.loading')} />
       ) : load.state === 'denied' || load.state === 'failed' ? (
@@ -63,9 +73,21 @@ export function LoudnessSection({
           </li>
         </ul>
       ) : (
-        <p className={styles.empty} role="status">
-          {t('stats.headphoneSplEmpty')}
-        </p>
+        <div
+          className={styles.emptyGroup}
+          data-stats-loudness-storage={storage.lastSampleAtMs === null ? 'no-sample' : 'pending'}
+        >
+          <p className={styles.empty} role="status">
+            {t('stats.headphoneSplEmpty')}
+          </p>
+          <p className={styles.hint}>
+            {t(
+              storage.lastSampleAtMs === null
+                ? 'stats.loudnessNoSample'
+                : 'stats.loudnessPending',
+            )}
+          </p>
+        </div>
       )}
     </section>
   );

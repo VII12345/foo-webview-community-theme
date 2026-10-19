@@ -399,6 +399,11 @@ export const en = {
   'stats.headphoneSplEmpty': 'No DX52 headphone volume data yet',
   'stats.allHeadphones': 'All headphones',
   'stats.loudnessUnavailable': 'Could not read headphone volume statistics',
+  'stats.loudnessWriteFailed':
+    'Could not write headphone statistics ({code}). A portable install under Program Files needs an updated foo_ui_webview2.',
+  'stats.loudnessNoSample':
+    'No samples yet: the DX52 auto reading must be active during playback.',
+  'stats.loudnessPending': 'Recorded; waiting for the next save.',
   'stats.averageSpl': 'Average SPL',
   'stats.averageSplHint': 'All headphones, energy-weighted across the selected period',
   'stats.allStats': 'All statistics',

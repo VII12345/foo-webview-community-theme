@@ -22,6 +22,17 @@
   color: var(--text-secondary);
 }
 
+.emptyGroup {
+  display: grid;
+  gap: var(--spacingVerticalXXS);
+}
+
+.storageError {
+  margin: 0;
+  color: var(--colorPaletteDarkOrangeForeground1, var(--text-secondary));
+  font-size: var(--fontSizeBase200);
+}
+
 .list {
   display: grid;
   gap: var(--spacingVerticalXS);
