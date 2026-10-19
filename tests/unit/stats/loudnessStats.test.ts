@@ -20,17 +20,41 @@ const PROFILE = 'C:\\profile';
 
 function fileOf(): LoudnessFile {
   return {
-    version: 1,
+    version: 2,
     days: {
       '2026-10-13': {
-        'hp-1': { name: 'M1', seconds: 100, energy: 10 ** 8 * 100 },
+        'hp-1': {
+          name: 'M1',
+          seconds: 100,
+          energyA: 10 ** 8 * 100,
+          energyK: 10 ** 8 * 100,
+          energyZ: 10 ** 8 * 100,
+        },
       },
       '2026-10-17': {
-        'hp-1': { name: 'M1', seconds: 100, energy: 10 ** 9 * 100 },
-        'hp-2': { name: 'JT7', seconds: 50, energy: 10 ** 8 * 50 },
+        'hp-1': {
+          name: 'M1',
+          seconds: 100,
+          energyA: 10 ** 9 * 100,
+          energyK: 10 ** 9 * 100,
+          energyZ: 10 ** 9 * 100,
+        },
+        'hp-2': {
+          name: 'JT7',
+          seconds: 50,
+          energyA: 10 ** 8 * 50,
+          energyK: 10 ** 8 * 50,
+          energyZ: 10 ** 8 * 50,
+        },
       },
       '2026-09-20': {
-        'hp-1': { name: 'M1', seconds: 10, energy: 10 ** 7 * 10 },
+        'hp-1': {
+          name: 'M1',
+          seconds: 10,
+          energyA: 10 ** 7 * 10,
+          energyK: 10 ** 7 * 10,
+          energyZ: 10 ** 7 * 10,
+        },
       },
     },
   };
@@ -59,35 +83,83 @@ function hostWith(read: unknown): {
 const NOT_FOUND = { success: false, error: 'not found', code: 'NOT_FOUND' };
 
 describe('音量统计文件', () => {
-  it('解析合法文件、丢弃坏条目与坏版本', () => {
+  it('解析 v2 文件、迁移 v1 legacy、丢弃坏条目与坏版本', () => {
     expect(parseLoudnessFile(fileOf())).toEqual(fileOf());
-    expect(parseLoudnessFile({ version: 2, days: {} })).toBeNull();
-    expect(parseLoudnessFile({ version: 1, days: [] })).toBeNull();
+    expect(parseLoudnessFile({ version: 3, days: {} })).toBeNull();
+    expect(parseLoudnessFile({ version: 2, days: [] })).toBeNull();
     expect(
       parseLoudnessFile({
-        version: 1,
+        version: 2,
         days: {
           '2026-10-17': {
-            good: { name: '', seconds: 10, energy: 1e9 },
-            bad: { name: 'x', seconds: -1, energy: 1e9 },
-            badType: { name: 'x', seconds: '10', energy: 1e9 },
+            good: {
+              name: '',
+              seconds: 10,
+              energyA: 1e9,
+              energyK: 2e9,
+              energyZ: 3e9,
+            },
+            bad: { name: 'x', seconds: -1, energyA: 1e9, energyK: 1e9, energyZ: 1e9 },
+            badType: { name: 'x', seconds: '10', energyA: 1e9, energyK: 1e9, energyZ: 1e9 },
           },
         },
       }),
     ).toEqual({
-      version: 1,
-      days: { '2026-10-17': { good: { name: 'good', seconds: 10, energy: 1e9 } } },
+      version: 2,
+      days: {
+        '2026-10-17': {
+          good: { name: 'good', seconds: 10, energyA: 1e9, energyK: 2e9, energyZ: 3e9 },
+        },
+      },
+    });
+    expect(
+      parseLoudnessFile({
+        version: 1,
+        days: { '2026-10-17': { old: { name: 'old', seconds: 10, energy: 1e9 } } },
+      }),
+    ).toEqual({
+      version: 2,
+      days: {
+        '2026-10-17': {
+          old: {
+            name: 'old',
+            seconds: 0,
+            energyA: 0,
+            energyK: 0,
+            energyZ: 0,
+            legacySeconds: 10,
+            legacyEnergy: 1e9,
+          },
+        },
+      },
     });
   });
 
-  it('记一段后累加秒数与能量，平均用能量平均', () => {
+  it('记一段后累加秒数与 A/K/Z 能量，平均用能量平均', () => {
     const file = emptyLoudnessFile();
-    recordLoudness(file, '2026-10-17', 'hp-1', 'M1', 10, 10 ** 8 * 10);
-    recordLoudness(file, '2026-10-17', 'hp-1', 'M1', 10, 10 ** 9 * 10);
+    recordLoudness(file, '2026-10-17', 'hp-1', 'M1', 10, {
+      A: 10 ** 8 * 10,
+      K: 2e9,
+      Z: 3e9,
+    });
+    recordLoudness(file, '2026-10-17', 'hp-1', 'M1', 10, {
+      A: 10 ** 9 * 10,
+      K: 2e10,
+      Z: 3e10,
+    });
     const bucket = file.days['2026-10-17']?.['hp-1'];
-    expect(bucket).toEqual({ name: 'M1', seconds: 20, energy: 10 ** 8 * 10 + 10 ** 9 * 10 });
-    expect(averageSpl(bucket!)).toBeCloseTo(10 * Math.log10((10 ** 9 + 10 ** 10) / 20), 9);
-    expect(averageSpl({ seconds: 0, energy: 0 })).toBeNull();
+    expect(bucket).toEqual({
+      name: 'M1',
+      seconds: 20,
+      energyA: 10 ** 8 * 10 + 10 ** 9 * 10,
+      energyK: 2e9 + 2e10,
+      energyZ: 3e9 + 3e10,
+    });
+    expect(averageSpl(bucket!, 'A')).toBeCloseTo(10 * Math.log10((10 ** 9 + 10 ** 10) / 20), 9);
+    expect(averageSpl(bucket!, 'K')).toBeCloseTo(10 * Math.log10((2e9 + 2e10) / 20), 9);
+    expect(
+      averageSpl({ seconds: 0, energyA: 0, energyK: 0, energyZ: 0 }, 'A'),
+    ).toBeNull();
   });
 
   it('按范围聚合每只耳机与全部耳机', () => {
@@ -138,6 +210,41 @@ describe('读写统计文件', () => {
     });
   });
 
+  it('v2 不存在时回退读取 v1，并把旧数据迁成 legacy', async () => {
+    const legacy = JSON.stringify({
+      version: 1,
+      days: { '2026-10-17': { 'hp-1': { name: 'M1', seconds: 10, energy: 1e9 } } },
+    });
+    const host = {
+      misc: {
+        getProfilePath: async () => ({ success: true, path: PROFILE }),
+      },
+      file: {
+        read: async (path: string) =>
+          path.endsWith('loudness-v1.json')
+            ? { success: true, content: legacy }
+            : NOT_FOUND,
+        write: async () => ({ success: true }),
+      },
+    } as unknown as LoudnessStatsHost;
+    const loaded = await loadLoudnessStats(host);
+    expect(loaded).toMatchObject({
+      state: 'ready',
+      data: {
+        version: 2,
+        days: {
+          '2026-10-17': {
+            'hp-1': {
+              seconds: 0,
+              legacySeconds: 10,
+              legacyEnergy: 1e9,
+            },
+          },
+        },
+      },
+    });
+  });
+
   it('记录器只累计 DX52 自动、播放中、已选耳机且读数新鲜的时间', async () => {
     vi.useFakeTimers();
     onTestFinished(() => vi.useRealTimers());
@@ -145,7 +252,7 @@ describe('读写统计文件', () => {
     vi.setSystemTime(start);
     const store = createStore();
     const view = atom<LoudnessSampleView>({
-      reading: { spl: 80 },
+      reading: { splA: 80, splK: 80, splZ: 80 },
       auto: { active: true, state: { updatedAtMs: start.getTime() } },
       headphone: { id: 'hp-1', name: 'M1' },
     });
@@ -170,20 +277,22 @@ describe('读写统计文件', () => {
     expect(writes).toHaveLength(1);
     const saved = JSON.parse(writes[0]!.text) as LoudnessFile;
     expect(saved.days[ymdOf(start)]?.['hp-1']?.seconds).toBeCloseTo(1, 6);
-    expect(saved.days[ymdOf(start)]?.['hp-1']?.energy).toBeCloseTo(1e8, 6);
+    expect(saved.days[ymdOf(start)]?.['hp-1']?.energyA).toBeCloseTo(1e8, 6);
+    expect(saved.days[ymdOf(start)]?.['hp-1']?.energyK).toBeCloseTo(1e8, 6);
+    expect(saved.days[ymdOf(start)]?.['hp-1']?.energyZ).toBeCloseTo(1e8, 6);
 
     // 暂停、过期、无耳机都不再累计。
     store.set(playback, { state: 'paused', position: 1, trackGeneration: 1 });
     await vi.advanceTimersByTimeAsync(1000);
     store.set(playback, { state: 'playing', position: 1, trackGeneration: 1 });
     store.set(view, {
-      reading: { spl: 80 },
+      reading: { splA: 80, splK: 80, splZ: 80 },
       auto: { active: true, state: { updatedAtMs: start.getTime() - 10 * 60_000 } },
       headphone: { id: 'hp-1', name: 'M1' },
     });
     await vi.advanceTimersByTimeAsync(1000);
     store.set(view, {
-      reading: { spl: 80 },
+      reading: { splA: 80, splK: 80, splZ: 80 },
       auto: { active: true, state: { updatedAtMs: Date.now() } },
       headphone: null,
     });
@@ -201,7 +310,7 @@ describe('读写统计文件', () => {
     vi.setSystemTime(start);
     const store = createStore();
     const view = atom<LoudnessSampleView>({
-      reading: { spl: 90 },
+      reading: { splA: 90, splK: 90, splZ: 90 },
       auto: { active: true, state: { updatedAtMs: start.getTime() } },
       headphone: { id: 'hp-1', name: 'M1' },
     });

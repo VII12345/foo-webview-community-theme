@@ -58,7 +58,7 @@ test('全部统计展示所有歌曲，并支持搜索、排序与分页', async
     onHost(host) {
       host.answer('file.exists', () => ({ success: true, path: DB_PATH, exists: true }));
       host.answer('file.read', (params) => {
-        if (String(params['path'] ?? '').endsWith('loudness-v1.json'))
+        if (String(params['path'] ?? '').endsWith('loudness-v2.json'))
           return { success: false, error: 'not found', code: 'NOT_FOUND' };
         return {
           success: true,

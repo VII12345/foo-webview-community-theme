@@ -4,6 +4,7 @@ import { useAtomValueRawSync } from 'jotai/react';
 import { useEffect, useMemo, useState } from 'react';
 import { fb } from 'foo-webview-sdk/bridge';
 import { translateAtom } from '../i18n/locale.ts';
+import { splWeightingAtom } from '../playback/soundPressurePrefs.ts';
 import { durationText } from '../table/cellText.ts';
 import { formatDuration } from './format.ts';
 import { LoudnessSection } from './LoudnessSection.tsx';
@@ -74,6 +75,7 @@ export function StatsPage() {
   const [loudness, setLoudness] = useState<LoudnessLoad | null>(null);
   const [scope, setScope] = useState<Scope>('month');
   const [details, setDetails] = useState(false);
+  const weighting = useAtomValueRawSync(splWeightingAtom);
   const host = useMemo(
     () => ({ config: fb.config, file: fb.file }),
     [],
@@ -101,8 +103,11 @@ export function StatsPage() {
   const data: StatsData | null = state?.state === 'ready' ? state.data : null;
   const period = data?.[scope] ?? null;
   const summaries = useMemo(
-    () => (loudness?.state === 'ready' ? summarizeLoudnessScopes(loudness.data, new Date()) : null),
-    [loudness],
+    () =>
+      loudness?.state === 'ready'
+        ? summarizeLoudnessScopes(loudness.data, new Date(), weighting)
+        : null,
+    [loudness, weighting],
   );
   const summary = summaries?.[scope] ?? null;
 
@@ -117,6 +122,7 @@ export function StatsPage() {
           data={data}
           loudness={loudness}
           summaries={summaries}
+          weighting={weighting}
           onBack={() => setDetails(false)}
         />
       ) : (
@@ -168,13 +174,23 @@ export function StatsPage() {
                 title={scope}
                 period={period}
                 averageSpl={summary?.overall.spl ?? null}
-                headphoneSeconds={summary?.overall.seconds ?? null}
+                headphoneSeconds={
+                  summary
+                    ? summary.overall.seconds + summary.overall.legacySeconds
+                    : null
+                }
+                weighting={weighting}
                 topArtists
               />
               <Trend points={period.trend} />
             </>
           )}
-          <LoudnessSection scope={scope} load={loudness} summary={summary} />
+          <LoudnessSection
+            scope={scope}
+            load={loudness}
+            summary={summary}
+            weighting={weighting}
+          />
         </>
       )}
     </div>

@@ -3,6 +3,7 @@ import { translateAtom } from '../i18n/locale.ts';
 import { formatDuration } from './format.ts';
 import type { StatsPeriod, StatsTotals } from './monthlyStats.ts';
 import type { StatsScope } from './statsRange.ts';
+import { splUnit, type SplWeighting } from '../playback/splWeighting.ts';
 import styles from './StatsPage.module.css';
 import { StatsArt } from './StatsArt.tsx';
 
@@ -35,6 +36,7 @@ export function Totals({
   previous,
   averageSpl,
   headphoneSeconds,
+  weighting = 'A',
 }: {
   readonly totals: StatsTotals;
   readonly previous: StatsTotals;
@@ -42,6 +44,7 @@ export function Totals({
   readonly averageSpl?: number | null;
   /** 当前范围 DX52 自动统计的耳机使用时长；无数据为 null。 */
   readonly headphoneSeconds?: number | null;
+  readonly weighting?: SplWeighting;
 }) {
   const t = useAtomValueRawSync(translateAtom);
   return (
@@ -62,7 +65,9 @@ export function Totals({
       </div>
       <div className={styles.total} data-stats-total-spl title={t('stats.averageSplHint')}>
         <span className={styles['total-value']}>
-          {averageSpl === null || averageSpl === undefined ? '—' : `${averageSpl.toFixed(1)} dB SPL`}
+          {averageSpl === null || averageSpl === undefined
+            ? '—'
+            : `${averageSpl.toFixed(1)} ${splUnit(weighting)}`}
         </span>
         <span className={styles['total-key']}>{t('stats.averageSpl')}</span>
       </div>
@@ -88,6 +93,7 @@ export function PeriodBlock({
   topArtists,
   averageSpl,
   headphoneSeconds,
+  weighting = 'A',
   showTracks = true,
   showTotals = true,
 }: {
@@ -96,6 +102,7 @@ export function PeriodBlock({
   readonly topArtists?: boolean;
   readonly averageSpl?: number | null;
   readonly headphoneSeconds?: number | null;
+  readonly weighting?: SplWeighting;
   readonly showTracks?: boolean;
   readonly showTotals?: boolean;
 }) {
@@ -108,6 +115,7 @@ export function PeriodBlock({
           previous={period.previous}
           averageSpl={averageSpl}
           headphoneSeconds={headphoneSeconds}
+          weighting={weighting}
         />
       )}
       <div className={styles.columns}>

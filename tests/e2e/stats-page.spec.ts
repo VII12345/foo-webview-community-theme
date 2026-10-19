@@ -42,7 +42,7 @@ test('侧边栏打开播放统计页，读出概览、Top 榜与趋势', async (
     onHost(host) {
       host.answer('file.exists', () => ({ success: true, path: DB_PATH, exists: true }));
       host.answer('file.read', (params) => {
-        if (String(params['path'] ?? '').endsWith('loudness-v1.json'))
+        if (String(params['path'] ?? '').endsWith('loudness-v2.json'))
           return { success: false, error: 'not found', code: 'NOT_FOUND' };
         return {
           success: true,
@@ -84,7 +84,7 @@ test('趋势点多时只标最高柱与首尾日期', async ({ page }) => {
     onHost(host) {
       host.answer('file.exists', () => ({ success: true, path: DB_PATH, exists: true }));
       host.answer('file.read', (params) => {
-        if (String(params['path'] ?? '').endsWith('loudness-v1.json'))
+        if (String(params['path'] ?? '').endsWith('loudness-v2.json'))
           return { success: false, error: 'not found', code: 'NOT_FOUND' };
         return {
           success: true,
@@ -141,11 +141,23 @@ function loudnessJson(): string {
     now.getDate(),
   ).padStart(2, '0')}`;
   return JSON.stringify({
-    version: 1,
+    version: 2,
     days: {
       [ymd]: {
-        'hp-1': { name: 'M1', seconds: 100, energy: 1e10 },
-        'hp-2': { name: 'JT7', seconds: 50, energy: 5e9 },
+        'hp-1': {
+          name: 'M1',
+          seconds: 100,
+          energyA: 1e10,
+          energyK: 1e10,
+          energyZ: 1e10,
+        },
+        'hp-2': {
+          name: 'JT7',
+          seconds: 50,
+          energyA: 5e9,
+          energyK: 5e9,
+          energyZ: 5e9,
+        },
       },
     },
   });
@@ -159,7 +171,7 @@ test('本周范围与耳机平均音量：按耳机与全部耳机展示', async
       host.answer('file.exists', () => ({ success: true, path: DB_PATH, exists: true }));
       host.answer('file.read', (params) => {
         const path = String(params['path'] ?? '');
-        if (path.endsWith('loudness-v1.json'))
+        if (path.endsWith('loudness-v2.json'))
           return { success: true, content: loudness, size: loudness.length, encoding: 'utf8' };
         return { success: true, content: base64, size: base64.length, encoding: 'base64' };
       });
@@ -181,15 +193,15 @@ test('本周范围与耳机平均音量：按耳机与全部耳机展示', async
   await expect(section.locator('[data-stats-headphone]')).toHaveCount(2);
   await expect(section).toContainText('M1');
   await expect(section).toContainText('JT7');
-  await expect(section).toContainText('80.0 dB SPL');
+  await expect(section).toContainText('80.0 dBA');
   await expect(section.locator('[data-stats-headphone-all]')).toContainText('全部耳机');
-  await expect(page.locator('[data-stats-total-spl]')).toContainText('80.0 dB SPL');
+  await expect(page.locator('[data-stats-total-spl]')).toContainText('80.0 dBA');
   await expect(page.locator('[data-stats-total-headphone-time]')).toContainText('2 分');
 
   const loudnessReads = () =>
     env.host
       .callsTo('file.read')
-      .filter((call) => String(call['path'] ?? '').endsWith('loudness-v1.json')).length;
+      .filter((call) => String(call['path'] ?? '').endsWith('loudness-v2.json')).length;
   const beforeReads = loudnessReads();
   await page.getByRole('button', { name: '全部统计', exact: true }).click();
   await expect(page.locator('[data-stats-page]')).toHaveAttribute('data-stats-view', 'details');
@@ -221,7 +233,7 @@ test('统计库不存在时耳机音量仍独立显示', async ({ page }) => {
     onHost(host) {
       host.answer('file.exists', () => ({ success: true, path: DB_PATH, exists: false }));
       host.answer('file.read', (params) => {
-        if (String(params['path'] ?? '').endsWith('loudness-v1.json'))
+        if (String(params['path'] ?? '').endsWith('loudness-v2.json'))
           return { success: true, content: loudness, size: loudness.length, encoding: 'utf8' };
         return { success: false, error: 'not found', code: 'NOT_FOUND' };
       });

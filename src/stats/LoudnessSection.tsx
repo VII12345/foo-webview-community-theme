@@ -2,6 +2,7 @@ import { Spinner } from '@fluentui/react-components';
 import { useAtomValueRawSync } from 'jotai/react';
 import { translateAtom } from '../i18n/locale.ts';
 import { headphoneRigAtom } from '../playback/soundPressurePrefs.ts';
+import { splUnit, type SplWeighting } from '../playback/splWeighting.ts';
 import { formatDuration } from './format.ts';
 import type { LoudnessLoad, LoudnessSummary } from './loudnessStats.ts';
 import type { StatsScope } from './statsRange.ts';
@@ -12,10 +13,12 @@ export function LoudnessSection({
   scope,
   load,
   summary,
+  weighting = 'A',
 }: {
   readonly scope: StatsScope;
   readonly load: LoudnessLoad | null;
   readonly summary: LoudnessSummary | null;
+  readonly weighting?: SplWeighting;
 }) {
   const t = useAtomValueRawSync(translateAtom);
   const rig = useAtomValueRawSync(headphoneRigAtom);
@@ -37,17 +40,26 @@ export function LoudnessSection({
             <li key={item.id} data-stats-headphone={item.id}>
               <span className={styles.name}>{nameOf(item.id, item.name)}</span>
               <span className={styles.spl}>
-                {item.spl === null ? '—' : `${item.spl.toFixed(1)} dB SPL`}
+                {item.spl === null ? '—' : `${item.spl.toFixed(1)} ${splUnit(weighting)}`}
               </span>
-              <span className={styles.time}>{formatDuration(item.seconds, t)}</span>
+              <span className={styles.time}>
+                {formatDuration(item.seconds + item.legacySeconds, t)}
+              </span>
             </li>
           ))}
           <li className={styles.overall} data-stats-headphone-all>
             <span className={styles.name}>{t('stats.allHeadphones')}</span>
             <span className={styles.spl}>
-              {summary.overall.spl === null ? '—' : `${summary.overall.spl.toFixed(1)} dB SPL`}
+              {summary.overall.spl === null
+                ? '—'
+                : `${summary.overall.spl.toFixed(1)} ${splUnit(weighting)}`}
             </span>
-            <span className={styles.time}>{formatDuration(summary.overall.seconds, t)}</span>
+            <span className={styles.time}>
+              {formatDuration(
+                summary.overall.seconds + summary.overall.legacySeconds,
+                t,
+              )}
+            </span>
           </li>
         </ul>
       ) : (

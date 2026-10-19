@@ -3,6 +3,7 @@ import { ArrowLeft16Regular } from '@fluentui/react-icons';
 import { useAtomValueRawSync } from 'jotai/react';
 import { translateAtom } from '../i18n/locale.ts';
 import { headphoneRigAtom } from '../playback/soundPressurePrefs.ts';
+import { splUnit, type SplWeighting } from '../playback/splWeighting.ts';
 import { durationText } from '../table/cellText.ts';
 import { formatDuration } from './format.ts';
 import { AllSongsTable } from './AllSongsTable.tsx';
@@ -16,11 +17,18 @@ export interface StatsDetailsPageProps {
   readonly data: StatsData | null;
   readonly loudness: LoudnessLoad | null;
   readonly summaries: Record<StatsScope, LoudnessSummary> | null;
+  readonly weighting?: SplWeighting;
   onBack(): void;
 }
 
 /** 全部统计：四周期概览、每只/全部耳机平均 SPL 矩阵、各周期 Top 歌曲与艺人。 */
-export function StatsDetailsPage({ data, loudness, summaries, onBack }: StatsDetailsPageProps) {
+export function StatsDetailsPage({
+  data,
+  loudness,
+  summaries,
+  weighting = 'A',
+  onBack,
+}: StatsDetailsPageProps) {
   const t = useAtomValueRawSync(translateAtom);
   const rig = useAtomValueRawSync(headphoneRigAtom);
   const summaryOf = (scope: StatsScope) => summaries?.[scope] ?? null;
@@ -98,7 +106,7 @@ export function StatsDetailsPage({ data, loudness, summaries, onBack }: StatsDet
                       <td>{formatDuration(period.totals.seconds, t)}</td>
                       <td>{period.totals.plays}</td>
                       <td>{period.totals.tracks}</td>
-                      <td>{spl === null ? '—' : `${spl.toFixed(1)} dB SPL`}</td>
+                      <td>{spl === null ? '—' : `${spl.toFixed(1)} ${splUnit(weighting)}`}</td>
                     </tr>
                   );
                 })}
@@ -144,7 +152,9 @@ export function StatsDetailsPage({ data, loudness, summaries, onBack }: StatsDet
                       const spl =
                         summaryOf(scope)?.perHeadphone.find((item) => item.id === id)?.spl ?? null;
                       return (
-                        <td key={scope}>{spl === null ? '—' : `${spl.toFixed(1)} dB SPL`}</td>
+                        <td key={scope}>
+                          {spl === null ? '—' : `${spl.toFixed(1)} ${splUnit(weighting)}`}
+                        </td>
                       );
                     })}
                   </tr>
@@ -153,7 +163,11 @@ export function StatsDetailsPage({ data, loudness, summaries, onBack }: StatsDet
                   <th scope="row">{t('stats.allHeadphones')}</th>
                   {SCOPES.map((scope) => {
                     const spl = summaryOf(scope)?.overall.spl ?? null;
-                    return <td key={scope}>{spl === null ? '—' : `${spl.toFixed(1)} dB SPL`}</td>;
+                    return (
+                      <td key={scope}>
+                        {spl === null ? '—' : `${spl.toFixed(1)} ${splUnit(weighting)}`}
+                      </td>
+                    );
                   })}
                 </tr>
               </tbody>
@@ -191,9 +205,10 @@ export function StatsDetailsPage({ data, loudness, summaries, onBack }: StatsDet
                   <tr key={id} data-stats-detail-duration-headphone={id}>
                     <th scope="row">{nameOf(id)}</th>
                     {SCOPES.map((scope) => {
-                      const seconds =
-                        summaryOf(scope)?.perHeadphone.find((item) => item.id === id)?.seconds ??
-                        null;
+                      const item = summaryOf(scope)?.perHeadphone.find(
+                        (entry) => entry.id === id,
+                      );
+                      const seconds = item ? item.seconds + item.legacySeconds : null;
                       return <td key={scope}>{durationCell(seconds)}</td>;
                     })}
                   </tr>
@@ -203,9 +218,16 @@ export function StatsDetailsPage({ data, loudness, summaries, onBack }: StatsDet
                   data-stats-detail-duration-all
                 >
                   <th scope="row">{t('stats.allHeadphones')}</th>
-                  {SCOPES.map((scope) => (
-                    <td key={scope}>{durationCell(summaryOf(scope)?.overall.seconds)}</td>
-                  ))}
+                  {SCOPES.map((scope) => {
+                    const overall = summaryOf(scope)?.overall;
+                    return (
+                      <td key={scope}>
+                        {durationCell(
+                          overall ? overall.seconds + overall.legacySeconds : null,
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
               </tbody>
             </table>

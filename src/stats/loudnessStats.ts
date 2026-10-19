@@ -8,22 +8,30 @@ import {
   ymdOfMs,
   type StatsScope,
 } from './statsRange.ts';
+import type { SplWeighting } from '../playback/splWeighting.ts';
 
 /**
  * 耳机平均音量的本地统计：只记 DX52 自动读数生效、正在播放且未静音的时间，按天 × 当前耳机
  * 累计 `seconds` 与能量 `10^(SPL/10) × seconds`。平均 SPL 用能量平均，绝不直接平均 dB。
  *
- * 文件在 profile 下：`<profile>\webview-ui-stats\loudness-v1.json`。内存是真相，定时防抖落盘；
+ * 文件在 profile 下：`<profile>\webview-ui-stats\loudness-v2.json`。v1 旧文件只作为 legacy 读取；
+ * 内存是真相，定时防抖落盘；
  * 读不到按空开始，权限被拒时不覆盖。
  */
 export interface LoudnessBucket {
   name: string;
+  /** v2 新方法的累计收听秒数。 */
   seconds: number;
-  energy: number;
+  energyA: number;
+  energyK: number;
+  energyZ: number;
+  /** v1 旧 K-LUFS 估算的时长/能量；只计时长，不参与 A/K/Z 平均。 */
+  legacySeconds?: number;
+  legacyEnergy?: number;
 }
 
 export interface LoudnessFile {
-  version: 1;
+  version: 2;
   days: Record<string, Record<string, LoudnessBucket>>;
 }
 
@@ -37,21 +45,29 @@ export type LoudnessLoad =
 export interface LoudnessHeadphoneSummary {
   readonly id: string;
   readonly name: string;
+  /** v2 新方法累计时长。 */
   readonly seconds: number;
-  /** 能量平均 SPL；没有有效时长时为 null。 */
+  /** v1 旧口径时长，只用于总时长显示。 */
+  readonly legacySeconds: number;
+  /** 按当前加权计算的能量平均 SPL；没有 v2 有效时长时为 null。 */
   readonly spl: number | null;
 }
 
 export interface LoudnessSummary {
   readonly perHeadphone: readonly LoudnessHeadphoneSummary[];
-  readonly overall: { readonly seconds: number; readonly spl: number | null };
+  readonly overall: {
+    readonly seconds: number;
+    readonly legacySeconds: number;
+    readonly spl: number | null;
+  };
 }
 
 export const LOUDNESS_STATS_DIRECTORY = 'webview-ui-stats';
-export const LOUDNESS_STATS_FILE = 'loudness-v1.json';
+export const LOUDNESS_STATS_FILE = 'loudness-v2.json';
+export const LEGACY_LOUDNESS_STATS_FILE = 'loudness-v1.json';
 
 export function emptyLoudnessFile(): LoudnessFile {
-  return { version: 1, days: {} };
+  return { version: 2, days: {} };
 }
 
 const finitePositive = (value: unknown): number | undefined =>
@@ -59,7 +75,8 @@ const finitePositive = (value: unknown): number | undefined =>
 
 export function parseLoudnessFile(raw: unknown): LoudnessFile | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  if (Reflect.get(raw, 'version') !== 1) return null;
+  const version = Reflect.get(raw, 'version');
+  if (version !== 1 && version !== 2) return null;
   const daysRaw = Reflect.get(raw, 'days');
   if (!daysRaw || typeof daysRaw !== 'object' || Array.isArray(daysRaw)) return null;
   const days: Record<string, Record<string, LoudnessBucket>> = {};
@@ -71,62 +88,127 @@ export function parseLoudnessFile(raw: unknown): LoudnessFile | null {
       if (!id || !bucketRaw || typeof bucketRaw !== 'object' || Array.isArray(bucketRaw))
         continue;
       const seconds = finitePositive(Reflect.get(bucketRaw, 'seconds'));
-      const energy = finitePositive(Reflect.get(bucketRaw, 'energy'));
-      if (seconds === undefined || energy === undefined) continue;
       const nameRaw = Reflect.get(bucketRaw, 'name');
+      const name = typeof nameRaw === 'string' && nameRaw ? nameRaw : id;
+      if (version === 1) {
+        const energy = finitePositive(Reflect.get(bucketRaw, 'energy'));
+        if (seconds === undefined || energy === undefined) continue;
+        day[id] = {
+          name,
+          seconds: 0,
+          energyA: 0,
+          energyK: 0,
+          energyZ: 0,
+          legacySeconds: seconds,
+          legacyEnergy: energy,
+        };
+        continue;
+      }
+      const energyA = finitePositive(Reflect.get(bucketRaw, 'energyA'));
+      const energyK = finitePositive(Reflect.get(bucketRaw, 'energyK'));
+      const energyZ = finitePositive(Reflect.get(bucketRaw, 'energyZ'));
+      if (
+        seconds === undefined ||
+        energyA === undefined ||
+        energyK === undefined ||
+        energyZ === undefined
+      )
+        continue;
+      const legacySeconds = finitePositive(Reflect.get(bucketRaw, 'legacySeconds'));
+      const legacyEnergy = finitePositive(Reflect.get(bucketRaw, 'legacyEnergy'));
       day[id] = {
-        name: typeof nameRaw === 'string' && nameRaw ? nameRaw : id,
+        name,
         seconds,
-        energy,
+        energyA,
+        energyK,
+        energyZ,
+        ...(legacySeconds !== undefined ? { legacySeconds } : {}),
+        ...(legacyEnergy !== undefined ? { legacyEnergy } : {}),
       };
     }
     if (Object.keys(day).length > 0) days[ymd] = day;
   }
-  return { version: 1, days };
+  return { version: 2, days };
 }
 
-/** 记一段；直接改传入的文件（记录器自己持有）。 */
+/** 记一段 A/K/Z 三份能量；直接改传入的文件（记录器自己持有）。 */
 export function recordLoudness(
   file: LoudnessFile,
   ymd: string,
   headphoneId: string,
   name: string,
   seconds: number,
-  energy: number,
+  energies: { readonly A: number; readonly K: number; readonly Z: number },
 ): LoudnessFile {
-  if (!(seconds > 0) || !(energy >= 0)) return file;
+  if (
+    !(seconds > 0) ||
+    ![energies.A, energies.K, energies.Z].every(
+      (energy) => Number.isFinite(energy) && energy >= 0,
+    )
+  )
+    return file;
   const day = file.days[ymd] ?? (file.days[ymd] = {});
-  const bucket = day[headphoneId] ?? (day[headphoneId] = { name, seconds: 0, energy: 0 });
+  const bucket =
+    day[headphoneId] ??
+    (day[headphoneId] = {
+      name,
+      seconds: 0,
+      energyA: 0,
+      energyK: 0,
+      energyZ: 0,
+    });
   bucket.name = name || bucket.name;
   bucket.seconds += seconds;
-  bucket.energy += energy;
+  bucket.energyA += energies.A;
+  bucket.energyK += energies.K;
+  bucket.energyZ += energies.Z;
   return file;
 }
 
-export function averageSpl(bucket: Pick<LoudnessBucket, 'seconds' | 'energy'>): number | null {
-  if (!(bucket.seconds > 0) || !(bucket.energy > 0)) return null;
-  return 10 * Math.log10(bucket.energy / bucket.seconds);
+export function averageSpl(
+  bucket: Pick<LoudnessBucket, 'seconds' | 'energyA' | 'energyK' | 'energyZ'>,
+  weighting: SplWeighting,
+): number | null {
+  const energy =
+    weighting === 'A' ? bucket.energyA : weighting === 'K' ? bucket.energyK : bucket.energyZ;
+  if (!(bucket.seconds > 0) || !(energy > 0)) return null;
+  return 10 * Math.log10(energy / bucket.seconds);
 }
 
 export function summarizeLoudness(
   file: LoudnessFile,
   scope: StatsScope,
   now: Date,
+  weighting: SplWeighting = 'A',
 ): LoudnessSummary {
   const range = rangeForScope(scope, now);
-  const totals = new Map<string, { name: string; seconds: number; energy: number }>();
+  const totals = new Map<
+    string,
+    { name: string; seconds: number; legacySeconds: number; energy: number }
+  >();
   let totalSeconds = 0;
+  let totalLegacySeconds = 0;
   let totalEnergy = 0;
   for (const [ymd, day] of Object.entries(file.days)) {
     if (ymd < range.start || ymd > range.end) continue;
     for (const [id, bucket] of Object.entries(day)) {
-      const entry = totals.get(id) ?? { name: bucket.name, seconds: 0, energy: 0 };
+      const energy =
+        weighting === 'A'
+          ? bucket.energyA
+          : weighting === 'K'
+            ? bucket.energyK
+            : bucket.energyZ;
+      const legacySeconds = bucket.legacySeconds ?? 0;
+      const entry =
+        totals.get(id) ?? { name: bucket.name, seconds: 0, legacySeconds: 0, energy: 0 };
       entry.name = bucket.name || entry.name;
       entry.seconds += bucket.seconds;
-      entry.energy += bucket.energy;
+      entry.legacySeconds += legacySeconds;
+      entry.energy += energy;
       totals.set(id, entry);
       totalSeconds += bucket.seconds;
-      totalEnergy += bucket.energy;
+      totalLegacySeconds += legacySeconds;
+      totalEnergy += energy;
     }
   }
   const perHeadphone = [...totals.entries()]
@@ -134,14 +216,36 @@ export function summarizeLoudness(
       id,
       name: entry.name,
       seconds: entry.seconds,
-      spl: averageSpl(entry),
+      legacySeconds: entry.legacySeconds,
+      spl: averageSpl(
+        {
+          seconds: entry.seconds,
+          energyA: entry.energy,
+          energyK: entry.energy,
+          energyZ: entry.energy,
+        },
+        weighting,
+      ),
     }))
-    .sort((left, right) => right.seconds - left.seconds || left.name.localeCompare(right.name));
+    .sort(
+      (left, right) =>
+        right.seconds + right.legacySeconds - (left.seconds + left.legacySeconds) ||
+        left.name.localeCompare(right.name),
+    );
   return {
     perHeadphone,
     overall: {
       seconds: totalSeconds,
-      spl: averageSpl({ seconds: totalSeconds, energy: totalEnergy }),
+      legacySeconds: totalLegacySeconds,
+      spl: averageSpl(
+        {
+          seconds: totalSeconds,
+          energyA: totalEnergy,
+          energyK: totalEnergy,
+          energyZ: totalEnergy,
+        },
+        weighting,
+      ),
     },
   };
 }
@@ -150,12 +254,13 @@ export function summarizeLoudness(
 export function summarizeLoudnessScopes(
   file: LoudnessFile,
   now: Date,
+  weighting: SplWeighting = 'A',
 ): Record<StatsScope, LoudnessSummary> {
   return {
-    today: summarizeLoudness(file, 'today', now),
-    week: summarizeLoudness(file, 'week', now),
-    month: summarizeLoudness(file, 'month', now),
-    year: summarizeLoudness(file, 'year', now),
+    today: summarizeLoudness(file, 'today', now, weighting),
+    week: summarizeLoudness(file, 'week', now, weighting),
+    month: summarizeLoudness(file, 'month', now, weighting),
+    year: summarizeLoudness(file, 'year', now, weighting),
   };
 }
 
@@ -164,8 +269,11 @@ export interface LoudnessStatsHost {
   readonly file: Pick<typeof fb.file, 'read' | 'write'>;
 }
 
-export function loudnessStatsPath(profilePath: string): string {
-  return `${profilePath.replace(/[\\/]+$/, '')}\\${LOUDNESS_STATS_DIRECTORY}\\${LOUDNESS_STATS_FILE}`;
+export function loudnessStatsPath(
+  profilePath: string,
+  file: string = LOUDNESS_STATS_FILE,
+): string {
+  return `${profilePath.replace(/[\\/]+$/, '')}\\${LOUDNESS_STATS_DIRECTORY}\\${file}`;
 }
 
 async function profilePathOf(host: LoudnessStatsHost): Promise<string | null> {
@@ -177,8 +285,14 @@ async function profilePathOf(host: LoudnessStatsHost): Promise<string | null> {
 export async function loadLoudnessStats(host: LoudnessStatsHost): Promise<LoudnessLoad> {
   const profile = await profilePathOf(host);
   if (!profile) return { state: 'failed' };
-  const answer = await settle(() => host.file.read(loudnessStatsPath(profile)));
+  let answer = await settle(() => host.file.read(loudnessStatsPath(profile)));
   if (!answer) return { state: 'failed' };
+  if (answer.success === false && answer.code === 'NOT_FOUND') {
+    answer = await settle(() =>
+      host.file.read(loudnessStatsPath(profile, LEGACY_LOUDNESS_STATS_FILE)),
+    );
+    if (!answer) return { state: 'failed' };
+  }
   if (answer.success === false) {
     if (answer.code === 'NOT_FOUND') return { state: 'empty' };
     if (answer.code === 'PERMISSION_DENIED') return { state: 'denied' };
@@ -203,7 +317,11 @@ export async function writeLoudnessStats(
 
 /** 记录器只依赖这几个字段；由装配层把 `soundPressureViewAtom` 与 `playbackAtom` 传进来。 */
 export interface LoudnessSampleView {
-  readonly reading: { readonly spl: number | null };
+  readonly reading: {
+    readonly splA: number | null;
+    readonly splK: number | null;
+    readonly splZ: number | null;
+  };
   readonly auto: {
     readonly active: boolean;
     readonly state: { readonly updatedAtMs: number } | null;
@@ -303,13 +421,16 @@ export function startLoudnessStats(
     lastGeneration = playback.trackGeneration;
     const auto = view.auto;
     const headphone = view.headphone;
-    const spl = view.reading.spl;
+    const { splA, splK, splZ } = view.reading;
     if (
       playback.state !== 'playing' ||
       !auto?.active ||
       !auto.state ||
       !headphone ||
-      spl === null ||
+      splA === null ||
+      splK === null ||
+      splZ === null ||
+      ![splA, splK, splZ].every(Number.isFinite) ||
       stamp - auto.state.updatedAtMs > staleMs
     )
       return;
@@ -319,8 +440,11 @@ export function startLoudnessStats(
         ? positionDelta
         : Math.min(2, wallDelta);
     if (!(seconds > 0)) return;
-    const energy = 10 ** (spl / 10) * seconds;
-    recordLoudness(file, ymdOfMs(stamp), headphone.id, headphone.name, seconds, energy);
+    recordLoudness(file, ymdOfMs(stamp), headphone.id, headphone.name, seconds, {
+      A: 10 ** (splA / 10) * seconds,
+      K: 10 ** (splK / 10) * seconds,
+      Z: 10 ** (splZ / 10) * seconds,
+    });
     dirty = true;
     scheduleSave();
   }
