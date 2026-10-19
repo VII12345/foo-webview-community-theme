@@ -80,7 +80,7 @@ Default Theme is the default theme for [foo_ui_webview2](https://github.com/Nere
 - Today/week/month/year play counts and duration, top tracks/artists and a monthly trend chart; weeks start on Monday.
 - Top tracks show a 32 px cover; trend bars show duration labels and omit some labels in dense views.
 - Headphone average volume: only time with the DX52 auto reading active, headphones selected and playback running is counted. Per-headphone energy-weighted average SPL and an all-headphones average are shown for day/week/month/year and stored independently in `<profile>\webview-ui-stats\loudness-v1.json`, so the section still works when `foo_monthly_stats` is missing. The totals row also shows the selected period's all-headphones average and headphone listening time.
-- **All statistics** opens a detail page with the four-period overview, per-headphone SPL and listening-time matrices, the per-period top artists, and a table of every song over all time. The song table shows title, artist, album, listened time, plays and last-played date, with title/artist/album search, sortable headers and 100-row pages.
+- **All statistics** opens a detail page with the four-period overview, per-headphone SPL and listening-time matrices, the per-period top artists, and a table of every song over all time. Each song row has a 32 px cover and shows title, artist, album, listened time, plays and last-played date, with title/artist/album search, sortable headers and 100-row pages.
 - Requires the bundled modified `foo_monthly_stats` (official v1.6 lacks the duration fields used by the page).
 
 ### Headphone SPL estimate
