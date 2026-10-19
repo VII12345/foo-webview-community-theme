@@ -3,8 +3,9 @@ import { useAtomValueRawSync } from 'jotai/react';
 import { useEffect, useMemo, useState } from 'react';
 import { fb } from 'foo-webview-sdk/bridge';
 import { translateAtom } from '../i18n/locale.ts';
-import type { Translate } from '../i18n/translate.ts';
 import { durationText } from '../table/cellText.ts';
+import { formatDuration } from './format.ts';
+import { LoudnessSection } from './LoudnessSection.tsx';
 import {
   loadStats,
   type StatsData,
@@ -12,18 +13,9 @@ import {
   type StatsPeriod,
   type StatsTotals,
 } from './monthlyStats.ts';
+import type { StatsScope } from './statsRange.ts';
 import styles from './StatsPage.module.css';
 import { StatsArt } from './StatsArt.tsx';
-
-/** 秒数写成「X 小时 Y 分」这种给人看的写法；不足一分钟写秒。 */
-function formatDuration(seconds: number, t: Translate): string {
-  const whole = Math.max(0, Math.round(seconds));
-  const hours = Math.floor(whole / 3600);
-  const minutes = Math.floor((whole % 3600) / 60);
-  if (hours > 0) return `${hours}${t('stats.hour')} ${minutes}${t('stats.minute')}`;
-  if (minutes > 0) return `${minutes}${t('stats.minute')}`;
-  return `${whole}${t('stats.second')}`;
-}
 
 /** 环比：本期减上期；正负各给一种颜色。 */
 function Delta({ now, before }: { readonly now: number; readonly before: number }) {
@@ -150,8 +142,14 @@ function PeriodBlock({ title, period, topArtists }: { readonly title: string; re
   );
 }
 
-type Scope = 'today' | 'month' | 'year';
-const SCOPES: readonly Scope[] = ['today', 'month', 'year'];
+type Scope = StatsScope;
+const SCOPES: readonly Scope[] = ['today', 'week', 'month', 'year'];
+const SCOPE_LABELS: Readonly<Record<Scope, 'stats.today' | 'stats.week' | 'stats.month' | 'stats.year'>> = {
+  today: 'stats.today',
+  week: 'stats.week',
+  month: 'stats.month',
+  year: 'stats.year',
+};
 
 /** 播放统计页：读 `foo_monthly_stats` 的库，展示概览、Top 榜、趋势与环比。 */
 export function StatsPage() {
@@ -172,29 +170,8 @@ export function StatsPage() {
     };
   }, [host]);
 
-  if (state === null)
-    return (
-      <div className={styles.root}>
-        <Spinner size="small" label={t('stats.loading')} />
-      </div>
-    );
-  if (state.state !== 'ready')
-    return (
-      <div className={styles.root} data-stats-empty data-stats-state={state.state}>
-        <p role="status">
-          {t(
-            state.state === 'empty'
-              ? 'stats.empty'
-              : state.state === 'denied'
-                ? 'stats.denied'
-                : 'stats.failed',
-          )}
-        </p>
-      </div>
-    );
-
-  const data: StatsData = state.data;
-  const period = data[scope];
+  const data: StatsData | null = state?.state === 'ready' ? state.data : null;
+  const period = data?.[scope] ?? null;
   return (
     <div className={styles.root} data-stats-page>
       <header className={styles.head}>
@@ -209,13 +186,32 @@ export function StatsPage() {
               data-stats-scope={value}
               onClick={() => setScope(value)}
             >
-              {t(value === 'today' ? 'stats.today' : value === 'month' ? 'stats.month' : 'stats.year')}
+              {t(SCOPE_LABELS[value])}
             </button>
           ))}
         </div>
       </header>
-      <PeriodBlock title={scope} period={period} topArtists />
-      <Trend points={period.trend} />
+      {state === null ? (
+        <Spinner size="small" label={t('stats.loading')} />
+      ) : !data || !period ? (
+        <div data-stats-empty data-stats-state={state.state}>
+          <p role="status">
+            {t(
+              state.state === 'empty'
+                ? 'stats.empty'
+                : state.state === 'denied'
+                  ? 'stats.denied'
+                  : 'stats.failed',
+            )}
+          </p>
+        </div>
+      ) : (
+        <>
+          <PeriodBlock title={scope} period={period} topArtists />
+          <Trend points={period.trend} />
+        </>
+      )}
+      <LoudnessSection scope={scope} />
     </div>
   );
 }

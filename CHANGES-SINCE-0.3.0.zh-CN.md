@@ -104,3 +104,37 @@
   - `tests/e2e/immersive-components.spec.ts`：旧父 ID 兼容 + 四行字/仪表格/量表/文件信息/三格/歌词主副行/卡片曲名艺人/网格弧线逐项开关。
   - `tests/e2e/settings-immersive.spec.ts`：设置页叶子列表与旧持久化行为。
   - `tests/e2e/immersive-page.spec.ts`、`immersive-tiers.spec.ts`：布局与档位不回归。
+
+## 5. 播放统计：本周 + DX52 耳机平均音量
+
+### 5.1 本周
+
+- 播放统计页新增“本周”标签，范围按周一到周日；上一期是上一自然周。
+- 时长、次数、Top 歌曲/艺人、趋势图都支持本周。
+- 月份/年份改为明确的日期区间查询（`ymd BETWEEN start AND end`），与原来的前缀查询结果一致。
+
+### 5.2 耳机平均音量
+
+- 新增“耳机平均音量”区块，跟随统计页的今日/本周/本月/今年范围：
+  - 每只耳机一行：名称、平均 SPL、累计收听时长。
+  - 末尾“全部耳机”一行：所有耳机合计的能量加权平均 SPL 与总时长。
+  - 只统计 DX52 自动读数生效、正在播放、未静音、已选耳机的时段；手动耳放/耳机模式不计。
+  - 平均 SPL 用能量平均 `10·log10(Σenergy/Σseconds)`，不直接平均 dB。
+- 全局实时响度改为单一实例：
+  - 沉浸页打开，或 DX52 自动读数可用且正在播放时订阅 PCM；其它页面不订阅。
+  - 沉浸页不再自己启动响度服务，避免模块级读数被第二实例清掉。
+  - 响度与记录器模块经动态导入加载，主启动包仍不含 `liveLoudness`。
+- 记录器：
+  - 每秒取样；时长优先用播放位置差，seek/换曲的大跳退回墙钟并夹到 2 秒；暂停、静音、读数过期不计。
+  - DX52 状态超过 30 秒没有新报告就视为过期。
+  - 内存累计，约 20 秒防抖落盘；停止/换曲、页面隐藏、dispose 时冲刷。
+- 存储：`<profile>\webview-ui-stats\loudness-v1.json`
+  - `{ version: 1, days: { "YYYY-MM-DD": { "<headphoneId>": { "name", "seconds", "energy" } } } }`
+  - profile 路径由 `misc.getProfilePath` 取得，写入带 `atomic: true`；`NOT_FOUND` 按空开始，`PERMISSION_DENIED` 不覆盖。
+- 统计库缺失/读取失败时，“耳机平均音量”仍独立显示。
+- 验证：
+  - `tests/unit/stats/statsRange.test.ts`：周一到周日、跨月跨年、上一期。
+  - `tests/unit/stats/monthlyStats.test.ts`：本周总量、上一周、趋势与 Top 榜。
+  - `tests/unit/stats/loudnessStats.test.ts`：解析、能量平均、按耳机/全部聚合、记录器的播放/暂停/过期/无耳机/seek 边界。
+  - `tests/e2e/stats-page.spec.ts`：本周标签、耳机与全部耳机平均、统计库缺失时仍显示音量区块。
+  - `tests/unit/build.test.ts`：主启动包仍不含实时响度模块。

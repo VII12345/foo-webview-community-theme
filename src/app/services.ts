@@ -251,10 +251,22 @@ export function startServices(dataWriter: BrowserDataWriter, prefs: PagePrefStor
   const windowShell = scope.add(windowShellKey, startWindowShell(store));
   scope.own(startWindowActivity(store, windowShell));
   scope.add(miniWindowKey, startMiniWindow(store, prefs, windowShell));
-  scope.add(
+  const immersiveIntegration = scope.add(
     immersiveIntegrationKey,
     startImmersiveIntegration(store, { history, commands, playback }),
   );
+  let loudness: { dispose(): void } | null = null;
+  let loudnessClosed = false;
+  void import('./loudnessIntegration.ts').then(({ startLoudnessIntegration }) => {
+    if (!loudnessClosed) loudness = startLoudnessIntegration(store, immersiveIntegration);
+  });
+  scope.own({
+    dispose() {
+      loudnessClosed = true;
+      loudness?.dispose();
+      loudness = null;
+    },
+  });
   scope.own(startWindowTitle(store));
   scope.add(mainMenuKey, startMainMenu(store));
   scope.add(

@@ -33,6 +33,7 @@ export function startImmersiveIntegration(
   host: ImmersiveHost = fb,
 ) {
   const running = atom(true);
+  const sessionAlive = atom(false);
   const visible = atom((get) => {
     const activity = get(windowActivityAtom);
     return (
@@ -42,6 +43,8 @@ export function startImmersiveIntegration(
       !get(miniWindowAtom).active
     );
   });
+  /** 沉浸会话存在且视图可见；全局实时响度用它在离开页面后停订阅。 */
+  const active = atom((get) => get(sessionAlive) && get(visible));
   let disposed = false;
   let session: {
     entry: HistoryEntry;
@@ -69,6 +72,7 @@ export function startImmersiveIntegration(
   function endSession(): void {
     const previous = session;
     session = null;
+    store.set(sessionAlive, false);
     unregister?.();
     unregister = undefined;
     try {
@@ -94,6 +98,7 @@ export function startImmersiveIntegration(
       if (disposed || entry !== current.entry || current.place.id !== 'nowPlaying') return null;
       if (session?.entry === entry) {
         session.resources ??= startResources?.(session.active);
+        store.set(sessionAlive, true);
         return session;
       }
       initializeImmersivePrefs(store);
@@ -111,10 +116,12 @@ export function startImmersiveIntegration(
       });
       session = { entry, shell, active, end: () => store.set(alive, false) };
       session.resources = startResources?.(active);
+      store.set(sessionAlive, true);
       syncCommands();
       return session;
     },
     visible,
+    active,
     dispose(): void {
       if (disposed) return;
       disposed = true;
@@ -122,6 +129,7 @@ export function startImmersiveIntegration(
       offActive();
       try {
         store.set(running, false);
+        store.set(sessionAlive, false);
       } finally {
         endSession();
       }

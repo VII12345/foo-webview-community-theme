@@ -88,23 +88,31 @@ describe('统计查询', () => {
     // 今天 2026-10-17；本期（本月/今年）与上一期（上月/去年）各放几行。
     const bytes = await buildDb([
       ['2026-10-17', '今天听', 'A', 100, 1],
-      ['2026-10-05', '本月听', 'B', 200, 3],
+      ['2026-10-13', '本周听', 'D', 150, 1],
+      ['2026-10-05', '上周听', 'B', 200, 3],
       ['2026-09-20', '上月听', 'A', 500, 4],
       ['2026-03-01', '今年听', 'C', 900, 6],
       ['2025-12-01', '去年听', 'C', 1000, 5],
     ]);
     const data = await queryStats(bytes, new Date(2026, 9, 17));
-    expect(data.today.label).toBe('2026-10-17');
+    expect(data.today.label).toBe('today');
     expect(data.today.totals).toEqual({ seconds: 100, plays: 1, tracks: 1 });
-    expect(data.month.totals).toEqual({ seconds: 300, plays: 4, tracks: 2 });
+    expect(data.week.totals).toEqual({ seconds: 250, plays: 2, tracks: 2 });
+    expect(data.week.previous.seconds).toBe(200);
+    expect(data.week.trend.map((point) => point.ymd)).toEqual(['2026-10-13', '2026-10-17']);
+    expect(data.month.totals).toEqual({ seconds: 450, plays: 5, tracks: 3 });
     expect(data.month.previous.seconds).toBe(500);
-    expect(data.year.totals.seconds).toBe(1700);
+    expect(data.year.totals.seconds).toBe(1850);
     expect(data.year.previous.seconds).toBe(1000);
     // 趋势按天给点。
-    expect(data.month.trend.map((point) => point.ymd)).toEqual(['2026-10-05', '2026-10-17']);
+    expect(data.month.trend.map((point) => point.ymd)).toEqual([
+      '2026-10-05',
+      '2026-10-13',
+      '2026-10-17',
+    ]);
     // Top 歌曲按月时长降序。
-    expect(data.month.tracks.map((row) => row.title)).toEqual(['本月听', '今天听']);
-    expect(data.month.tracks[0]?.path).toBe('E:/Music/本月听.flac');
+    expect(data.month.tracks.map((row) => row.title)).toEqual(['上周听', '本周听', '今天听']);
+    expect(data.month.tracks[1]?.path).toBe('E:/Music/本周听.flac');
   });
 
   it('库为空时各期都是零', async () => {

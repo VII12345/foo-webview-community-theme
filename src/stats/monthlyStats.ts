@@ -1,6 +1,12 @@
 import type { fb } from 'foo-webview-sdk/bridge';
 import { settle } from '../host/hostCall.ts';
 import initSqlJs from 'sql.js/dist/sql-wasm-inline.js';
+import {
+  previousRangeForScope,
+  rangeForScope,
+  rangeWhere,
+  type StatsScope,
+} from './statsRange.ts';
 
 /**
  * `foo_monthly_stats` 的统计读取：这个组件没有任何 API，唯一可读的是它在 profile 目录下的 SQLite 库
@@ -72,6 +78,7 @@ export interface StatsPeriod {
 
 export interface StatsData {
   readonly today: StatsPeriod;
+  readonly week: StatsPeriod;
   readonly month: StatsPeriod;
   readonly year: StatsPeriod;
 }
@@ -84,47 +91,21 @@ interface CategoryRow {
   readonly artist: string;
 }
 
-/** 每期都要给的几条查询；`key` 是 `YYYY-MM-DD` 的前缀（今天整串、本月 `YYYY-MM`、今年 `YYYY`）。 */
+/** 每期都要给的几条查询；`where` 是 `ymd` 的闭区间条件，按 ISO 文本比较。 */
 const PERIOD_QUERIES = {
-  totals: (key: string) =>
+  totals: (where: string) =>
     `SELECT COALESCE(SUM(total_time_seconds),0) AS seconds, COALESCE(SUM(playcount),0) AS plays,
             COUNT(DISTINCT track_crc) AS tracks
-     FROM monthly_count WHERE ${bound('ymd', key)}`,
-  tracks: (key: string, hasPath: boolean) =>
+     FROM monthly_count WHERE ${where}`,
+  tracks: (where: string, hasPath: boolean) =>
     `SELECT title, artist, ${hasPath ? 'MAX(path)' : "''"} AS path,
             SUM(total_time_seconds) AS seconds, SUM(playcount) AS plays
-     FROM monthly_count WHERE ${bound('ymd', key)}
+     FROM monthly_count WHERE ${where}
      GROUP BY track_crc ORDER BY seconds DESC, plays DESC LIMIT 20`,
-  trend: (key: string) =>
+  trend: (where: string) =>
     `SELECT ymd, SUM(total_time_seconds) AS seconds, SUM(playcount) AS plays
-     FROM monthly_count WHERE ${bound('ymd', key)} GROUP BY ymd ORDER BY ymd`,
-  /** 上一期：整段移位（今天-1 天、本月-1 月、今年-1 年）由调用方把 key 换成上一期后再查。 */
+     FROM monthly_count WHERE ${where} GROUP BY ymd ORDER BY ymd`,
 } as const;
-
-/** 前缀匹配：`ymd` 以 `key` 开头。整串相等时也成立（今天）。 */
-const bound = (column: string, key: string) => `${column} LIKE '${escapeLike(key)}%'`;
-
-/** SQL 字面量里的单引号转义，避免 key 里带引号时拼坏。 */
-const escapeLike = (value: string) => value.replace(/'/g, "''");
-
-/** 日期位移：把 `YYYY-MM-DD` / `YYYY-MM` / `YYYY` 各减一天/一月/一年。 */
-function shiftDate(ymd: string, unit: 'day' | 'month' | 'year'): string {
-  const parts = ymd.split('-').map(Number);
-  const year = parts[0] ?? 1970;
-  const month = parts[1];
-  const day = parts[2];
-  if (unit === 'year') return String(year - 1);
-  if (unit === 'month') {
-    const date = new Date(Date.UTC(year, (month ?? 1) - 1, 1));
-    date.setUTCMonth(date.getUTCMonth() - 1);
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
-  }
-  const date = new Date(Date.UTC(year, (month ?? 1) - 1, (day ?? 1)));
-  date.setUTCDate(date.getUTCDate() - 1);
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(
-    date.getUTCDate(),
-  ).padStart(2, '0')}`;
-}
 
 /** 拆艺人：顿号、斜杠、分号、`feat.` 之类的常见写法；结果去重、去空。 */
 export function splitArtists(artist: string): string[] {
@@ -185,27 +166,28 @@ function rows(db: SqlDatabase, sql: string): Record<string, unknown>[] {
 
 function periodOf(
   db: SqlDatabase,
-  key: string,
-  previousKey: string,
-  label: string,
+  scope: StatsScope,
+  now: Date,
   hasPath: boolean,
 ): StatsPeriod {
-  const totals = firstRow(db, PERIOD_QUERIES.totals(key));
-  const previous = firstRow(db, PERIOD_QUERIES.totals(previousKey));
-  const rawTracks = rows(db, PERIOD_QUERIES.tracks(key, hasPath)).map((row) => ({
+  const where = rangeWhere(rangeForScope(scope, now));
+  const previousWhere = rangeWhere(previousRangeForScope(scope, now));
+  const totals = firstRow(db, PERIOD_QUERIES.totals(where));
+  const previous = firstRow(db, PERIOD_QUERIES.totals(previousWhere));
+  const rawTracks = rows(db, PERIOD_QUERIES.tracks(where, hasPath)).map((row) => ({
     title: text(row['title']),
     artist: text(row['artist']),
     path: text(row['path']),
     seconds: num(row['seconds']),
     plays: num(row['plays']),
   }));
-  const trend = rows(db, PERIOD_QUERIES.trend(key)).map((row) => ({
+  const trend = rows(db, PERIOD_QUERIES.trend(where)).map((row) => ({
     ymd: text(row['ymd']),
     seconds: num(row['seconds']),
     plays: num(row['plays']),
   }));
   return {
-    label,
+    label: scope,
     totals: {
       seconds: num(totals['seconds']),
       plays: num(totals['plays']),
@@ -222,29 +204,20 @@ function periodOf(
   };
 }
 
-/** 用本地的 `YYYY-MM-DD` 作今天（趋势与今天那期都用它）。 */
-function todayYmd(now: Date): string {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-    now.getDate(),
-  ).padStart(2, '0')}`;
-}
-
-/** 打开内存里的库、算出三期数据。`bytes` 是 `foo_monthly_stats.db` 的字节。 */
+/** 打开内存里的库、算出四期数据。`bytes` 是 `foo_monthly_stats.db` 的字节。 */
 export async function queryStats(bytes: Uint8Array, now: Date): Promise<StatsData> {
   const SQL = await initSqlJs();
   const db = new SQL.Database(bytes) as unknown as SqlDatabase;
-  const today = todayYmd(now);
-  const month = today.slice(0, 7);
-  const year = today.slice(0, 4);
   // 老版插件的库没有 path 列；直接 SELECT 会让整页 failed，先探测再决定查询。
   const hasPath = rows(db, 'PRAGMA table_info(monthly_count)').some(
     (column) => text(column['name']) === 'path',
   );
   try {
     return {
-      today: periodOf(db, today, shiftDate(today, 'day'), today, hasPath),
-      month: periodOf(db, month, shiftDate(month, 'month'), month, hasPath),
-      year: periodOf(db, year, shiftDate(year, 'year'), year, hasPath),
+      today: periodOf(db, 'today', now, hasPath),
+      week: periodOf(db, 'week', now, hasPath),
+      month: periodOf(db, 'month', now, hasPath),
+      year: periodOf(db, 'year', now, hasPath),
     };
   } finally {
     db.close();

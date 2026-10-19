@@ -113,6 +113,18 @@ export function dx52Reading(
   };
 }
 
+/** DX52 自动读数可用且选好了耳机：全局实时响度据此在离开沉浸页后继续为播放统计取样。 */
+export const soundPressureAutoActiveAtom: Atom<boolean> = atom((get) => {
+  const decision = dx52Reading(
+    get(dx52EnabledAtom),
+    get(dx52StatusAtom),
+    get(dx52StateAtom),
+    get(dx52JackAtom),
+  );
+  if (!decision.active) return false;
+  return selectedRig(get(headphoneRigAtom)).headphone !== null;
+});
+
 /** 沉浸组件用的组合：设备选择 + 当前 Short-term LUFS + 播放器音量/静音。 */
 export const soundPressureViewAtom: Atom<SoundPressureView> = atom((get) => {
   const rig = get(headphoneRigAtom);
