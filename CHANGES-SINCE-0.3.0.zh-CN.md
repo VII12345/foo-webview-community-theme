@@ -246,6 +246,61 @@
 - 设置页的 HID 诊断面板默认隐藏：`SoundPressureSection.tsx` 里的 `SHOW_DX52_DIAGNOSTICS = false`。记录、复制与格式化代码保留，改成 `true` 即可恢复；e2e 诊断面板用例相应用 `test.skip` 标出。
 - 仍然不能宣称所有真机字段都已确认：这次修正解决的是快照错位与“已关机”，其余字段（增益、线路模式、45..51 的扩展字）仍按现有映射，后续以诊断为准。
 
+## 12. 频谱级 SPL、测量档案与 A/K/Z 加权
+
+### 12.1 电气与声学模型
+
+- 不再用 K 加权 Short-term LUFS 反推电压：
+  - PCM 流每 100 ms 同时累计 K 加权块能量和每声道**未加权均方**；
+  - `rmsDbfs = 10log10(2 × meanSquare)`，满幅正弦 = 0 dBFS；
+  - 电压 `V = V0 × 10^((rmsDbfs + volumeDb + ampGainDb)/20)`，DX52 再乘 0.2 Ω 输出阻抗分压。
+- 频谱形状来自宿主 `audio.subscribeSpectrum` 的 stereo bins（16384 点 FFT，20 Hz–20 kHz），按 31 个 1/3 倍频程 band 汇总。
+- 每帧保留绝对 band 功率；3 秒/曲目窗口累加绝对功率后再归一化成 share，避免安静帧和响帧同权。
+- 总能量仍来自 PCM RMS，频谱只提供形状，避免 spectrum 的 ReplayGain/音量口径差异与 FFT 重叠帧重复计能。
+- FR 用 huihifi `RAW_FR`，在 1 kHz 归一化为 0 dB；阻抗用 `IMPEDANCE` 幅值（按 0° 处理）。
+- `dB/mW` 转 `dB/V` 的参考阻抗：有档案时用档案 1 kHz 实测阻抗，否则用标称阻抗。
+- 每个 band 内积分 `|Z/(Zamp+Z)|²`、FR 与加权曲线，不只取中心频率。
+- 多声道：只对 ≤2 声道走新方法；>2 声道回退旧 LUFS 路径，不假装覆盖中置/LFE。
+- 仍不叠加 ReplayGain；PCM 是 pre-volume/pre-ReplayGain，`volumeDb` 继续单独加。
+
+### 12.2 A/K/Z 加权与安全余量
+
+- 设置 → 耳机新增“声压加权”：A/K/Z，默认 **A**。
+- A：IEC 61672 解析式，1 kHz 归一化 0 dB。
+- K：BS.1770 两级 biquad 的幅频响应，再按 1 kHz 归一化 0 dB；Loudness 表仍用原来的 K 加权 LUFS，不受设置影响。
+- Z：0 dB。
+- 加权只作用于 SPL 的 band 功率，不作用于电压。
+- 80 dB 安全余量固定按 **A** 加权，`state` 超限也按 A；切换显示加权不会改变是否超限。
+- SPL 单位随加权显示：`dBA` / `dB SPL (K)` / `dB SPL (Z)`。
+- 回退：有 bands + PCM RMS → 完整 A/K/Z；只有 PCM RMS → Z 平坦；都没有 → 旧 LUFS，统计不写入新口径。
+
+### 12.3 测量档案
+
+- 新增 `huihifi-ft1` / `huihifi-jt7` / `huihifi-mdr-m1` 三份测量档案，由 `scripts/build-headphone-measurements.mjs` 从 huihifi 公开测评接口生成。
+- FR 降采样到约 1/24 倍频程并 1 kHz 归一化；阻抗降采样到约 1/24 倍频程；THD/动态线性保留在 JSON 中，首版不参与 SPL。
+- 耳机设置新增“测量配置”下拉，默认“无（仅用标称参数）”；沉浸视图耳机编辑表单也保留该字段。
+- 未选档案或 id 不存在时继续使用平坦 FR + 标称阻抗。
+- 测量档案只改变 SPL 计算，不改变耳机声音；曲线来源/许可在 `THIRD_PARTY_NOTICES.md` 标注。
+
+### 12.4 统计 v2
+
+- 新文件 `<profile>\webview-ui-stats\loudness-v2.json`，内部 `version: 2`：
+  `{ name, seconds, energyA, energyK, energyZ, legacySeconds?, legacyEnergy? }`。
+- 每秒同时记录 A/K/Z 三份能量；统计页跟随全局声压加权，默认 A。
+- 旧 `loudness-v1.json` 读取时迁成 `legacySeconds/legacyEnergy`：时长合计包含 legacy，A/K/Z 平均不参与，避免新旧口径混算。
+- 顶部平均声压、耳机区块、详情矩阵都按当前加权显示单位；耳机使用时长 = `seconds + legacySeconds`。
+
+### 12.5 验证
+
+- `headphoneMeasurements.test.ts`：三份档案、1 kHz 归一化、插值、band 响应。
+- `splWeightingCurves.test.ts`：A 常用频点、K 1 kHz 归一化、band 表。
+- `soundPressure.test.ts`：满幅正弦 RMS、0.2 Ω 分压、频带/RMS 路径一致、较响声道、固定 A 余量。
+- `liveBandPower.test.ts` 与 `liveBandPowerService.test.ts`：band 功率、stereo 解析、服务发布 shape。
+- `loudnessStats.test.ts`：v2 三能量、v1 legacy 迁移、加权聚合。
+- `settings-sound-pressure.spec.ts`：测量配置与加权持久化。
+- `stats-page.spec.ts`：v2 fixture、默认 A 的 `dBA` 单位。
+- `build.test.ts`：新频谱/SPL 模块不在初始包。
+
 ## 附录 A：提交对照
 
 | 提交 | 内容 |
@@ -272,14 +327,19 @@
 
 - `default-theme.immersive.textBoost.v1`：0–100，缺省 50；现在表示对比度修正强度，不再固定向白色混合。
 - `default-theme.immersive.components.v1`：沿用原键；新增叶子 ID 见第 4 节，旧父 ID 继续生效。
-- `<profile>\webview-ui-stats\loudness-v1.json`：耳机平均音量累计文件。
+- `<profile>\webview-ui-stats\loudness-v2.json`：耳机 A/K/Z 能量累计文件；旧 `loudness-v1.json` 作为 legacy 读取。
+- `defaultTheme.playback.splWeighting`：`A` / `K` / `Z`，默认 `A`；只影响 SPL 显示，Loudness 表仍为 K 加权 LUFS。
+- 测量档案 id 存在耳机配置的 `measurementProfileId`，不新增独立配置键。
 - DX52：`defaultTheme.playback.dx52Auto`、`defaultTheme.playback.dx52Jack` 不变；诊断数据只在内存中，不落盘。
 - 歌词搜索默认来源只是界面初始值，不新增配置键。
 
 ## 附录 C：下一次 release notes 取用
 
-- 用户可见变化优先取第 1–11 节的标题与首段；细节（边界、存储路径、旧存档兼容）放“改进与修复”。
+- 用户可见变化优先取第 1–12 节的标题与首段；细节（边界、存储路径、旧存档兼容）放“改进与修复”。
 - 需要提醒用户的限制：耳机平均音量只统计 DX52 自动读数生效的耳机输出时段；统计从本次版本开始积累；声压仍是估算值。
+- 新 SPL 方法仍不叠加 ReplayGain；PCM 是 pre-volume/pre-ReplayGain，foobar 音量单独计入。
+- 测量档案来自 huihifi 公开测评接口；如再分发受限，使用本地生成脚本，不把 JSON 随包提交。
+- 旧 `loudness-v1.json` 的时长计入总时长，但不参与 A/K/Z 平均；统计页显示当前加权单位。
 - 全部歌曲表按 `track_crc` 聚合；同一录音被插件算出不同 CRC（例如文件移动）时会显示为两行。
 - 侧边栏“我的耳机”只切换耳机配置，不连带切换耳放；DX52 自动模式下有效耳放仍由设备决定。
 - DX52 真机已能收到 `received=45` 的 52 字快照；快照错位导致的“已关机”已修正。剩余扩展字（45..51）与部分模式字段仍按现有映射，后续以诊断为准。

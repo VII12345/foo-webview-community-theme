@@ -7,6 +7,8 @@
 ### 沉浸视图
 
 - 歌词、卡片、卡片歌词三档的文字改为“对比度优先”修正：按封面合成底色自动选择白/黑目标，滑杆控制修正强度；拉高滑杆不会降低对比度。设置 → 背景中的滑杆（0–100，默认 50）沿用原键。背景、图纸与聚焦视图保持不变。
+- 耳机 SPL 改为频谱级计算：PCM 原始 RMS 提供总电平，宿主 FFT 频谱提供频率分布，不再用 K 加权 LUFS 反推电压。设置 → 耳机可给 FT1/JT7/MDR-M1 选测量配置（频响 + 阻抗）。
+- SPL 显示加权可选 A/K/Z，默认 A；Loudness 表仍是 K 加权 LUFS。80 dB 安全余量固定按 A 计算。
 - 右上角新增歌词搜索键：在当前沉浸视图内弹出搜索面板，不离开视图；第一次 Esc 关面板，第二次 Esc 才退出。
 - 组件显示细化到每个可见元素：四行字、仪表格、两条量表、文件信息六项、罗盘/卡片三格、歌词主/副行、网格与弧线都能单独开关。旧存档里的整组开关继续有效。
 
@@ -17,7 +19,7 @@
 ### 播放统计
 
 - 新增“本周”（周一开始），时长、次数、Top 榜与趋势图都支持。
-- 新增“耳机平均音量”：只统计 DX52 自动读数生效、已选耳机且正在播放的时间，按日/周/月/年给出每只耳机的能量加权平均 SPL，以及“全部耳机”总平均。
+- 新增“耳机平均音量”：只统计 DX52 自动读数生效、已选耳机且正在播放的时间，按日/周/月/年给出每只耳机的能量加权平均 SPL，以及“全部耳机”总平均。新口径同时记录 A/K/Z 三份能量，统计页跟随 SPL 加权设置，默认 A；旧 `loudness-v1.json` 作为 legacy 读取，不参与新平均。
 - 顶部“曲目数”右边显示当前范围的全部耳机平均 SPL 和 DX52 耳机使用时长；右上角“全部统计”打开二级页，集中展示四周期概览、每只/全部耳机平均 SPL 与使用时长矩阵。
 - “全部统计”新增所有歌曲表：按全部时间聚合，列出曲名、艺人、专辑、累计收听、播放次数和最近播放，每行带 32 px 封面；支持搜索、列头排序与每页 100 首分页。各时段的 Top 艺人保留。
 - 数据独立保存在 `<profile>\webview-ui-stats\loudness-v1.json`；统计库缺失时仍可显示。
@@ -43,11 +45,13 @@
 
 - 旧沉浸组件存档（`right.header`、`right.meter`、`right.meta` 等父 ID）继续有效。
 - 旧侧边栏存档没有“我的耳机”开合项时按展开处理，不需要迁移。
-- 耳机平均音量从本版本开始积累，没有历史数据。
+- 耳机平均音量从本版本开始积累；新文件为 `loudness-v2.json`，旧 `loudness-v1.json` 只作为 legacy 时长读取，不参与 A/K/Z 平均。
+- SPL 新方法仍不叠加 ReplayGain；PCM 是 pre-volume/pre-ReplayGain，foobar 音量单独计入。
+- 测量配置来自 huihifi 公开测评曲线；未选配置时继续使用标称参数。
 - 所有歌曲按插件写入的 `track_crc` 聚合；同一录音被算成不同 CRC（例如文件移动）时会显示为两行。
 - 声压与平均音量仍是估算值，不建模输出阻抗、阻抗曲线、耳道耦合与头相关传输。
 - 在线歌词与艺人简介依赖公开接口，可能暂时失效。
 
 ## English summary
 
-Community-enhanced fork based on 0.3.0. Highlights: contrast-first text correction in the lyrics/card scenes (raising the slider never lowers contrast), an in-view lyric search panel, per-element immersive component switches, weekly playback statistics, DX52 per-headphone average SPL (energy-weighted, day/week/month/year plus an all-headphones average), an all-headphones average tile and headphone-time tile, an all-statistics detail page with a searchable/sortable all-songs table and per-headphone duration matrix, a “My headphones” sidebar selector between Library and Playlists, Kugou-hash as the default ID search source, and hardened DX52 snapshot assembly with descriptor-aware output/feature transport probing and an HID diagnostics panel. Existing component, sidebar and WebHID settings keep working after upgrading. Full details are in `CHANGES-SINCE-0.3.0.zh-CN.md`.
+Community-enhanced fork based on 0.3.0. Highlights: contrast-first text correction in the lyrics/card scenes (raising the slider never lowers contrast), an in-view lyric search panel, per-element immersive component switches, spectrum-level SPL from raw PCM RMS and measured headphone FR/impedance profiles with selectable A/K/Z weighting (default A, fixed-A safety margin), weekly playback statistics, DX52 per-headphone average SPL (energy-weighted, day/week/month/year plus an all-headphones average), an all-headphones average tile and headphone-time tile, an all-statistics detail page with a searchable/sortable all-songs table and per-headphone duration matrix, a “My headphones” sidebar selector between Library and Playlists, Kugou-hash as the default ID search source, and hardened DX52 snapshot assembly with descriptor-aware output/feature transport probing. Existing component, sidebar and WebHID settings keep working after upgrading. Full details are in `CHANGES-SINCE-0.3.0.zh-CN.md`.

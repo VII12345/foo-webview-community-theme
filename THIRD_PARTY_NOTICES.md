@@ -2,6 +2,13 @@
 
 本主题的源码改写或收录了下面几个项目的代码与数据。随 npm 依赖打进产物的组件以各包自带的许可为准，这里不重复。
 
+## 耳机测量数据
+
+- 来源：https://huihifi.com 公开测评接口（飞傲 FT1、飞傲 JT7、索尼 MDR-M1）
+- 数据：`src/playback/headphoneMeasurements.json` 的频响与阻抗曲线，由 `scripts/build-headphone-measurements.mjs` 抓取并降采样。
+- 用途：仅用于本主题的耳机声压估算，不改变耳机声音；来源链接保存在每份档案的 `sourceUrl`。
+- 再分发：如权利人限制再分发，请删除随包 JSON，改为在本地运行生成脚本；不要从构建产物中移除来源说明。
+
 ## Lyricify Lyrics Helper
 
 - 项目：https://github.com/WXRIW/Lyricify-Lyrics-Helper ，提交 53a2f81
