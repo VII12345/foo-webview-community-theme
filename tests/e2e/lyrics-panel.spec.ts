@@ -941,6 +941,9 @@ test('按来源与标识类型手动搜词：网易云歌曲 ID 直接出候选�
   await panel(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
   const search = panel(page).locator('[data-lyrics-search]');
   await search.getByRole('combobox', { name: '搜索方式' }).selectOption('id');
+  await expect(search.getByRole('combobox', { name: '来源' })).toHaveValue('kugou');
+  await expect(search.getByRole('combobox', { name: '标识类型' })).toHaveValue('kugouHash');
+  await search.getByRole('combobox', { name: '来源' }).selectOption('netease');
   await expect(search.getByRole('combobox', { name: '标识类型' })).toHaveValue('neteaseSongId');
   await search.getByRole('textbox', { name: '歌曲 ID / MID / Hash' }).fill('2048982668');
   await expect(search.locator('[data-lyrics-candidate]')).toHaveCount(1);
@@ -977,6 +980,7 @@ test('手动搜词可选 QQ MID 与酷狗 Hash', async ({ page }) => {
   await panel(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
   const search = panel(page).locator('[data-lyrics-search]');
   await search.getByRole('combobox', { name: '搜索方式' }).selectOption('id');
+  await expect(search.getByRole('combobox', { name: '来源' })).toHaveValue('kugou');
   await search.getByRole('combobox', { name: '来源' }).selectOption('qq');
   await expect(search.getByRole('combobox', { name: '标识类型' })).toHaveValue('qqSongId');
   await search.getByRole('textbox', { name: '歌曲 ID / MID / Hash' }).fill('0039MnYb0qxYhV');

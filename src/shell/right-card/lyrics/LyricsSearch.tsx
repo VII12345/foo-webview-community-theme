@@ -144,8 +144,8 @@ export function LyricsSearch({
     result.keywords || [title, artist].filter(Boolean).join(' '),
   );
   const [mode, setMode] = useState<'keyword' | 'id'>('keyword');
-  const [idSource, setIdSource] = useState<'netease' | 'qq' | 'kugou'>('netease');
-  const [idKind, setIdKind] = useState<LyricsIdKind>('neteaseSongId');
+  const [idSource, setIdSource] = useState<'netease' | 'qq' | 'kugou'>('kugou');
+  const [idKind, setIdKind] = useState<LyricsIdKind>('kugouHash');
   const idValue = keywords.trim();
   const manualId: LyricsIdQuery | undefined =
     mode === 'id' && idValue ? { source: idSource, kind: idKind, value: idValue } : undefined;
@@ -283,9 +283,9 @@ export function LyricsSearch({
                   setIdKind(defaultKind(next));
                 }}
               >
-                <option value="netease">{t('lyrics.source.netease')}</option>
-                <option value="qq">{t('lyrics.source.qq')}</option>
                 <option value="kugou">{t('lyrics.source.kugou')}</option>
+                <option value="qq">{t('lyrics.source.qq')}</option>
+                <option value="netease">{t('lyrics.source.netease')}</option>
               </Select>
               <Select
                 size="small"
