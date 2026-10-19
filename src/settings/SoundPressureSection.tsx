@@ -216,6 +216,9 @@ function HeadphoneForm({
 }
 
 /** 「耳机」组：耳放与耳机分开维护，当前设备用下拉切换；改动写宿主 config，设置页与沉浸浮层共用。 */
+/** 真机诊断面板默认隐藏；排查时改成 true 即可恢复，记录与复制代码保留。 */
+const SHOW_DX52_DIAGNOSTICS = false;
+
 export function SoundPressureSection() {
   const t = useAtomValueRawSync(translateAtom);
   const service = useService(soundPressureKey);
@@ -575,7 +578,8 @@ export function SoundPressureSection() {
           </Button>
         </div>
       </div>
-      {dx52Enabled && (
+      {/* 默认关闭；把 SHOW_DX52_DIAGNOSTICS 改成 true 恢复面板。 */}
+      {SHOW_DX52_DIAGNOSTICS && dx52Enabled && (
         <div className={styles.group} data-dx52-diagnostics>
           <h3 className={styles.groupTitle}>{t('settings.dx52Diagnostics')}</h3>
           <p className={styles.diagHint}>{t('settings.dx52DiagnosticsHint')}</p>
