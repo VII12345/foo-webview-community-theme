@@ -1,6 +1,8 @@
 import { Button, Input, Switch, Tooltip } from '@fluentui/react-components';
 import {
   Add16Regular,
+  ArrowClockwise16Regular,
+  Copy16Regular,
   Delete16Regular,
   Edit16Regular,
   Headphones20Regular,
@@ -33,7 +35,8 @@ import {
   dx52OutputInfo,
   type Dx52Jack,
 } from '../playback/dx52.ts';
-import { DX52_AUTO_KEY, DX52_JACK_KEY, dx52Key } from '../playback/dx52Prefs.ts';
+import { DX52_AUTO_KEY, DX52_JACK_KEY, dx52Key, formatDx52Diagnostics } from '../playback/dx52Prefs.ts';
+import { copyText } from './hostActions.ts';
 import { SettingsExpander } from './SettingsExpander.tsx';
 import { SettingsRow } from './SettingsRow.tsx';
 import { SettingsSaveNotice } from './SettingsSaveNotice.tsx';
@@ -222,6 +225,13 @@ export function SoundPressureSection() {
   const dx52Jack = useAtomValueRawSync(dx52.jack);
   const dx52Status = useAtomValueRawSync(dx52.status);
   const dx52State = useAtomValueRawSync(dx52.state);
+  const dx52Diagnostics = useAtomValueRawSync(dx52.diagnostics);
+  const [copied, setCopied] = useState(false);
+  const copyDiagnostics = async () => {
+    if (!(await copyText(formatDx52Diagnostics(dx52Diagnostics)))) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
   const [draft, setDraft] = useState<Draft | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -329,6 +339,7 @@ export function SoundPressureSection() {
     if (dx52Status.kind === 'busy') return t('settings.dx52Busy');
     if (dx52Status.kind === 'error') return t('settings.dx52Error');
     if (!dx52State) return t('settings.dx52Connecting');
+    if (dx52State.partial) return t('settings.dx52Partial');
     if (!dx52State.powered) return t('settings.dx52PoweredOff');
     if (dx52State.input !== 'usb') return t('settings.dx52NotUsb');
     const output = dx52OutputInfo(dx52State.route, dx52Jack);
@@ -548,6 +559,51 @@ export function SoundPressureSection() {
           </Button>
         </div>
       </div>
+      {dx52Enabled && (
+        <div className={styles.group} data-dx52-diagnostics>
+          <h3 className={styles.groupTitle}>{t('settings.dx52Diagnostics')}</h3>
+          <p className={styles.diagHint}>{t('settings.dx52DiagnosticsHint')}</p>
+          <div
+            className={styles.diagSummary}
+            data-dx52-diag-status={dx52Diagnostics.status.kind}
+            data-dx52-diag-snapshot={`total=${dx52Diagnostics.snapshot.total} received=${dx52Diagnostics.snapshot.received}`}
+            data-dx52-diag-missing={dx52Diagnostics.snapshot.missing.join(',')}
+          >
+            <span>
+              {t('settings.dx52DiagStatus')}: {dx52Diagnostics.status.kind}
+            </span>
+            <span>
+              {t('settings.dx52DiagSnapshot')}: total={dx52Diagnostics.snapshot.total} · received=
+              {dx52Diagnostics.snapshot.received}/{dx52Diagnostics.snapshot.expected}
+              {dx52Diagnostics.snapshot.missing.length
+                ? ` · missing=${dx52Diagnostics.snapshot.missing.join(',')}`
+                : ''}
+            </span>
+            <span>
+              {t('settings.dx52DiagLastError')}: {dx52Diagnostics.lastError ?? '—'}
+            </span>
+          </div>
+          <div className={styles.diagActions}>
+            <Button
+              size="small"
+              icon={<Copy16Regular />}
+              onClick={() => void copyDiagnostics()}
+            >
+              {t(copied ? 'settings.dx52Copied' : 'settings.dx52Copy')}
+            </Button>
+            <Button
+              size="small"
+              icon={<ArrowClockwise16Regular />}
+              onClick={() => dx52.retry()}
+            >
+              {t('settings.dx52Reread')}
+            </Button>
+          </div>
+          <pre className={styles.diagLog} data-dx52-diag-log>
+            {formatDx52Diagnostics(dx52Diagnostics)}
+          </pre>
+        </div>
+      )}
     </SettingsExpander>
   );
 }

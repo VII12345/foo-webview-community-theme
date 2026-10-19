@@ -4,6 +4,7 @@
  * 协议来自 `TOPPING Home` 的 DX5II-HID 说明与官方前端常量：VID 0x152A、PID 0x8750，
  * 16 字节帧 `22 33 proto total cur cmdH cmdL D3 D2 D1 D0 crcH crcL 66 77 00`，
  * CRC-16/ARC 覆盖 proto..D0。WebHID 的 `inputreport` 可能带/不带 Report ID，解析两种布局。
+ * 字段索引尚未在真机上逐项确认；设置页的 HID 诊断面板会保留原始帧，便于按实际设备修正。
  */
 
 import type { AmpProfile } from './soundPressure.ts';
@@ -39,6 +40,9 @@ export function isDx52PushCommand(cmd: number): boolean {
   return DX52_PUSH_COMMANDS.has(cmd);
 }
 
+/** 设置快照的字段数；来自 TOPPING Home 的前端常量，尚未在真机上逐字段确认。 */
+export const DX52_SNAPSHOT_WORDS = 45;
+
 export type Dx52Input = 'usb' | 'optical' | 'coaxial' | 'bluetooth' | 'unknown';
 export type Dx52Route =
   | 'all'
@@ -66,6 +70,8 @@ export interface Dx52State {
   readonly lineMode: 'preamp' | 'dac' | 'unknown';
   readonly balanceDb: number;
   readonly updatedAtMs: number;
+  /** 只收到部分关键字段；其余字段按 0 填充，展示与自动读数都要提示“读取不完整”。 */
+  readonly partial: boolean;
 }
 
 export interface Dx52Frame {
@@ -160,7 +166,15 @@ function deviceNameOf(words: readonly number[]): string {
 }
 
 /** 用 `0x710C` 的多帧快照生成状态；字段不全时用安全默认。 */
-export function readDx52Settings(words: readonly number[], now: number): Dx52State {
+export interface Dx52SnapshotOptions {
+  readonly partial?: boolean;
+}
+
+export function readDx52Settings(
+  words: readonly number[],
+  now: number,
+  snapshot: Dx52SnapshotOptions = {},
+): Dx52State {
   const volumeStepDb: 0.5 | 1 = (words[32] ?? 0) === 1 ? 1 : 0.5;
   const volumeRaw = words[9] ?? 0;
   const balance = words[17] ?? 0;
@@ -179,6 +193,7 @@ export function readDx52Settings(words: readonly number[], now: number): Dx52Sta
     lineMode: (words[19] ?? -1) === 0 ? 'preamp' : (words[19] ?? -1) === 1 ? 'dac' : 'unknown',
     balanceDb: (balance > 0x7fffffff ? balance - 0x100000000 : balance) / 10,
     updatedAtMs: now,
+    partial: snapshot.partial === true,
   };
 }
 
@@ -317,6 +332,7 @@ export interface Dx52HidHost extends EventTarget {
 
 export interface Dx52InputReportEvent extends Event {
   readonly data: DataView;
+  readonly reportId?: number;
 }
 
 export interface Dx52DisconnectEvent extends Event {

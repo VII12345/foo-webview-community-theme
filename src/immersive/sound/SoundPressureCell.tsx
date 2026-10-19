@@ -42,6 +42,8 @@ function autoHint(auto: SoundPressureAuto): MessageKey | null {
       return 'settings.dx52Unauthorized';
     case 'waiting':
       return 'settings.dx52Waiting';
+    case 'partial':
+      return 'settings.dx52Partial';
     case 'connecting':
       return 'settings.dx52Connecting';
     case 'busy':
@@ -149,6 +151,7 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
       data-variant={variant}
       data-state={reading.state}
       data-auto={keySub ? 'on' : undefined}
+      data-partial={auto.state?.partial || undefined}
       data-field="soundPressure"
     >
       <button

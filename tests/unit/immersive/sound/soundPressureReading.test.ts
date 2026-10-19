@@ -17,6 +17,7 @@ const state: Dx52State = {
   lineMode: 'preamp',
   balanceDb: 0,
   updatedAtMs: 1,
+  partial: false,
 };
 
 const connected = { kind: 'connected' } as const;
@@ -42,6 +43,12 @@ describe('DX5 II 自动读数', () => {
     expect(
       dx52Reading(true, connected, { ...state, powered: false }, 'auto').reason,
     ).toBe('off');
+    expect(
+      dx52Reading(true, connected, { ...state, powered: false, partial: true }, 'auto').reason,
+    ).toBe('partial');
+    expect(
+      dx52Reading(true, connected, { ...state, partial: true }, 'auto').active,
+    ).toBe(true);
   });
 
   it('USB、耳机输出且当前 foobar 输出名不匹配时也生效', () => {

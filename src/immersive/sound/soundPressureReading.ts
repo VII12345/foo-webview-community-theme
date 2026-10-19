@@ -34,6 +34,7 @@ export type Dx52Reason =
   | 'busy'
   | 'error'
   | 'off'
+  | 'partial'
   | 'line'
   | 'not-usb';
 
@@ -72,6 +73,7 @@ function autoReason(
 ): Dx52Reason | null {
   if (!enabled) return null;
   if (!state?.connected || !state.powered) {
+    if (state?.partial) return 'partial';
     if (
       status.kind === 'unsupported' ||
       status.kind === 'unauthorized' ||

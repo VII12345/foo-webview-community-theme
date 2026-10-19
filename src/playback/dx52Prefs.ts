@@ -14,6 +14,7 @@ import {
   buildDx52Frame,
   DX52_COMMANDS,
   DX52_PRODUCT_ID,
+  DX52_SNAPSHOT_WORDS,
   DX52_VENDOR_ID,
   isDx52ProductName,
   isDx52PushCommand,
@@ -22,6 +23,7 @@ import {
   readDx52Settings,
   type Dx52ConnectEvent,
   type Dx52DisconnectEvent,
+  type Dx52Frame,
   type Dx52HidDevice,
   type Dx52HidHost,
   type Dx52InputReportEvent,
@@ -74,6 +76,95 @@ export const dx52FailureNoticeAtom: Atom<Dx52Failure | null> = atom((get) => {
   return kind === 'error' || kind === 'busy' ? kind : null;
 });
 
+export interface Dx52DiagnosticReport {
+  readonly seq: number;
+  readonly atMs: number;
+  readonly direction: 'send' | 'receive';
+  readonly reportId: number | null;
+  readonly length: number;
+  readonly hex: string;
+  readonly parsed: Dx52Frame | null;
+}
+
+export interface Dx52SnapshotDiagnostics {
+  readonly active: boolean;
+  readonly expected: number;
+  readonly total: number;
+  readonly received: number;
+  readonly missing: readonly number[];
+  readonly words: readonly (number | null)[];
+  readonly complete: boolean;
+  readonly partial: boolean;
+}
+
+export interface Dx52Diagnostics {
+  readonly startedAtMs: number;
+  readonly reports: readonly Dx52DiagnosticReport[];
+  readonly snapshot: Dx52SnapshotDiagnostics;
+  readonly lastError: string | null;
+  readonly updatedAtMs: number;
+  readonly status: Dx52Status;
+}
+
+export const DX52_DIAGNOSTICS_LIMIT = 200;
+
+const emptySnapshotDiagnostics = (): Dx52SnapshotDiagnostics => ({
+  active: false,
+  expected: DX52_SNAPSHOT_WORDS,
+  total: 0,
+  received: 0,
+  missing: Array.from({ length: DX52_SNAPSHOT_WORDS }, (_, index) => index),
+  words: Array.from({ length: DX52_SNAPSHOT_WORDS }, () => null),
+  complete: false,
+  partial: false,
+});
+
+const INITIAL_DIAGNOSTICS = {
+  startedAtMs: 0,
+  reports: [] as readonly Dx52DiagnosticReport[],
+  snapshot: emptySnapshotDiagnostics(),
+  lastError: null as string | null,
+  updatedAtMs: 0,
+};
+
+const diagnosticsBaseAtom = atom(INITIAL_DIAGNOSTICS);
+
+export const dx52DiagnosticsAtom: Atom<Dx52Diagnostics> = atom((get) => ({
+  ...get(diagnosticsBaseAtom),
+  status: get(dx52StatusAtom),
+}));
+
+function hexOf(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(' ');
+}
+
+/** 稳定、可复制的诊断文本；用户把它发回来就能看到原始帧与字段索引。 */
+export function formatDx52Diagnostics(diagnostics: Dx52Diagnostics): string {
+  const snapshot = diagnostics.snapshot;
+  const words = snapshot.words
+    .map((value, index) => (value === null ? null : `${index}=${value}`))
+    .filter((value): value is string => value !== null)
+    .join(' ');
+  return [
+    'DX52 HID diagnostics',
+    `status: ${diagnostics.status.kind}`,
+    `lastError: ${diagnostics.lastError ?? '-'}`,
+    `snapshot: expected=${snapshot.expected} total=${snapshot.total} received=${snapshot.received} missing=${
+      snapshot.missing.length ? snapshot.missing.join(',') : '-'
+    } complete=${snapshot.complete} partial=${snapshot.partial}`,
+    `words: ${words || '-'}`,
+    'reports:',
+    ...diagnostics.reports.map((report) => {
+      const parsed = report.parsed
+        ? ` parsed=proto=${report.parsed.proto} total=${report.parsed.total} cur=${report.parsed.cur} cmd=0x${report.parsed.cmd.toString(16)} data=${report.parsed.data}`
+        : ' parsed=null';
+      return `  #${report.seq} +${report.atMs - diagnostics.startedAtMs}ms ${report.direction} reportId=${
+        report.reportId ?? '-'
+      } len=${report.length} hex=${report.hex}${parsed}`;
+    }),
+  ].join('\n');
+}
+
 export interface Dx52Service {
   readonly ready: Promise<void>;
   readonly persistence: ConfigPersistence;
@@ -82,6 +173,7 @@ export interface Dx52Service {
   readonly status: Atom<Dx52Status>;
   readonly state: Atom<Dx52State | null>;
   readonly failure: Atom<Dx52Failure | null>;
+  readonly diagnostics: Atom<Dx52Diagnostics>;
   /** 开关点击：先尝试弹设备选择（用户手势），再持久化。 */
   setEnabled(on: boolean): void;
   setJack(jack: Dx52Jack): void;
@@ -101,6 +193,10 @@ const SNAPSHOT_INITIAL_DELAY_MS = 80;
 /** 快照重发时刻（相对首次请求的毫秒数）；总截止时间比最后一次重发晚 2 秒。 */
 const SNAPSHOT_RETRY_MS = [400, 900, 1600, 2500, 4000] as const;
 const SNAPSHOT_DEADLINE_MS = 6000;
+/** 收到快照帧后静默这么久就收尾，不必等满 6 秒。 */
+const SNAPSHOT_QUIET_MS = 1500;
+/** `total <= 1` 是短应答/回声，不是 45 字段的设置快照。 */
+const SNAPSHOT_MIN_FRAMES = 2;
 const WAITING_RETRY_MS = 10_000;
 const HEARTBEAT_MS = 5000;
 /** 部分快照能安全使用至少需要这些字：电源、音量原始值、输入、输出路由、耳机增益。 */
@@ -124,16 +220,27 @@ export function startDx52(
   store.set(statusAtom, { kind: 'off' });
   store.set(stateAtom, null);
   store.set(failureDismissedAtom, false);
+  store.set(diagnosticsBaseAtom, {
+    ...INITIAL_DIAGNOSTICS,
+    startedAtMs: now(),
+    updatedAtMs: now(),
+  });
   let device: Dx52HidDevice | null = null;
   let disposed = false;
   let connecting = false;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
   let waitingTimer: ReturnType<typeof setInterval> | null = null;
   let snapshotTimers: ReturnType<typeof setTimeout>[] = [];
+  let quietTimer: ReturnType<typeof setTimeout> | null = null;
   let frameWords = new Map<number, number>();
   let frameTotal = 0;
-  let frameBase = 1;
+  let frameBase: 0 | 1 | null = null;
   let snapshotActive = false;
+  let diagnosticsStartedAt = now();
+  let diagnosticsSeq = 0;
+  let diagnosticsReports: Dx52DiagnosticReport[] = [];
+  let diagnosticsError: string | null = null;
+  let diagnosticsSnapshot = emptySnapshotDiagnostics();
 
   const setStatus = (next: Dx52Status) => store.set(statusAtom, next);
   const setState = (next: Dx52State | null) => store.set(stateAtom, next);
@@ -142,12 +249,67 @@ export function startDx52(
   function clearSnapshotTimers(): void {
     for (const timer of snapshotTimers) clearTimeout(timer);
     snapshotTimers = [];
+    if (quietTimer) clearTimeout(quietTimer);
+    quietTimer = null;
   }
   function resetFrames(): void {
     frameWords = new Map();
     frameTotal = 0;
-    frameBase = 1;
+    frameBase = null;
     snapshotActive = false;
+  }
+  function publishDiagnostics(): void {
+    store.set(diagnosticsBaseAtom, {
+      startedAtMs: diagnosticsStartedAt,
+      reports: diagnosticsReports,
+      snapshot: diagnosticsSnapshot,
+      lastError: diagnosticsError,
+      updatedAtMs: now(),
+    });
+  }
+  function snapshotDiagnostics(active: boolean): Dx52SnapshotDiagnostics {
+    const missing: number[] = [];
+    const words: (number | null)[] = [];
+    for (let index = 0; index < DX52_SNAPSHOT_WORDS; index += 1) {
+      const value = frameWords.get(index);
+      words.push(value === undefined ? null : value);
+      if (value === undefined) missing.push(index);
+    }
+    return {
+      active,
+      expected: DX52_SNAPSHOT_WORDS,
+      total: frameTotal,
+      received: frameWords.size,
+      missing,
+      words,
+      complete: isComplete(),
+      partial: false,
+    };
+  }
+  function publishSnapshot(active: boolean): void {
+    if (active) diagnosticsSnapshot = snapshotDiagnostics(true);
+    publishDiagnostics();
+  }
+  function recordReport(
+    direction: 'send' | 'receive',
+    bytes: Uint8Array,
+    parsed: Dx52Frame | null,
+    reportId: number | null,
+  ): void {
+    diagnosticsSeq += 1;
+    diagnosticsReports = [
+      ...diagnosticsReports,
+      {
+        seq: diagnosticsSeq,
+        atMs: now(),
+        direction,
+        reportId,
+        length: bytes.length,
+        hex: hexOf(bytes),
+        parsed,
+      },
+    ].slice(-DX52_DIAGNOSTICS_LIMIT);
+    publishDiagnostics();
   }
   function stopWaitingRetry(): void {
     if (waitingTimer) clearInterval(waitingTimer);
@@ -169,83 +331,124 @@ export function startDx52(
   function send(cmd: number, data = 0, proto = 0x10): void {
     const current = device;
     if (!current?.opened) return;
-    void settle(() => current.sendReport(0, buildDx52Frame(cmd, data, proto)));
+    const frame = buildDx52Frame(cmd, data, proto);
+    recordReport('send', frame, { proto, total: 1, cur: 1, cmd, data }, 0);
+    void settle(() => current.sendReport(0, frame));
   }
   function startHeartbeat(): void {
     if (heartbeat) clearInterval(heartbeat);
     heartbeat = setInterval(() => send(DX52_COMMANDS.heartbeat, 1, 0x20), HEARTBEAT_MS);
   }
+  function isSnapshotFrame(frame: Dx52Frame): boolean {
+    if (frame.total < SNAPSHOT_MIN_FRAMES) return false;
+    return frame.cmd === DX52_COMMANDS.getSettings || !isDx52PushCommand(frame.cmd);
+  }
+  function isComplete(): boolean {
+    if (frameTotal < DX52_SNAPSHOT_WORDS) return false;
+    for (let index = 0; index < DX52_SNAPSHOT_WORDS; index += 1)
+      if (!frameWords.has(index)) return false;
+    return true;
+  }
   function snapshotWords(): number[] {
-    let size = 45;
+    let size = DX52_SNAPSHOT_WORDS;
     if (frameTotal > size) size = frameTotal;
     for (const index of frameWords.keys()) if (index + 1 > size) size = index + 1;
     const words = new Array<number>(size).fill(0);
     for (const [index, value] of frameWords) words[index] = value;
     return words;
   }
-  function acceptSnapshot(): void {
+  function acceptSnapshot(partial: boolean): void {
     snapshotActive = false;
     clearSnapshotTimers();
-    setState(readDx52Settings(snapshotWords(), now()));
+    setState(readDx52Settings(snapshotWords(), now(), { partial }));
     setStatus({ kind: 'connected' });
     clearFailureDismissed();
     startHeartbeat();
     stopWaitingRetry();
-    resetFrames();
-  }
-  function completeSnapshot(): void {
-    if (!snapshotActive || frameTotal <= 0) return;
-    acceptSnapshot();
+    diagnosticsSnapshot = {
+      ...snapshotDiagnostics(false),
+      partial,
+      complete: !partial,
+    };
+    publishDiagnostics();
+    // 保留 frameWords 给诊断面板；下一次 requestSnapshot 再清。
   }
   function finishSnapshot(): void {
     if (!snapshotActive) return;
-    if (CRITICAL_WORDS.every((index) => frameWords.has(index))) {
-      acceptSnapshot();
-      return;
-    }
     snapshotActive = false;
     clearSnapshotTimers();
+    if (isComplete()) {
+      acceptSnapshot(false);
+      return;
+    }
+    if (
+      frameTotal >= SNAPSHOT_MIN_FRAMES &&
+      CRITICAL_WORDS.every((index) => frameWords.has(index))
+    ) {
+      acceptSnapshot(true);
+      return;
+    }
+    const missing = snapshotDiagnostics(false).missing;
+    diagnosticsError = `snapshot incomplete: total=${frameTotal} received=${frameWords.size} missing=${missing.join(',')}`;
+    diagnosticsSnapshot = { ...snapshotDiagnostics(false), active: false };
+    publishDiagnostics();
     console.warn('[DX5 II] settings snapshot incomplete', {
       received: frameWords.size,
       total: frameTotal,
+      missing,
     });
     setStatus({ kind: 'error' });
-    resetFrames();
+  }
+  function scheduleQuietFinish(): void {
+    if (quietTimer) clearTimeout(quietTimer);
+    quietTimer = setTimeout(() => {
+      quietTimer = null;
+      finishSnapshot();
+    }, SNAPSHOT_QUIET_MS);
   }
   function requestSnapshot(): void {
     if (!device?.opened) return;
     clearSnapshotTimers();
     resetFrames();
     snapshotActive = true;
+    diagnosticsStartedAt = now();
+    diagnosticsSeq = 0;
+    diagnosticsReports = [];
+    diagnosticsError = null;
+    diagnosticsSnapshot = { ...emptySnapshotDiagnostics(), active: true };
+    publishDiagnostics();
     clearFailureDismissed();
     setStatus({ kind: 'connecting' });
     send(DX52_COMMANDS.connectState, 2, 0x20);
-    const ask = () => send(DX52_COMMANDS.getSettings, 0, 0x10);
-    snapshotTimers.push(setTimeout(ask, SNAPSHOT_INITIAL_DELAY_MS));
-    for (const delay of SNAPSHOT_RETRY_MS) snapshotTimers.push(setTimeout(ask, delay));
+    const ask = (withConnect: boolean) => {
+      if (withConnect) send(DX52_COMMANDS.connectState, 2, 0x20);
+      send(DX52_COMMANDS.getSettings, 0, 0x10);
+    };
+    snapshotTimers.push(setTimeout(() => ask(false), SNAPSHOT_INITIAL_DELAY_MS));
+    SNAPSHOT_RETRY_MS.forEach((delay, index) =>
+      snapshotTimers.push(setTimeout(() => ask(index >= 2), delay)),
+    );
     snapshotTimers.push(setTimeout(finishSnapshot, SNAPSHOT_DEADLINE_MS));
   }
   function onReport(event: Event): void {
     const report = event as Dx52InputReportEvent;
     const bytes = new Uint8Array(report.data.buffer, report.data.byteOffset, report.data.byteLength);
     const frame = parseDx52Frame(bytes);
+    recordReport('receive', bytes, frame, report.reportId ?? null);
     if (!frame) return;
-    if (
-      snapshotActive &&
-      (frame.cmd === DX52_COMMANDS.getSettings ||
-        (frame.total > 1 && !isDx52PushCommand(frame.cmd)))
-    ) {
-      if (frame.total <= 0) return;
-      // 设备重发快照时从第一帧重新开始；别把上一轮的半份与这一轮混在一起。
-      if (!frameTotal || frame.total !== frameTotal || (frameWords.size > 0 && frame.cur === frameBase)) {
-        frameWords = new Map();
-        frameTotal = frame.total;
-        frameBase = frame.cur === 1 ? 1 : 0;
-      }
+    if (snapshotActive && isSnapshotFrame(frame)) {
+      if (frameBase === null) frameBase = frame.cur === 0 ? 0 : 1;
+      if (frame.total > frameTotal) frameTotal = frame.total;
       const index = frame.cur - frameBase;
-      if (index < 0 || index >= frameTotal) return;
+      if (index < 0 || index >= DX52_SNAPSHOT_WORDS) {
+        publishSnapshot(true);
+        return;
+      }
+      // 重复帧按 index 覆盖，其他已收帧保留；不因重发第一帧清空整轮。
       frameWords.set(index, frame.data);
-      if (frameWords.size >= frameTotal) completeSnapshot();
+      scheduleQuietFinish();
+      publishSnapshot(true);
+      if (isComplete()) acceptSnapshot(false);
       return;
     }
     const current = store.get(stateAtom);
@@ -266,9 +469,13 @@ export function startDx52(
     stopTimers();
     device.removeEventListener('inputreport', onReport);
     device = null;
+    const lastSnapshot = { ...snapshotDiagnostics(false), active: false };
     resetFrames();
     setState(null);
     setStatus({ kind: 'waiting' });
+    diagnosticsSnapshot = lastSnapshot;
+    diagnosticsError = 'device disconnected';
+    publishDiagnostics();
     if (store.get(AUTO_PREF.atom)) startWaitingRetry();
   }
   function onConnect(event: Event): void {
@@ -290,6 +497,9 @@ export function startDx52(
     try {
       if (!found.opened) await found.open();
     } catch {
+      diagnosticsError = 'could not open device';
+      diagnosticsSnapshot = { ...snapshotDiagnostics(false), active: false };
+      publishDiagnostics();
       setStatus({ kind: 'busy' });
       return;
     }
@@ -316,11 +526,15 @@ export function startDx52(
           ? await hid.requestDevice({ filters: FILTERS })
           : await hid.getDevices();
       } catch {
+        diagnosticsError = 'device request failed';
+        publishDiagnostics();
         setStatus({ kind: 'unauthorized' });
         return;
       }
       const found = picked.find((candidate) => isDx52ProductName(candidate.productName));
       if (!found) {
+        diagnosticsError = request ? 'no device picked' : 'no authorized device found';
+        publishDiagnostics();
         if (request) {
           setStatus({ kind: 'unauthorized' });
         } else {
@@ -350,6 +564,7 @@ export function startDx52(
     status: statusAtom,
     state: stateAtom,
     failure: dx52FailureNoticeAtom,
+    diagnostics: dx52DiagnosticsAtom,
     setEnabled(on) {
       clearFailureDismissed();
       if (on) void connect(true);

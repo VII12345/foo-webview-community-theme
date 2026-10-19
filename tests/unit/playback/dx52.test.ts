@@ -76,6 +76,11 @@ describe('DX5 II 协议', () => {
       sampleRate: 96000,
       lineMode: 'preamp',
       updatedAtMs: 123,
+      partial: false,
+    });
+    expect(readDx52Settings(settingsWords(), 1, { partial: true })).toMatchObject({
+      partial: true,
+      powered: true,
     });
     const oneDb = settingsWords();
     oneDb[9] = 99;
