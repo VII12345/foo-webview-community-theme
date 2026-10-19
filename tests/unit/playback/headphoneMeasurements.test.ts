@@ -35,6 +35,24 @@ describe('耳机测量档案', () => {
     expect(referenceImpedanceOhm(null, 300)).toBe(300);
   });
 
+  it('先查自定义档案，再查内置；未知 id 回退 null', () => {
+    const custom = {
+      id: 'huihifi-custom-test',
+      name: 'Custom',
+      source: 'huihifi',
+      sourceUrl: 'https://huihifi.com/evaluation/test',
+      uuid: 'test',
+      fetchedAt: '2026-10-20',
+      frReference: 'voltage' as const,
+      driveImpedanceOhm: null,
+      frequencyResponse: [{ hz: 20, db: 0 }],
+      impedance: [{ hz: 20, ohm: 32 }],
+    };
+    expect(measurementProfileOf(custom.id, [custom])).toBe(custom);
+    expect(measurementProfileOf('huihifi-ft1', [custom])?.name).toBe('FiiO FT1');
+    expect(measurementProfileOf('missing', [custom])).toBeNull();
+  });
+
   it('每个 1/3 倍频程 band 都有有限响应', () => {
     for (const profile of [
       measurementProfileOf('huihifi-ft1'),
