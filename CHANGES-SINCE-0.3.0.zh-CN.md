@@ -145,3 +145,28 @@
 - 来源下拉顺序改为酷狗、QQ、网易云；手动切换来源仍会重置到该来源的第一种标识。
 - 旧快照里保存的来源/标识仍按原值恢复。
 - 验证：`tests/e2e/lyrics-panel.spec.ts` 的 ID 搜索用例；网易云 ID 仍需显式选择网易云后可用。
+
+## 附录 A：提交对照
+
+| 提交 | 内容 |
+|---|---|
+| `18b9974` | DX52 快照重试、连接状态与失败提醒弹窗 |
+| `4c5db0d` | 歌词/卡片文字按封面自适应提亮 + 设置滑杆 |
+| `a58dff6` | 沉浸视图内歌词搜索面板 |
+| `73f693e` | 沉浸组件开关细化到每个可见元素 |
+| `bc2cff3` | 播放统计本周 + DX52 耳机平均 SPL |
+| `46bcb11` | 歌词 ID 搜索默认酷狗 Hash |
+
+## 附录 B：新增配置键与文件
+
+- `default-theme.immersive.textBoost.v1`：0–100，缺省 50。
+- `default-theme.immersive.components.v1`：沿用原键；新增叶子 ID 见第 4 节，旧父 ID 继续生效。
+- `<profile>\webview-ui-stats\loudness-v1.json`：耳机平均音量累计文件。
+- DX52：`defaultTheme.playback.dx52Auto`、`defaultTheme.playback.dx52Jack` 不变。
+- 歌词搜索默认来源只是界面初始值，不新增配置键。
+
+## 附录 C：下一次 release notes 取用
+
+- 用户可见变化优先取第 1–6 节的标题与首段；细节（边界、存储路径、旧存档兼容）放“改进与修复”。
+- 需要提醒用户的限制：耳机平均音量只统计 DX52 自动读数生效的耳机输出时段；统计从本次版本开始积累；声压仍是估算值。
+- 升级兼容：旧沉浸组件存档（父 ID）继续有效；WebHID 授权记录仍在 WebView2 profile 中，正常升级不需要重新授权。
