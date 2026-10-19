@@ -217,7 +217,7 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
   'settings.volumeScaleDb': '按分贝（同 foobar2000）',
   'settings.soundPressure': '耳机输出估算',
   'settings.soundPressureHint':
-    '使用 PCM 原始 RMS、FFT 频谱与可选测量配置；不叠加 ReplayGain。',
+    '使用 PCM 原始 RMS、FFT 频谱与可选测量配置。不额外叠加 ReplayGain；宿主已应用时会计入读数。',
   'settings.dx52Auto': '自动读取解码/耳放信息',
   'settings.dx52AutoHint': '仅适用于拓品DX52',
   'settings.dx52OffHint': '开启后自动读取 DX5 II 的音量、增益与输出',

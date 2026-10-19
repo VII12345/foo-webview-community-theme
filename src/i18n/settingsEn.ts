@@ -219,7 +219,7 @@ export const settingsEn = {
   'settings.volumeScaleDb': 'Decibels (same as foobar2000)',
   'settings.soundPressure': 'Headphone output estimate',
   'settings.soundPressureHint':
-    'Uses raw PCM RMS, the FFT spectrum and an optional measurement profile; ReplayGain is not applied.',
+    'Uses raw PCM RMS, the FFT spectrum and an optional measurement profile. ReplayGain is not added separately; if the host already applies it, the reading includes it.',
   'settings.dx52Auto': 'Read DAC/amp automatically',
   'settings.dx52AutoHint': 'Topping DX52 only',
   'settings.dx52OffHint': 'Read DX5 II volume, gain and output when enabled',

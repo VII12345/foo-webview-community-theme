@@ -256,12 +256,12 @@
   - 电压 `V = V0 × 10^((rmsDbfs + volumeDb + ampGainDb)/20)`，DX52 再乘 0.2 Ω 输出阻抗分压。
 - 频谱形状来自宿主 `audio.subscribeSpectrum` 的 stereo bins（16384 点 FFT，20 Hz–20 kHz），按 31 个 1/3 倍频程 band 汇总。
 - 每帧保留绝对 band 功率；3 秒/曲目窗口累加绝对功率后再归一化成 share，避免安静帧和响帧同权。
-- 总能量仍来自 PCM RMS，频谱只提供形状，避免 spectrum 的 ReplayGain/音量口径差异与 FFT 重叠帧重复计能。
+- 总能量仍来自 PCM RMS，频谱只提供形状，避免 FFT 重叠帧重复计能；ReplayGain 不额外叠加，若宿主流已包含则随读数计入。
 - FR 用 huihifi `RAW_FR`，在 1 kHz 归一化为 0 dB；阻抗用 `IMPEDANCE` 幅值（按 0° 处理）。
 - `dB/mW` 转 `dB/V` 的参考阻抗：有档案时用档案 1 kHz 实测阻抗，否则用标称阻抗。
 - 每个 band 内积分 `|Z/(Zamp+Z)|²`、FR 与加权曲线，不只取中心频率。
 - 多声道：只对 ≤2 声道走新方法；>2 声道回退旧 LUFS 路径，不假装覆盖中置/LFE。
-- 仍不叠加 ReplayGain；PCM 是 pre-volume/pre-ReplayGain，`volumeDb` 继续单独加。
+- 不额外叠加 ReplayGain；读数跟随宿主实际提供的 PCM/频谱电平，宿主已在播放链路中应用时会计入。`volumeDb` 仍单独加。
 
 ### 12.2 A/K/Z 加权与安全余量
 
@@ -337,7 +337,7 @@
 
 - 用户可见变化优先取第 1–12 节的标题与首段；细节（边界、存储路径、旧存档兼容）放“改进与修复”。
 - 需要提醒用户的限制：耳机平均音量只统计 DX52 自动读数生效的耳机输出时段；统计从本次版本开始积累；声压仍是估算值。
-- 新 SPL 方法仍不叠加 ReplayGain；PCM 是 pre-volume/pre-ReplayGain，foobar 音量单独计入。
+- 新 SPL 方法不额外叠加 ReplayGain；读数跟随宿主实际 PCM/频谱电平，宿主已应用时会计入。
 - 测量档案来自 huihifi 公开测评接口；如再分发受限，使用本地生成脚本，不把 JSON 随包提交。
 - 旧 `loudness-v1.json` 的时长计入总时长，但不参与 A/K/Z 平均；统计页显示当前加权单位。
 - 全部歌曲表按 `track_crc` 聚合；同一录音被插件算出不同 CRC（例如文件移动）时会显示为两行。

@@ -46,7 +46,7 @@
 - 旧沉浸组件存档（`right.header`、`right.meter`、`right.meta` 等父 ID）继续有效。
 - 旧侧边栏存档没有“我的耳机”开合项时按展开处理，不需要迁移。
 - 耳机平均音量从本版本开始积累；新文件为 `loudness-v2.json`，旧 `loudness-v1.json` 只作为 legacy 时长读取，不参与 A/K/Z 平均。
-- SPL 新方法仍不叠加 ReplayGain；PCM 是 pre-volume/pre-ReplayGain，foobar 音量单独计入。
+- SPL 新方法不额外叠加 ReplayGain；读数跟随宿主实际提供的 PCM/频谱电平，宿主已在播放链路中应用时会计入。
 - 测量配置来自 huihifi 公开测评曲线；未选配置时继续使用标称参数。
 - 所有歌曲按插件写入的 `track_crc` 聚合；同一录音被算成不同 CRC（例如文件移动）时会显示为两行。
 - 声压与平均音量仍是估算值，不建模输出阻抗、阻抗曲线、耳道耦合与头相关传输。
