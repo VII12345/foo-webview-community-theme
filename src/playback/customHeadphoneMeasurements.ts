@@ -1,6 +1,7 @@
 import type { fb } from 'foo-webview-sdk/bridge';
 import { atom, type Atom } from 'jotai/vanilla';
 import { APP_USER_AGENT } from '../host/appIdentity.ts';
+import { writeTextFile } from '../host/fileWrite.ts';
 import { settle } from '../host/hostCall.ts';
 import { waitForHost, type HostReadyFace } from '../host/waitForHost.ts';
 import { serviceKey } from '../kit/serviceKey.ts';
@@ -40,9 +41,9 @@ export type CustomMeasurementStatus =
   | { readonly kind: 'ready' }
   | { readonly kind: 'empty' }
   | { readonly kind: 'corrupt' }
-  | { readonly kind: 'denied' }
-  | { readonly kind: 'failed' }
-  | { readonly kind: 'unavailable' };
+  | { readonly kind: 'denied'; readonly code?: string }
+  | { readonly kind: 'failed'; readonly code?: string }
+  | { readonly kind: 'unavailable'; readonly code?: string };
 
 export type MeasurementImportFailure =
   | 'invalid-url'
@@ -59,7 +60,12 @@ export type MeasurementImportFailure =
 
 export type MeasurementResult<T> =
   | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly reason: MeasurementImportFailure };
+  | {
+      readonly ok: false;
+      readonly reason: MeasurementImportFailure;
+      /** 宿主返回的原始错误码，供界面显示与排查。 */
+      readonly code?: string;
+    };
 
 export interface MeasurementImportPreview {
   readonly id: string;
@@ -245,7 +251,17 @@ export function startCustomHeadphoneMeasurements(
     }
     const profile = await settle(() => host.misc.getProfilePath());
     if (disposed) return;
-    if (!profile || profile.success === false || !profile.path) {
+    if (!profile) {
+      publish([], { kind: 'failed' });
+      loaded = true;
+      return;
+    }
+    if (profile.success === false) {
+      publish([], { kind: 'failed', code: profile.code });
+      loaded = true;
+      return;
+    }
+    if (!profile.path) {
       publish([], { kind: 'failed' });
       loaded = true;
       return;
@@ -259,13 +275,14 @@ export function startCustomHeadphoneMeasurements(
       return;
     }
     if (answer.success === false) {
-      const kind =
-        answer.code === 'PERMISSION_DENIED'
-          ? 'denied'
-          : answer.code === 'NOT_FOUND'
-            ? 'empty'
-            : 'failed';
-      publish([], { kind });
+      if (answer.code === 'NOT_FOUND') {
+        publish([], { kind: 'empty' });
+      } else {
+        publish([], {
+          kind: answer.code === 'PERMISSION_DENIED' ? 'denied' : 'failed',
+          code: answer.code,
+        });
+      }
       loaded = true;
       return;
     }
@@ -283,12 +300,28 @@ export function startCustomHeadphoneMeasurements(
     return run;
   };
 
-  const writeAll = async (profiles: readonly CustomHeadphoneMeasurement[]): Promise<boolean> => {
-    if (!filePath) return false;
+  type StoreOutcome =
+    | { readonly ok: true }
+    | { readonly ok: false; readonly reason: MeasurementImportFailure; readonly code?: string };
+
+  const writeAll = async (
+    profiles: readonly CustomHeadphoneMeasurement[],
+  ): Promise<StoreOutcome> => {
+    if (!filePath) return { ok: false, reason: 'storage' };
     const text = storedText(profiles);
-    if (text.length > CUSTOM_MEASUREMENT_MAX_BYTES) return false;
-    const answer = await settle(() => host.file.write(filePath!, text, { atomic: true }));
-    return answer?.success === true;
+    if (text.length > CUSTOM_MEASUREMENT_MAX_BYTES) return { ok: false, reason: 'too-large' };
+    const answer = await writeTextFile(host.file, filePath, text);
+    if (answer.ok) return { ok: true };
+    return {
+      ok: false,
+      reason:
+        answer.code === 'PERMISSION_DENIED'
+          ? 'denied'
+          : answer.code === 'NOT_SUPPORTED'
+            ? 'unavailable'
+            : 'storage',
+      ...(answer.code ? { code: answer.code } : {}),
+    };
   };
 
   return {
@@ -341,9 +374,20 @@ export function startCustomHeadphoneMeasurements(
       return exclusive(async () => {
         await ready;
         if (!loaded || !filePath) {
+          const status = store.get(statusAtom);
+          const code =
+            status.kind === 'denied' || status.kind === 'failed' || status.kind === 'unavailable'
+              ? status.code
+              : undefined;
           return {
             ok: false,
-            reason: store.get(statusAtom).kind === 'denied' ? 'denied' : 'storage',
+            reason:
+              status.kind === 'denied'
+                ? 'denied'
+                : status.kind === 'unavailable'
+                  ? 'unavailable'
+                  : 'storage',
+            ...(code ? { code } : {}),
           };
         }
         const uuid = preview.uuid.toLowerCase();
@@ -366,7 +410,8 @@ export function startCustomHeadphoneMeasurements(
         const next = replaced
           ? current.map((profile) => (profile.id === id ? candidate : profile))
           : [...current, candidate];
-        if (!(await writeAll(next))) return { ok: false, reason: 'storage' };
+        const stored = await writeAll(next);
+        if (!stored.ok) return stored;
         publish(next, next.length ? { kind: 'ready' } : { kind: 'empty' });
         return { ok: true, value: { id, replaced } };
       });
@@ -383,7 +428,8 @@ export function startCustomHeadphoneMeasurements(
         }
         if (!filePath) return { ok: false, reason: 'storage' };
         const next = current.filter((profile) => profile.id !== id);
-        if (!(await writeAll(next))) return { ok: false, reason: 'storage' };
+        const stored = await writeAll(next);
+        if (!stored.ok) return stored;
         publish(next, next.length ? { kind: 'ready' } : { kind: 'empty' });
         return { ok: true, value: { removed: true } };
       });

@@ -285,7 +285,9 @@ export const settingsEn = {
   'settings.measurementImportTooLarge': 'This evaluation is too large to import.',
   'settings.measurementImportLimit': 'The custom profile limit has been reached.',
   'settings.measurementImportStorageFailed': 'Could not save the local profile.',
-  'settings.measurementImportDenied': 'The host denied access to the profile folder.',
+  'settings.measurementImportDenied':
+    'The host denied writing to the profile folder. A portable install under Program Files needs an updated foo_ui_webview2.',
+  'settings.measurementImportErrorCode': 'Error code: {code}',
   'settings.measurementImportUnavailable': 'Available only inside foobar2000.',
   'settings.measurementImportCancelled': 'Import cancelled.',
   'settings.customMeasurements': 'Custom measurement profiles',

@@ -8,9 +8,14 @@ import {
   type CustomMeasurementHost,
 } from '../../../src/playback/customHeadphoneMeasurements.ts';
 import { HUHIFI_LINK, huihifiPayload } from '../../fixtures/huihifiEvaluation.ts';
+import type { HostParams, HostResponse } from '../../fixtures/fakeHost.ts';
 import { installFakeHost } from '../../fixtures/unitHost.ts';
 
-function setup(read?: unknown) {
+type WriteAnswer = (
+  params: HostParams,
+) => HostResponse<'file.write'> | Promise<HostResponse<'file.write'>>;
+
+function setup(read?: unknown, writeAnswer?: WriteAnswer) {
   const host = installFakeHost();
   host.answer('file.read', () =>
     read ?? { success: false, error: 'not found', code: 'NOT_FOUND' },
@@ -28,7 +33,9 @@ function setup(read?: unknown) {
       content: String(params['content']),
       atomic: params['atomic'] as boolean | undefined,
     });
-    return { success: true, bytesWritten: String(params['content']).length };
+    return writeAnswer
+      ? writeAnswer(params)
+      : { success: true, bytesWritten: String(params['content']).length };
   });
   const store = createStore();
   const service = startCustomHeadphoneMeasurements(
@@ -141,6 +148,71 @@ describe('自定义测量档案', () => {
 
     const denied = setup({ success: false, code: 'PERMISSION_DENIED', error: 'denied' });
     await denied.service.ready;
-    expect(denied.store.get(customMeasurementStatusAtom)).toEqual({ kind: 'denied' });
+    expect(denied.store.get(customMeasurementStatusAtom)).toMatchObject({
+      kind: 'denied',
+      code: 'PERMISSION_DENIED',
+    });
+  });
+
+  it('写被宿主拒绝时返回 denied 与真实错误码，不改内存档案', async () => {
+    const env = setup(undefined, () => ({
+      success: false,
+      code: 'PERMISSION_DENIED',
+      error: 'protected system path',
+    }));
+    await env.service.ready;
+    const preview = await env.service.preview(HUHIFI_LINK);
+    if (!preview.ok) return;
+    const committed = await env.service.commit(preview.value);
+    expect(committed).toEqual({
+      ok: false,
+      reason: 'denied',
+      code: 'PERMISSION_DENIED',
+    });
+    expect(env.store.get(customMeasurementProfilesAtom)).toEqual([]);
+    expect(env.writes).toHaveLength(1);
+  });
+
+  it('原子写失败时退回普通写', async () => {
+    let calls = 0;
+    const env = setup(undefined, () => {
+      calls += 1;
+      return calls === 1
+        ? {
+            success: false,
+            code: 'OPERATION_FAILED',
+            error: 'write failed',
+            details: { value: 32 },
+          }
+        : { success: true, bytesWritten: 2 };
+    });
+    await env.service.ready;
+    const preview = await env.service.preview(HUHIFI_LINK);
+    if (!preview.ok) return;
+    const committed = await env.service.commit(preview.value);
+    expect(committed.ok).toBe(true);
+    expect(env.writes).toHaveLength(2);
+    expect(env.writes[0]?.atomic).toBe(true);
+    expect(env.writes[1]?.atomic).toBeUndefined();
+    expect(env.store.get(customMeasurementProfilesAtom)).toHaveLength(1);
+  });
+
+  it('写入失败后可以重新导入，成功后才更新内存', async () => {
+    let deny = true;
+    const env = setup(undefined, () =>
+      deny
+        ? { success: false, code: 'PERMISSION_DENIED', error: 'denied' }
+        : { success: true, bytesWritten: 2 },
+    );
+    await env.service.ready;
+    const preview = await env.service.preview(HUHIFI_LINK);
+    if (!preview.ok) return;
+    const failed = await env.service.commit(preview.value);
+    expect(failed.ok).toBe(false);
+    expect(env.store.get(customMeasurementProfilesAtom)).toEqual([]);
+    deny = false;
+    const retried = await env.service.commit(preview.value);
+    expect(retried.ok).toBe(true);
+    expect(env.store.get(customMeasurementProfilesAtom)).toHaveLength(1);
   });
 });

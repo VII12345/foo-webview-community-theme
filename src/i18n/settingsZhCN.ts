@@ -279,7 +279,9 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
   'settings.measurementImportTooLarge': '该评测数据过大，无法导入。',
   'settings.measurementImportLimit': '自定义档案数量已达上限。',
   'settings.measurementImportStorageFailed': '无法保存本地档案。',
-  'settings.measurementImportDenied': '宿主拒绝访问 profile 目录。',
+  'settings.measurementImportDenied':
+    '宿主拒绝写入 profile 目录。便携版位于 Program Files 时需更新 foo_ui_webview2。',
+  'settings.measurementImportErrorCode': '错误代码：{code}',
   'settings.measurementImportUnavailable': '只在 foobar2000 中可用。',
   'settings.measurementImportCancelled': '已取消导入。',
   'settings.customMeasurements': '自定义测量档案',

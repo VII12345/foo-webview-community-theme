@@ -45,3 +45,11 @@
   color: var(--colorPaletteRedForeground1);
   font-size: var(--fontSizeBase200);
 }
+
+.code {
+  display: block;
+  margin-top: var(--spacingVerticalXXS);
+  color: var(--text-muted);
+  font-size: var(--fontSizeBase100);
+  font-variant-numeric: tabular-nums;
+}

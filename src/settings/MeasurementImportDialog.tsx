@@ -51,6 +51,7 @@ export function MeasurementImportDialog({
   const [phase, setPhase] = useState<Phase>('edit');
   const [preview, setPreview] = useState<MeasurementImportPreview | null>(null);
   const [failure, setFailure] = useState<MessageKey | null>(null);
+  const [failureCode, setFailureCode] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const busy = phase === 'fetching' || phase === 'saving';
 
@@ -59,6 +60,7 @@ export function MeasurementImportDialog({
     const controller = new AbortController();
     abort.current = controller;
     setFailure(null);
+    setFailureCode(null);
     setPreview(null);
     setPhase('fetching');
     void service.preview(url, controller.signal).then((result) => {
@@ -68,6 +70,7 @@ export function MeasurementImportDialog({
         setPhase('preview');
       } else {
         setFailure(FAILURE_KEYS[result.reason]);
+        setFailureCode(result.code ?? null);
         setPhase('error');
       }
     });
@@ -76,14 +79,17 @@ export function MeasurementImportDialog({
   const commit = () => {
     if (!preview) return;
     setFailure(null);
+    setFailureCode(null);
     setPhase('saving');
     void service.commit(preview).then((result) => {
       if (result.ok) {
         onImported({ id: result.value.id, name: preview.name });
         onClose();
       } else {
+        // 保留预览与“导入”按钮，修好存储原因后可以直接重试，不必重新抓取。
         setFailure(FAILURE_KEYS[result.reason]);
-        setPhase('error');
+        setFailureCode(result.code ?? null);
+        setPhase('preview');
       }
     });
   };
@@ -153,6 +159,11 @@ export function MeasurementImportDialog({
             {failure && (
               <p className={styles.error} role="alert">
                 {t(failure)}
+                {failureCode && (
+                  <span className={styles.code} data-measurement-import-code>
+                    {t('settings.measurementImportErrorCode', { code: failureCode })}
+                  </span>
+                )}
               </p>
             )}
           </DialogContent>

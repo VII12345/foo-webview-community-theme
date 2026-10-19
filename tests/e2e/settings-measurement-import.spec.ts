@@ -101,3 +101,115 @@ test('从 huihifi 链接导入测量档案、应用到耳机并持久化', async
   expect(JSON.parse(writes[1]!.content).profiles).toEqual([]);
   expect(settings.errors).toEqual([]);
 });
+
+test('原子写失败时退回普通写并完成导入', async ({ page }) => {
+  let stored: string | null = null;
+  const writes: { atomic?: boolean }[] = [];
+  const settings = await openSettings(page, {
+    answers: {
+      file: {
+        read: () => ({ success: false, error: 'not found', code: 'NOT_FOUND' }),
+        write: (params) => {
+          const atomic = params['atomic'] as boolean | undefined;
+          writes.push({ atomic });
+          if (atomic) {
+            return {
+              success: false,
+              error: 'write failed',
+              code: 'OPERATION_FAILED',
+              details: { value: 32 },
+            };
+          }
+          stored = String(params['content'] ?? '');
+          return { success: true, bytesWritten: stored.length };
+        },
+      },
+      http: {
+        get: () => ({
+          success: true,
+          status: 200,
+          headers: {},
+          body: JSON.stringify(huihifiPayload()),
+        }),
+      },
+    },
+  });
+  const expander = settings.expander('耳机输出估算');
+  await expander.getByRole('button', { name: '添加耳机', exact: true }).click();
+  const form = expander.locator('[data-sound-pressure-form="headphone"]');
+  await form.getByLabel('名称').fill('FT1');
+  await form.getByLabel('阻抗（Ω）').fill('32');
+  await form.getByRole('spinbutton', { name: '灵敏度', exact: true }).fill('98');
+
+  await form.getByRole('button', { name: '从 huihifi 链接导入', exact: true }).click();
+  const dialog = page.locator('[data-measurement-import-dialog]');
+  await dialog.getByRole('textbox', { name: '评测链接', exact: true }).fill(HUHIFI_LINK);
+  await dialog.getByRole('button', { name: '获取档案', exact: true }).click();
+  await expect(dialog.locator('[data-measurement-import-preview]')).toContainText('飞傲 FT1');
+  await dialog.getByRole('button', { name: '导入', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+
+  expect(writes).toEqual([{ atomic: true }, { atomic: undefined }]);
+  expect(stored).not.toBeNull();
+  await expect(form.getByRole('combobox', { name: '测量配置', exact: true })).toContainText(
+    '飞傲 FT1',
+  );
+  expect(settings.errors).toEqual([]);
+});
+
+test('宿主拒绝写入时显示错误码并保留导入按钮，修好后可直接重试', async ({ page }) => {
+  let deny = true;
+  let stored: string | null = null;
+  const settings = await openSettings(page, {
+    answers: {
+      file: {
+        read: () => ({ success: false, error: 'not found', code: 'NOT_FOUND' }),
+        write: (params) => {
+          if (deny) {
+            return {
+              success: false,
+              error: 'Write access denied: protected system path',
+              code: 'PERMISSION_DENIED',
+            };
+          }
+          stored = String(params['content'] ?? '');
+          return { success: true, bytesWritten: stored.length };
+        },
+      },
+      http: {
+        get: () => ({
+          success: true,
+          status: 200,
+          headers: {},
+          body: JSON.stringify(huihifiPayload()),
+        }),
+      },
+    },
+  });
+  const expander = settings.expander('耳机输出估算');
+  await expander.getByRole('button', { name: '添加耳机', exact: true }).click();
+  const form = expander.locator('[data-sound-pressure-form="headphone"]');
+  await form.getByLabel('名称').fill('FT1');
+  await form.getByLabel('阻抗（Ω）').fill('32');
+  await form.getByRole('spinbutton', { name: '灵敏度', exact: true }).fill('98');
+
+  await form.getByRole('button', { name: '从 huihifi 链接导入', exact: true }).click();
+  const dialog = page.locator('[data-measurement-import-dialog]');
+  await dialog.getByRole('textbox', { name: '评测链接', exact: true }).fill(HUHIFI_LINK);
+  await dialog.getByRole('button', { name: '获取档案', exact: true }).click();
+  await expect(dialog.locator('[data-measurement-import-preview]')).toContainText('飞傲 FT1');
+
+  await dialog.getByRole('button', { name: '导入', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('宿主拒绝写入 profile 目录');
+  await expect(dialog.locator('[data-measurement-import-code]')).toContainText(
+    'PERMISSION_DENIED',
+  );
+  await expect(dialog.locator('[data-measurement-import-preview]')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '导入', exact: true })).toBeVisible();
+
+  deny = false;
+  await dialog.getByRole('button', { name: '导入', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(stored).not.toBeNull();
+  expect(settings.errors).toEqual([]);
+});
