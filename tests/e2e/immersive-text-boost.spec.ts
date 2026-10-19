@@ -1,7 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { openImmersive, type ImmersivePage } from '../fixtures/immersivePage.ts';
-import { rgbaOf } from '../../src/immersive/frame/cssColor.ts';
-import { luminanceOfSrgb } from '../../src/theme/luminance.ts';
 import { contrastRatio } from '../../src/immersive/paper/textBoost.ts';
 
 // 歌词视图按封面明暗做对比度修正；背景色不变；图纸视图不受影响；拉高滑杆不会降低对比度。
@@ -63,12 +61,32 @@ const colorOf = (view: ImmersivePage['view'], field: string) =>
   view.locator(`[data-field="${field}"]`).first().evaluate((element) => getComputedStyle(element).color);
 const paperOf = (view: ImmersivePage['view']) =>
   view.locator('[data-tier]').first().evaluate((element) => getComputedStyle(element).backgroundColor);
-const lumaOf = (css: string): number => {
-  const [red, green, blue] = rgbaOf(css);
-  return luminanceOfSrgb(red, green, blue);
-};
-const contrastOf = (title: string, paper: string): number =>
-  contrastRatio(lumaOf(title), lumaOf(paper));
+// 颜色可能以 `color(srgb ...)` / `oklab(...)` 序列化，Node 侧解析会退化成黑色；放进浏览器用 canvas 取样。
+const lumaOf = (
+  locator: Locator,
+  property: 'color' | 'backgroundColor' = 'color',
+): Promise<number> =>
+  locator.evaluate((element, sampled) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('2D canvas is unavailable');
+    context.fillStyle = '#000';
+    context.fillStyle = getComputedStyle(element)[sampled];
+    context.fillRect(0, 0, 1, 1);
+    const [red, green, blue] = context.getImageData(0, 0, 1, 1).data;
+    const linear = (channel: number) => {
+      const value = channel / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue);
+  }, property);
+const paperLumaOf = (view: ImmersivePage['view']) =>
+  lumaOf(view.locator('[data-tier]').first(), 'backgroundColor');
+const contrastOf = async (element: Locator, view: ImmersivePage['view']): Promise<number> =>
+  contrastRatio(await lumaOf(element), await paperLumaOf(view));
+const titleOf = (view: ImmersivePage['view']) => view.locator('[data-field="title"]').first();
 
 test('深封面上歌词视图文字按设置修正，纸面背景不变', async ({ page, context }) => {
   const off = await open(page, 'lyrics', 0);
@@ -83,8 +101,8 @@ test('深封面上歌词视图文字按设置修正，纸面背景不变', async
 
   expect(boostedTitle).not.toBe(baseTitle);
   expect(boostedPaper).toBe(basePaper);
-  expect(contrastOf(boostedTitle, boostedPaper)).toBeGreaterThanOrEqual(
-    contrastOf(baseTitle, basePaper) - 1e-6,
+  expect(await contrastOf(titleOf(on.view), on.view)).toBeGreaterThanOrEqual(
+    (await contrastOf(titleOf(off.view), off.view)) - 1e-6,
   );
   expect(off.errors).toStrictEqual([]);
   expect(on.errors).toStrictEqual([]);
@@ -93,17 +111,15 @@ test('深封面上歌词视图文字按设置修正，纸面背景不变', async
 
 test('中等亮度封面：拉高滑杆不会降低对比度', async ({ page, context }) => {
   const off = await open(page, 'lyrics', 0, MID_COVER);
-  const baseTitle = await colorOf(off.view, 'title');
   const basePaper = await paperOf(off.view);
 
   const second = await context.newPage();
   const on = await open(second, 'lyrics', 100, MID_COVER);
-  const boostedTitle = await colorOf(on.view, 'title');
   const boostedPaper = await paperOf(on.view);
 
   expect(boostedPaper).toBe(basePaper);
-  expect(contrastOf(boostedTitle, boostedPaper)).toBeGreaterThanOrEqual(
-    contrastOf(baseTitle, basePaper) - 1e-6,
+  expect(await contrastOf(titleOf(on.view), on.view)).toBeGreaterThanOrEqual(
+    (await contrastOf(titleOf(off.view), off.view)) - 1e-6,
   );
   expect(off.errors).toStrictEqual([]);
   expect(on.errors).toStrictEqual([]);
@@ -116,20 +132,16 @@ test('当前歌词行的强调色也参与对比度修正', async ({ page, conte
     view.locator('[class*="_lyricMainLine"][class*="_active"]').first();
   const off = await open(page, 'lyrics', 0, DARK_COVER, LYRICS);
   await expect(active(off.view)).toBeVisible();
-  const baseColor = await active(off.view).evaluate((element) => getComputedStyle(element).color);
   const basePaper = await paperOf(off.view);
 
   const second = await context.newPage();
   const on = await open(second, 'lyrics', 100, DARK_COVER, LYRICS);
   await expect(active(on.view)).toBeVisible();
-  const boostedColor = await active(on.view).evaluate(
-    (element) => getComputedStyle(element).color,
-  );
   const boostedPaper = await paperOf(on.view);
 
   expect(boostedPaper).toBe(basePaper);
-  expect(contrastOf(boostedColor, boostedPaper)).toBeGreaterThanOrEqual(
-    contrastOf(baseColor, basePaper) - 1e-6,
+  expect(await contrastOf(active(on.view), on.view)).toBeGreaterThanOrEqual(
+    (await contrastOf(active(off.view), off.view)) - 1e-6,
   );
   expect(off.errors).toStrictEqual([]);
   expect(on.errors).toStrictEqual([]);

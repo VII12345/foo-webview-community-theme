@@ -101,6 +101,10 @@
     var(--paper-hot-target) var(--paper-hot-pct),
     var(--paper-hot-base)
   );
+}
+
+/* 当前行强调色只在确实要修正时覆盖；0% 时没有这个变量，LyricsPlayer 回退到原 accent。 */
+.paper[data-lyrics-boost] [data-paper-content] {
   --lyrics-active: color-mix(
     in srgb,
     var(--lyrics-active-target) var(--lyrics-active-pct),

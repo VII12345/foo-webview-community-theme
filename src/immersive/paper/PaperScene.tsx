@@ -199,6 +199,7 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
       data-scene={variant}
       data-dark={dark || undefined}
       data-text-boost={maxPct > 0 ? (maxPct / 100).toFixed(3) : undefined}
+      data-lyrics-boost={active.pct > 0 ? 'on' : undefined}
       style={boostStyle}
     >
       {wash && !hidden.has('wash') && <PaperCoverWash />}
