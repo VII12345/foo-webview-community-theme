@@ -39,6 +39,8 @@ const RATING_LEAVES = ['1', '2', '3', '4', '5'].map((value) =>
 const CLEAR = command('<not set>');
 const PROPERTIES = command('&Properties');
 const SEND_TO = command('Send to playlist...');
+const MOVE_TO = command('Move to...');
+const COPY_TO = command('Copy to...');
 const TREE: ContextTree = {
   roots: [
     command('Play'),
@@ -46,6 +48,7 @@ const TREE: ContextTree = {
     { type: 'separator' },
     PROPERTIES,
     submenu('Utilities', [SEND_TO]),
+    submenu('File Operations', [MOVE_TO, COPY_TO]),
   ],
   target: { mode: 'handles', handles: ['file://E:\\a.flac'] },
 };
@@ -71,7 +74,7 @@ describe('readContextTree', () => {
       { mode: 'handles', handles: ['file://E:\\a.flac|subsong:2'], locale: 'zh-CN' },
     ]);
     expect(tree.target).toEqual(target);
-    expect(tree.roots).toHaveLength(5);
+    expect(tree.roots).toHaveLength(6);
   });
 
   it('读取失败与正常空树分开', async () => {
@@ -116,7 +119,31 @@ describe('knownCommandsOf', () => {
     const known = knownCommandsOf(TREE);
     expect(known.properties).toBe(PROPERTIES);
     expect(known.sendToDialog).toBe(SEND_TO);
+    expect(known.moveTo).toBe(MOVE_TO);
     expect(normalizeLabel('  &Send To Playlist…')).toBe('send to playlist');
+  });
+
+  it('认「移动到…」，不把播放列表移动或「移动到这里」当成它', () => {
+    const moved: ContextTree = {
+      roots: [command('移动到…')],
+      target: { mode: 'selection' },
+    };
+    expect(knownCommandsOf(moved).moveTo?.label).toBe('移动到…');
+    const longer: ContextTree = {
+      roots: [command('移动到指定文件夹…')],
+      target: { mode: 'selection' },
+    };
+    expect(knownCommandsOf(longer).moveTo?.label).toBe('移动到指定文件夹…');
+    const playlist: ContextTree = {
+      roots: [command('移动到播放列表')],
+      target: { mode: 'selection' },
+    };
+    expect(knownCommandsOf(playlist).moveTo).toBeNull();
+    const here: ContextTree = {
+      roots: [command('Move here')],
+      target: { mode: 'selection' },
+    };
+    expect(knownCommandsOf(here).moveTo).toBeNull();
   });
 
   it('评分子菜单靠 1–5 子项认，勾选照搬宿主', () => {
@@ -143,6 +170,7 @@ describe('knownCommandsOf', () => {
       properties: null,
       sendToDialog: null,
       rating: null,
+      moveTo: null,
     });
   });
 });

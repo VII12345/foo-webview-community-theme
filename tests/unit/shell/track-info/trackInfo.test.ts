@@ -154,6 +154,7 @@ describe('曲目信息读取', () => {
     service.setSections(INFO_SECTIONS);
     await flush();
     expect(await service.openFolder()).toBe(false);
+    expect(await service.moveTo()).toBe(false);
     expect(host.callsTo('metadata.read')).toEqual([]);
     expect(host.callsTo('file.getInfo')).toEqual([]);
     expect(state().track?.path).toBe('https://radio.example/live');
@@ -194,6 +195,61 @@ describe('曲目信息读取', () => {
     await flush();
     expect(await service.openFolder()).toBe(true);
     expect(host.callsTo('shell.showInExplorer').at(-1)).toEqual({ path: 'E:/album.cue' });
+  });
+
+  test('「移动到…」读上下文菜单并执行宿主的文件操作命令', async () => {
+    const { host, service, state } = await setup();
+    host.answer('menu.getContextMenu', {
+      success: true,
+      mode: 'handles',
+      locale: 'en',
+      i18n: true,
+      withAvailability: true,
+      items: [
+        {
+          type: 'submenu',
+          label: 'File Operations',
+          displayLabel: 'File Operations',
+          path: 'File Operations',
+          displayPath: 'File Operations',
+          children: [
+            {
+              type: 'command',
+              label: 'Move to...',
+              displayLabel: 'Move to...',
+              path: 'File Operations/Move to...',
+              displayPath: 'File Operations/Move to...',
+              available: true,
+              enabled: true,
+              commandId: 42,
+            },
+          ],
+        },
+      ],
+    });
+    expect(await service.moveTo('en')).toBe(true);
+    expect(host.callsTo('menu.getContextMenu')).toEqual([
+      { mode: 'handles', handles: [INFO_TRACK.handle], locale: 'en' },
+    ]);
+    expect(host.callsTo('menu.runContextCommandById')).toEqual([
+      { id: 42, mode: 'handles', handles: [INFO_TRACK.handle] },
+    ]);
+    expect(state().action).toBe('idle');
+  });
+
+  test('上下文菜单里没有「移动到…」时提示失败，不调用执行端点', async () => {
+    const { host, service, state } = await setup();
+    host.answer('menu.getContextMenu', {
+      success: true,
+      mode: 'handles',
+      locale: 'en',
+      i18n: true,
+      withAvailability: true,
+      items: [],
+    });
+    expect(await service.moveTo('en')).toBe(false);
+    expect(host.callsTo('menu.runContextCommandById')).toEqual([]);
+    expect(state().action).toBe('moveFailed');
   });
 
   test('复制全部字段补读折叠分组，等待已发出的读取，不改变展开状态', async () => {

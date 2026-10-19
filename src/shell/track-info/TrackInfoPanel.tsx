@@ -594,7 +594,7 @@ export function TrackInfoPanel({
             size="small"
             icon={expanded ? <ChevronUp16Regular /> : <ChevronDown16Regular />}
             disabled={!track}
-            data-info-cover-toggle={showRow || expanded ? '' : undefined}
+            data-info-cover-toggle=""
             aria-expanded={expanded}
             onClick={toggle}
           />

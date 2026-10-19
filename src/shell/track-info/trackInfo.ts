@@ -1,6 +1,7 @@
 import type { Track } from 'foo-webview-sdk';
 import { fb } from 'foo-webview-sdk/bridge';
 import { atom, type Atom } from 'jotai/vanilla';
+import { knownCommandsOf, readContextTree, runContextCommand } from '../../host/contextMenu.ts';
 import { hostCommand, settle } from '../../host/hostCall.ts';
 import { normalizeHostPath } from '../../host/hostPath.ts';
 import { trackPathOf } from '../../host/libraryContract.ts';
@@ -39,6 +40,7 @@ export type TrackInfoHost = Pick<
   | 'rating'
   | 'clipboard'
   | 'shell'
+  | 'menu'
   | 'on'
   | 'isAvailable'
   | 'ready'
@@ -60,6 +62,8 @@ export interface TrackInfoService {
   copyTags(): Promise<boolean>;
   copyAll(t: Translate, locale: string): Promise<boolean>;
   openFolder(): Promise<boolean>;
+  /** 调宿主的文件操作「移动到…」；流媒体、没有当前曲目或宿主菜单里认不出命令时答 false。 */
+  moveTo(locale?: string): Promise<boolean>;
   /** 写标签；派发后等完成事件并重读确认。流媒体与没有当前曲目时答 false。 */
   writeTags(changes: readonly TagChange[]): Promise<boolean>;
   dispose(): void;
@@ -310,6 +314,34 @@ export function startTrackInfo(
       const id = generation;
       const success = await hostCommand(() => host.shell.showInExplorer(path));
       update(id, { action: success ? 'idle' : 'openFailed' });
+      return success;
+    },
+    async moveTo(locale) {
+      const target = track;
+      if (
+        disposed ||
+        !active ||
+        !connected ||
+        !target ||
+        infoMediaKind(target) === 'stream' ||
+        store.get(state).action === 'moving'
+      )
+        return false;
+      const id = generation;
+      const tree = await readContextTree(
+        host,
+        { mode: 'handles', handles: [target.handle] },
+        locale,
+      );
+      if (!valid(id)) return false;
+      const command = knownCommandsOf(tree).moveTo;
+      if (!command) {
+        update(id, { action: 'moveFailed' });
+        return false;
+      }
+      update(id, { action: 'moving' });
+      const success = await runContextCommand(host, tree, command);
+      update(id, { action: success ? 'idle' : 'moveFailed' });
       return success;
     },
     async writeTags(changes) {

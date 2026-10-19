@@ -94,7 +94,7 @@ test('歌曲单击、键盘与跨页保留，关卡后选择在重新打开时�
   await expect(head(page)).toContainText('Feather');
   await page.locator('[data-right-card-page="queue"]').click();
   await expect(page.locator('[data-queue-current]')).toContainText('正在播放的曲目');
-  const toolbar = page.locator('[data-right-card] > div').first();
+  const toolbar = page.locator('[data-right-card] > div').nth(1);
   const tabs = page.locator('[data-right-card] [role="tablist"]');
   const more = page.getByRole('button', { name: '面板选项', exact: true });
   const queueToolbar = await toolbar.boundingBox();
@@ -155,6 +155,51 @@ test('播放列表定位与组头不覆盖预览，右键选择和分轨身份�
   expect(view.errors).toEqual([]);
 });
 
+test('曲目信息的“移动到…”按钮调用宿主的文件操作命令', async ({ page }) => {
+  const view = await openSongs(page, {
+    configure: (host) => {
+      informationAnswers(host, SONG_TRACKS);
+      host.answer('menu.getContextMenu', {
+        success: true,
+        mode: 'handles',
+        locale: 'en',
+        i18n: true,
+        withAvailability: true,
+        items: [
+          {
+            type: 'submenu',
+            label: 'File Operations',
+            displayLabel: 'File Operations',
+            path: 'File Operations',
+            displayPath: 'File Operations',
+            children: [
+              {
+                type: 'command',
+                label: 'Move to...',
+                displayLabel: 'Move to...',
+                path: 'File Operations/Move to...',
+                displayPath: 'File Operations/Move to...',
+                available: true,
+                enabled: true,
+                commandId: 42,
+              },
+            ],
+          },
+        ],
+      });
+    },
+  });
+  const track = SONG_TRACKS[0]!;
+  await view.row(track.title).locator('[data-column-id="title"]').click();
+  await showInfo(page);
+  await page.locator('[data-track-info-move]').click();
+  await expect.poll(() => view.host.callsTo('menu.runContextCommandById').length).toBe(1);
+  const call = view.host.callsTo('menu.runContextCommandById')[0];
+  expect(call?.['id']).toBe(42);
+  expect(call?.['handles']).toEqual([track.handle]);
+  expect(view.errors).toEqual([]);
+});
+
 for (const colorScheme of ['light', 'dark'] as const) {
   test(`${colorScheme}：曲目头部更多与右键复用单曲菜单，保留分轨，换曲关闭旧菜单`, async ({
     page,
@@ -177,7 +222,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
       arrowBounds &&
         moreBounds &&
         moreBounds.x === arrowBounds.x &&
-        moreBounds.y >= arrowBounds.y + arrowBounds.height,
+        // 两行各 28px；缩放后行距可能带不到 1px 的分数差。
+        moreBounds.y >= arrowBounds.y + arrowBounds.height - 1,
     ).toBe(true);
     await more.click();
     const menu = page.locator('[data-track-menu]');

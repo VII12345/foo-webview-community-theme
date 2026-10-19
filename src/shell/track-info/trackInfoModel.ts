@@ -43,7 +43,14 @@ export interface TrackInfoState {
   readonly replayGain: InfoRead<InfoReplayGain>;
   readonly rating: InfoRead<InfoRating>;
   readonly tagSource: 'host' | 'file';
-  readonly action: 'idle' | 'copying' | 'copied' | 'copyFailed' | 'openFailed';
+  readonly action:
+    | 'idle'
+    | 'copying'
+    | 'copied'
+    | 'copyFailed'
+    | 'openFailed'
+    | 'moving'
+    | 'moveFailed';
   /** 标签写入正在进行。 */
   readonly saving: boolean;
   /** 最近一次标签写入失败；下一次写入或刷新时清掉。 */
