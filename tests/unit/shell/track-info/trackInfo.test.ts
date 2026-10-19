@@ -208,20 +208,29 @@ describe('曲目信息读取', () => {
       items: [
         {
           type: 'submenu',
-          label: 'File Operations',
-          displayLabel: 'File Operations',
-          path: 'File Operations',
-          displayPath: 'File Operations',
+          label: '文件操作',
+          displayLabel: '文件操作',
+          path: '文件操作',
+          displayPath: '文件操作',
           children: [
             {
-              type: 'command',
-              label: 'Move to...',
-              displayLabel: 'Move to...',
-              path: 'File Operations/Move to...',
-              displayPath: 'File Operations/Move to...',
-              available: true,
-              enabled: true,
-              commandId: 42,
+              type: 'submenu',
+              label: '移动到',
+              displayLabel: '移动到',
+              path: '文件操作/移动到',
+              displayPath: '文件操作/移动到',
+              children: [
+                {
+                  type: 'command',
+                  label: '...',
+                  displayLabel: '...',
+                  path: '文件操作/移动到/...',
+                  displayPath: '文件操作/移动到/...',
+                  available: true,
+                  enabled: true,
+                  commandId: 26,
+                },
+              ],
             },
           ],
         },
@@ -232,7 +241,7 @@ describe('曲目信息读取', () => {
       { mode: 'handles', handles: [INFO_TRACK.handle], locale: 'en' },
     ]);
     expect(host.callsTo('menu.runContextCommandById')).toEqual([
-      { id: 42, mode: 'handles', handles: [INFO_TRACK.handle] },
+      { id: 26, mode: 'handles', handles: [INFO_TRACK.handle] },
     ]);
     expect(state().action).toBe('idle');
   });

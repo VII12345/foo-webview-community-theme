@@ -84,6 +84,9 @@ const LABELS = {
 /** `foo_fileops` 的「移动到…」：英文原文与汉化版的常见写法；按前缀认，后缀可能带“文件夹”。 */
 const MOVE_TO_LABELS = ['move to', 'move files to', '移动到', '移动文件到'];
 const MOVE_TO_BARE = ['move', '移动'];
+/** 真实宿主把移动做成 `文件操作/移动到` 子菜单，打开文件夹选择框的是子菜单里的 `...` 项。 */
+const FILE_OPERATIONS_LABELS = ['file operations', '文件操作'];
+const MOVE_MENU_LABELS = ['move to', 'move', '移动到', '移动'];
 /** 同一份菜单里容易和「移动」混淆的项：播放列表移动、拖放「移动到这里」、标签页左右移动。 */
 const NOT_MOVE_TO = ['playlist', '播放列表', 'here', '这里', 'left', 'right', '左边', '右边'];
 const RATING_VALUES = [1, 2, 3, 4, 5] as const;
@@ -152,6 +155,31 @@ function ratingOf(submenus: readonly MenuSubmenu[]): RatingCommands | null {
   return { values, clear, current };
 }
 
+/** 在 `文件操作/移动到` 子菜单里找 `...`：它才是打开文件夹选择框的命令。 */
+function browseMoveCommands(
+  items: readonly MenuItem[],
+  path: readonly string[] = [],
+): MenuCommand[] {
+  const found: MenuCommand[] = [];
+  for (const node of items) {
+    if (node.type !== 'submenu') continue;
+    const label = normalizeLabel(node.label || node.displayLabel || '');
+    const inFileOps = path.some((part) => FILE_OPERATIONS_LABELS.includes(part));
+    if (inFileOps && MOVE_MENU_LABELS.includes(label)) {
+      const browse = node.children.find(
+        (child): child is MenuCommand =>
+          child.type === 'command' &&
+          normalizeLabel(child.label || child.displayLabel || '') === '' &&
+          isEnabled(child) &&
+          typeof child.commandId === 'number',
+      );
+      if (browse) found.push(browse);
+    }
+    found.push(...browseMoveCommands(node.children, [...path, label]));
+  }
+  return found;
+}
+
 /** 从树里认出属性、发送到对话框、评分与「移动到…」；认不出的为 null，对应按钮置灰。 */
 export function knownCommandsOf(tree: ContextTree): KnownCommands {
   const commands: MenuCommand[] = [];
@@ -159,6 +187,7 @@ export function knownCommandsOf(tree: ContextTree): KnownCommands {
   collect(tree.roots, commands, submenus);
   const find = (labels: readonly string[]) =>
     usable(only(commands.filter((node) => labels.includes(normalizeLabel(node.label)))));
+  const browseMove = usable(only(browseMoveCommands(tree.roots)));
   const moveTo = commands.filter((node) => {
     const label = normalizeLabel(node.label);
     const display = normalizeLabel(node.displayLabel ?? '');
@@ -171,7 +200,7 @@ export function knownCommandsOf(tree: ContextTree): KnownCommands {
     properties: find(LABELS.properties),
     sendToDialog: find(LABELS.sendToPlaylist),
     rating: ratingOf(submenus),
-    moveTo: usable(only(moveTo)),
+    moveTo: browseMove ?? usable(only(moveTo)),
   };
 }
 

@@ -146,6 +146,25 @@ describe('knownCommandsOf', () => {
     expect(knownCommandsOf(here).moveTo).toBeNull();
   });
 
+  it('真实宿主：文件操作/移动到/... 里取打开文件夹选择框的那一项', () => {
+    const browse = command('...', { commandId: 26 });
+    const copyBrowse = command('...', { commandId: 23 });
+    const tree: ContextTree = {
+      roots: [
+        submenu('文件操作', [
+          submenu('复制到', [copyBrowse]),
+          submenu('移动到', [
+            command('C:\\Users\\28689\\Music\\xun'),
+            browse,
+            command('C:\\Users\\28689\\Music\\xunxun'),
+          ]),
+        ]),
+      ],
+      target: { mode: 'selection' },
+    };
+    expect(knownCommandsOf(tree).moveTo).toBe(browse);
+  });
+
   it('评分子菜单靠 1–5 子项认，勾选照搬宿主', () => {
     const rating = knownCommandsOf(TREE).rating;
     expect(rating?.values.map((entry) => entry.value)).toEqual([1, 2, 3, 4, 5]);
