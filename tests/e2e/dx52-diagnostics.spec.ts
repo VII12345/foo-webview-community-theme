@@ -4,7 +4,7 @@ import { openSettings } from '../fixtures/settingsPage.ts';
 
 // DX52 诊断：短应答/部分快照不会误报已关机；设置页能复制原始 HID 帧。
 
-const FAKE_HID = (mode: 'short' | 'partial') => `
+const FAKE_HID = (mode: 'short' | 'partial' | 'feature') => `
   (() => {
     const crc16 = (bytes) => {
       let value = 0xffff;
@@ -30,9 +30,14 @@ const FAKE_HID = (mode: 'short' | 'partial') => `
     class FakeDevice extends EventTarget {
       opened = false;
       productName = 'TOPPING DX5 II';
+      collections = '${mode}' === 'feature'
+        ? [{ usagePage: 0xff00, featureReports: [{ reportId: 0, items: [{ reportSize: 8, reportCount: 16 }] }] }]
+        : undefined;
+      responses = [];
       async open() { this.opened = true; }
       async close() { this.opened = false; }
       async sendReport(_reportId, data) {
+        if ('${mode}' === 'feature') return;
         const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
         const cmd = ((bytes[5] ?? 0) << 8) | (bytes[6] ?? 0);
         if (cmd !== 0x710c) return;
@@ -51,6 +56,26 @@ const FAKE_HID = (mode: 'short' | 'partial') => `
             reportId: 0,
           })), 0);
         }
+      }
+      async sendFeatureReport(_reportId, data) {
+        if ('${mode}' !== 'feature') return;
+        const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+        const cmd = ((bytes[5] ?? 0) << 8) | (bytes[6] ?? 0);
+        if (cmd !== 0x710c) return;
+        const words = new Array(45).fill(0);
+        words[0] = 1; words[9] = 20; words[12] = 3;
+        this.responses = this.responses.concat(
+          words.map((word, index) => frame(0x710c, word, 0x11, 45, index + 1)),
+        );
+      }
+      async receiveFeatureReport(_reportId) {
+        const next = this.responses.shift();
+        if (!next) {
+          const error = new Error('not found');
+          error.name = 'NotFoundError';
+          throw error;
+        }
+        return new DataView(next.buffer, next.byteOffset, next.byteLength);
       }
     }
     const device = new FakeDevice();
@@ -87,6 +112,28 @@ test('短应答不会被当成设置快照；诊断面板记录并复制原始�
 
   await diagnostics.getByRole('button', { name: '重新读取', exact: true }).click();
   await expect(log).toContainText('cmd=0x710c');
+  expect(settings.errors).toEqual([]);
+});
+
+test('只有 Feature Report 的设备也能通过轮询连上，并在诊断里标明传输', async ({ page }) => {
+  await page.addInitScript(FAKE_HID('feature'));
+  const settings = await openSettings(page, { config: { [DX52_AUTO_KEY]: true } });
+  await settings.expand('耳机输出估算');
+  const diagnostics = page.locator('[data-dx52-diagnostics]');
+  await expect(diagnostics.locator('[data-dx52-diag-status]')).toHaveAttribute(
+    'data-dx52-diag-status',
+    'connected',
+    { timeout: 10_000 },
+  );
+  await expect(diagnostics.locator('[data-dx52-diag-descriptor]')).toHaveAttribute(
+    'data-dx52-diag-descriptor',
+    /feature=0@16/,
+  );
+  await expect(diagnostics.locator('[data-dx52-diag-transport]')).toHaveAttribute(
+    'data-dx52-diag-transport',
+    /receive=feature#0/,
+  );
+  await expect(diagnostics.locator('[data-dx52-diag-log]')).toContainText('via=feature');
   expect(settings.errors).toEqual([]);
 });
 

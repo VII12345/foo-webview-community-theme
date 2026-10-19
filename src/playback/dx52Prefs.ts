@@ -12,22 +12,28 @@ import type { Store } from '../kit/store.ts';
 import {
   applyDx52Push,
   buildDx52Frame,
+  dx52ReportCandidates,
   DX52_COMMANDS,
   DX52_PRODUCT_ID,
   DX52_SNAPSHOT_WORDS,
   DX52_VENDOR_ID,
+  fitDx52Report,
   isDx52ProductName,
   isDx52PushCommand,
   navigatorHid,
   parseDx52Frame,
+  pickDx52Device,
   readDx52Settings,
+  summarizeDx52Descriptors,
   type Dx52ConnectEvent,
+  type Dx52DescriptorSummary,
   type Dx52DisconnectEvent,
   type Dx52Frame,
   type Dx52HidDevice,
   type Dx52HidHost,
   type Dx52InputReportEvent,
   type Dx52Jack,
+  type Dx52ReportDescriptor,
   type Dx52State,
 } from './dx52.ts';
 
@@ -76,14 +82,34 @@ export const dx52FailureNoticeAtom: Atom<Dx52Failure | null> = atom((get) => {
   return kind === 'error' || kind === 'busy' ? kind : null;
 });
 
+export type Dx52ReportTransport = 'output' | 'feature' | 'inputreport';
+
 export interface Dx52DiagnosticReport {
   readonly seq: number;
   readonly atMs: number;
   readonly direction: 'send' | 'receive';
+  readonly transport: Dx52ReportTransport | null;
   readonly reportId: number | null;
   readonly length: number;
+  readonly declaredLength?: number;
   readonly hex: string;
   readonly parsed: Dx52Frame | null;
+  readonly ok?: boolean;
+  readonly error?: string;
+}
+
+export interface Dx52TransportDiagnostics {
+  readonly send: {
+    readonly kind: 'output' | 'feature';
+    readonly reportId: number;
+    readonly length: number;
+  } | null;
+  readonly receive: {
+    readonly kind: 'inputreport' | 'feature';
+    readonly reportId: number | null;
+  } | null;
+  readonly locked: boolean;
+  readonly attempts: readonly string[];
 }
 
 export interface Dx52SnapshotDiagnostics {
@@ -104,6 +130,8 @@ export interface Dx52Diagnostics {
   readonly lastError: string | null;
   readonly updatedAtMs: number;
   readonly status: Dx52Status;
+  readonly descriptor: Dx52DescriptorSummary | null;
+  readonly transport: Dx52TransportDiagnostics;
 }
 
 export const DX52_DIAGNOSTICS_LIMIT = 200;
@@ -119,12 +147,21 @@ const emptySnapshotDiagnostics = (): Dx52SnapshotDiagnostics => ({
   partial: false,
 });
 
+const EMPTY_TRANSPORT: Dx52TransportDiagnostics = {
+  send: null,
+  receive: null,
+  locked: false,
+  attempts: [],
+};
+
 const INITIAL_DIAGNOSTICS = {
   startedAtMs: 0,
   reports: [] as readonly Dx52DiagnosticReport[],
   snapshot: emptySnapshotDiagnostics(),
   lastError: null as string | null,
   updatedAtMs: 0,
+  descriptor: null as Dx52DescriptorSummary | null,
+  transport: EMPTY_TRANSPORT,
 };
 
 const diagnosticsBaseAtom = atom(INITIAL_DIAGNOSTICS);
@@ -138,6 +175,17 @@ function hexOf(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(' ');
 }
 
+function reportListText(reports: readonly Dx52ReportDescriptor[]): string {
+  return reports.length
+    ? reports
+        .map(
+          (report) =>
+            `${report.reportId}@${report.length}${report.usagePage >= 0xff00 ? '/vendor' : ''}`,
+        )
+        .join(',')
+    : '-';
+}
+
 /** 稳定、可复制的诊断文本；用户把它发回来就能看到原始帧与字段索引。 */
 export function formatDx52Diagnostics(diagnostics: Dx52Diagnostics): string {
   const snapshot = diagnostics.snapshot;
@@ -145,10 +193,28 @@ export function formatDx52Diagnostics(diagnostics: Dx52Diagnostics): string {
     .map((value, index) => (value === null ? null : `${index}=${value}`))
     .filter((value): value is string => value !== null)
     .join(' ');
+  const descriptor = diagnostics.descriptor;
+  const descriptorLine = descriptor
+    ? `descriptor: available=${descriptor.available} collections=${descriptor.collectionCount} inputs=${reportListText(
+        descriptor.inputs,
+      )} outputs=${reportListText(descriptor.outputs)} features=${reportListText(
+        descriptor.features,
+      )}`
+    : 'descriptor: unavailable';
+  const send = diagnostics.transport.send;
+  const receive = diagnostics.transport.receive;
+  const transportLine = `transport: send=${
+    send ? `${send.kind}#${send.reportId}@${send.length}` : '-'
+  } receive=${receive ? `${receive.kind}#${receive.reportId ?? '-'}` : '-'} locked=${
+    diagnostics.transport.locked
+  }`;
   return [
     'DX52 HID diagnostics',
     `status: ${diagnostics.status.kind}`,
     `lastError: ${diagnostics.lastError ?? '-'}`,
+    descriptorLine,
+    transportLine,
+    `transport attempts: ${diagnostics.transport.attempts.join('; ') || '-'}`,
     `snapshot: expected=${snapshot.expected} total=${snapshot.total} received=${snapshot.received} missing=${
       snapshot.missing.length ? snapshot.missing.join(',') : '-'
     } complete=${snapshot.complete} partial=${snapshot.partial}`,
@@ -158,9 +224,17 @@ export function formatDx52Diagnostics(diagnostics: Dx52Diagnostics): string {
       const parsed = report.parsed
         ? ` parsed=proto=${report.parsed.proto} total=${report.parsed.total} cur=${report.parsed.cur} cmd=0x${report.parsed.cmd.toString(16)} data=${report.parsed.data}`
         : ' parsed=null';
+      const extras = [
+        report.transport ? `via=${report.transport}` : null,
+        report.declaredLength !== undefined ? `declared=${report.declaredLength}` : null,
+        report.ok !== undefined ? `ok=${report.ok}` : null,
+        report.error ? `error=${report.error}` : null,
+      ]
+        .filter((value): value is string => value !== null)
+        .join(' ');
       return `  #${report.seq} +${report.atMs - diagnostics.startedAtMs}ms ${report.direction} reportId=${
         report.reportId ?? '-'
-      } len=${report.length} hex=${report.hex}${parsed}`;
+      } len=${report.length}${extras ? ` ${extras}` : ''} hex=${report.hex}${parsed}`;
     }),
   ].join('\n');
 }
@@ -199,6 +273,8 @@ const SNAPSHOT_QUIET_MS = 1500;
 const SNAPSHOT_MIN_FRAMES = 2;
 const WAITING_RETRY_MS = 10_000;
 const HEARTBEAT_MS = 5000;
+/** Feature Report 不能收 interrupt IN；快照可能一帧一个报告，轮询要足够密。 */
+const FEATURE_POLL_MS = 50;
 /** 部分快照能安全使用至少需要这些字：电源、音量原始值、输入、输出路由、耳机增益。 */
 const CRITICAL_WORDS = [0, 9, 11, 12, 13] as const;
 
@@ -241,6 +317,24 @@ export function startDx52(
   let diagnosticsReports: Dx52DiagnosticReport[] = [];
   let diagnosticsError: string | null = null;
   let diagnosticsSnapshot = emptySnapshotDiagnostics();
+  type SendCandidate = Dx52ReportDescriptor & { readonly kind: 'output' | 'feature' };
+  let descriptor: Dx52DescriptorSummary | null = null;
+  let outputCandidates: readonly SendCandidate[] = [];
+  let featureCandidates: readonly SendCandidate[] = [];
+  let selectedSend: SendCandidate | null = null;
+  let selectedReceive: Dx52TransportDiagnostics['receive'] = null;
+  let transportLocked = false;
+  let transportAttempts: string[] = [];
+  let lastFeatureSend: SendCandidate | null = null;
+  let featurePollTimer: ReturnType<typeof setTimeout> | null = null;
+  let featureProbeTimers: ReturnType<typeof setTimeout>[] = [];
+  let featurePolling = false;
+  let featurePollBusy = false;
+  const featureErrorReported = new Set<number>();
+  let receivedAny = false;
+  let sendQueue: Promise<void> = Promise.resolve();
+  let snapshotGeneration = 0;
+  const recentFrames = new Map<string, number>();
 
   const setStatus = (next: Dx52Status) => store.set(statusAtom, next);
   const setState = (next: Dx52State | null) => store.set(stateAtom, next);
@@ -265,6 +359,13 @@ export function startDx52(
       snapshot: diagnosticsSnapshot,
       lastError: diagnosticsError,
       updatedAtMs: now(),
+      descriptor,
+      transport: {
+        send: selectedSend,
+        receive: selectedReceive,
+        locked: transportLocked,
+        attempts: transportAttempts,
+      },
     });
   }
   function snapshotDiagnostics(active: boolean): Dx52SnapshotDiagnostics {
@@ -295,7 +396,9 @@ export function startDx52(
     bytes: Uint8Array,
     parsed: Dx52Frame | null,
     reportId: number | null,
-  ): void {
+    transport: Dx52ReportTransport | null,
+    extra: { readonly declaredLength?: number; readonly ok?: boolean; readonly error?: string } = {},
+  ): number {
     diagnosticsSeq += 1;
     diagnosticsReports = [
       ...diagnosticsReports,
@@ -303,12 +406,26 @@ export function startDx52(
         seq: diagnosticsSeq,
         atMs: now(),
         direction,
+        transport,
         reportId,
         length: bytes.length,
+        declaredLength: extra.declaredLength,
         hex: hexOf(bytes),
         parsed,
+        ok: extra.ok,
+        error: extra.error,
       },
     ].slice(-DX52_DIAGNOSTICS_LIMIT);
+    publishDiagnostics();
+    return diagnosticsSeq;
+  }
+  function updateReport(
+    seq: number,
+    patch: { readonly ok?: boolean; readonly error?: string },
+  ): void {
+    diagnosticsReports = diagnosticsReports.map((report) =>
+      report.seq === seq ? { ...report, ...patch } : report,
+    );
     publishDiagnostics();
   }
   function stopWaitingRetry(): void {
@@ -327,13 +444,195 @@ export function startDx52(
     heartbeat = null;
     clearSnapshotTimers();
     stopWaitingRetry();
+    clearFeatureProbes();
+  }
+  function errorText(error: unknown): string {
+    if (error instanceof Error) return `${error.name}: ${error.message}`;
+    return String(error);
+  }
+  function stopFeaturePolling(): void {
+    featurePolling = false;
+    featurePollBusy = false;
+    if (featurePollTimer) clearTimeout(featurePollTimer);
+    featurePollTimer = null;
+  }
+  function clearFeatureProbes(): void {
+    for (const timer of featureProbeTimers) clearTimeout(timer);
+    featureProbeTimers = [];
+    stopFeaturePolling();
+  }
+  function resetTransport(): void {
+    clearFeatureProbes();
+    selectedSend = null;
+    selectedReceive = null;
+    transportLocked = false;
+    lastFeatureSend = null;
+    receivedAny = false;
+    recentFrames.clear();
+    featureErrorReported.clear();
+    transportAttempts = [];
+    sendQueue = Promise.resolve();
+  }
+  function wait(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+  }
+  function queueSend(
+    candidate: SendCandidate,
+    cmd: number,
+    data: number,
+    proto: number,
+  ): Promise<boolean> {
+    const frame = buildDx52Frame(cmd, data, proto);
+    const bytes = fitDx52Report(frame, candidate.length);
+    if (!bytes) {
+      transportAttempts = [
+        ...transportAttempts,
+        `${candidate.kind}#${candidate.reportId}@${candidate.length}: frame does not fit`,
+      ];
+      publishDiagnostics();
+      return Promise.resolve(false);
+    }
+    const seq = recordReport(
+      'send',
+      bytes,
+      { proto, total: 1, cur: 1, cmd, data },
+      candidate.reportId,
+      candidate.kind,
+      { declaredLength: candidate.length },
+    );
+    let result = false;
+    const run = sendQueue.then(async () => {
+      const current = device;
+      if (!current?.opened) return;
+      try {
+        if (candidate.kind === 'feature') {
+          if (!current.sendFeatureReport) throw new Error('sendFeatureReport unavailable');
+          await current.sendFeatureReport(candidate.reportId, bytes);
+        } else {
+          await current.sendReport(candidate.reportId, bytes);
+        }
+        result = true;
+        updateReport(seq, { ok: true });
+        if (!selectedSend) selectedSend = candidate;
+        publishDiagnostics();
+      } catch (error) {
+        const message = errorText(error);
+        result = false;
+        updateReport(seq, { ok: false, error: message });
+        diagnosticsError = `send failed: ${message}`;
+        transportAttempts = [
+          ...transportAttempts,
+          `${candidate.kind}#${candidate.reportId}: ${message}`,
+        ];
+        if (selectedSend === candidate) selectedSend = null;
+        publishDiagnostics();
+      }
+    });
+    sendQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run.then(() => result);
+  }
+  async function transmit(cmd: number, data: number, proto: number): Promise<boolean> {
+    const candidates = selectedSend ? [selectedSend] : outputCandidates;
+    for (const candidate of candidates) {
+      if (await queueSend(candidate, cmd, data, proto)) return true;
+    }
+    if (selectedSend) return false;
+    for (const candidate of featureCandidates) {
+      lastFeatureSend = candidate;
+      if (await queueSend(candidate, cmd, data, proto)) {
+        startFeaturePolling(candidate.reportId);
+        return true;
+      }
+    }
+    return false;
   }
   function send(cmd: number, data = 0, proto = 0x10): void {
+    if (!device?.opened) return;
+    void transmit(cmd, data, proto);
+  }
+  function candidateText(candidates: readonly SendCandidate[]): string {
+    return candidates.map((item) => `${item.kind}#${item.reportId}@${item.length}`).join(',') || '-';
+  }
+  function pollFeature(reportId: number): void {
     const current = device;
-    if (!current?.opened) return;
-    const frame = buildDx52Frame(cmd, data, proto);
-    recordReport('send', frame, { proto, total: 1, cur: 1, cmd, data }, 0);
-    void settle(() => current.sendReport(0, frame));
+    const receive = current?.receiveFeatureReport;
+    if (!current?.opened || !receive || featurePollBusy) return;
+    featurePollBusy = true;
+    void receive
+      .call(current, reportId)
+      .then((view) => {
+        feedFrame(
+          new Uint8Array(view.buffer, view.byteOffset, view.byteLength),
+          reportId,
+          'feature',
+        );
+      })
+      .catch((error) => {
+        const name = error instanceof Error ? error.name : '';
+        // NotFoundError 只表示这次轮询还没有数据，是等待过程中的正常现象。
+        if (name !== 'NotFoundError' && !featureErrorReported.has(reportId)) {
+          featureErrorReported.add(reportId);
+          const message = errorText(error);
+          transportAttempts = [...transportAttempts, `feature#${reportId}: ${message}`];
+          diagnosticsError = `feature receive failed: ${message}`;
+          publishDiagnostics();
+        }
+        // 报告 ID 无效或 API 不支持才停止；没有数据时继续轮询。
+        if (name !== 'NotFoundError') stopFeaturePolling();
+      })
+      .finally(() => {
+        featurePollBusy = false;
+      });
+  }
+  function startFeaturePolling(reportId: number): void {
+    if (featurePolling || !device?.receiveFeatureReport) return;
+    featurePolling = true;
+    pollFeature(reportId);
+    const tick = () => {
+      if (!featurePolling) return;
+      pollFeature(reportId);
+      featurePollTimer = setTimeout(tick, FEATURE_POLL_MS);
+    };
+    featurePollTimer = setTimeout(tick, FEATURE_POLL_MS);
+  }
+  async function probeFeatureCandidates(generation: number): Promise<void> {
+    for (const candidate of featureCandidates.slice(0, 3)) {
+      if (disposed || generation !== snapshotGeneration || !snapshotActive) return;
+      if (receivedAny) return;
+      lastFeatureSend = candidate;
+      await queueSend(candidate, DX52_COMMANDS.connectState, 2, 0x20);
+      await queueSend(candidate, DX52_COMMANDS.getSettings, 0, 0x10);
+      startFeaturePolling(candidate.reportId);
+      await wait(450);
+      if (receivedAny) {
+        if (selectedReceive?.kind === 'feature') startFeaturePolling(candidate.reportId);
+        else stopFeaturePolling();
+        return;
+      }
+      stopFeaturePolling();
+      transportAttempts = [
+        ...transportAttempts,
+        `feature#${candidate.reportId}@${candidate.length}: no reply`,
+      ];
+      publishDiagnostics();
+    }
+  }
+  function scheduleFeatureProbe(generation: number): void {
+    if (!featureCandidates.length || !device?.receiveFeatureReport) return;
+    featureProbeTimers.push(
+      setTimeout(() => {
+        if (disposed || generation !== snapshotGeneration || !snapshotActive || receivedAny) return;
+        transportAttempts = [
+          ...transportAttempts,
+          `output ${candidateText(outputCandidates)}: no reply`,
+        ];
+        publishDiagnostics();
+        void probeFeatureCandidates(generation);
+      }, 700),
+    );
   }
   function startHeartbeat(): void {
     if (heartbeat) clearInterval(heartbeat);
@@ -410,6 +709,12 @@ export function startDx52(
     if (!device?.opened) return;
     clearSnapshotTimers();
     resetFrames();
+    snapshotGeneration += 1;
+    const generation = snapshotGeneration;
+    receivedAny = false;
+    recentFrames.clear();
+    stopFeaturePolling();
+    transportAttempts = [];
     snapshotActive = true;
     diagnosticsStartedAt = now();
     diagnosticsSeq = 0;
@@ -428,14 +733,33 @@ export function startDx52(
     SNAPSHOT_RETRY_MS.forEach((delay, index) =>
       snapshotTimers.push(setTimeout(() => ask(index >= 2), delay)),
     );
+    scheduleFeatureProbe(generation);
     snapshotTimers.push(setTimeout(finishSnapshot, SNAPSHOT_DEADLINE_MS));
   }
-  function onReport(event: Event): void {
-    const report = event as Dx52InputReportEvent;
-    const bytes = new Uint8Array(report.data.buffer, report.data.byteOffset, report.data.byteLength);
+  function feedFrame(
+    bytes: Uint8Array,
+    reportId: number | null,
+    transport: 'inputreport' | 'feature',
+  ): void {
+    const hex = hexOf(bytes);
+    const stamp = now();
+    for (const [key, at] of recentFrames) if (stamp - at > 1000) recentFrames.delete(key);
+    // inputreport 与 feature 轮询可能把同一帧送到两遍；短时间内的同一 hex 只处理一次。
+    if (recentFrames.has(hex)) return;
+    recentFrames.set(hex, stamp);
     const frame = parseDx52Frame(bytes);
-    recordReport('receive', bytes, frame, report.reportId ?? null);
+    recordReport('receive', bytes, frame, reportId, transport);
     if (!frame) return;
+    receivedAny = true;
+    if (!transportLocked) {
+      transportLocked = true;
+      selectedReceive = { kind: transport, reportId };
+      if (transport === 'feature' && lastFeatureSend) selectedSend = lastFeatureSend;
+      publishDiagnostics();
+    } else if (!selectedReceive) {
+      selectedReceive = { kind: transport, reportId };
+      publishDiagnostics();
+    }
     if (snapshotActive && isSnapshotFrame(frame)) {
       if (frameBase === null) frameBase = frame.cur === 0 ? 0 : 1;
       if (frame.total > frameTotal) frameTotal = frame.total;
@@ -459,8 +783,12 @@ export function startDx52(
       return;
     }
     // 任何有效报告都证明设备还在；心跳回帧不一定带状态变化，但统计要据此判断读数不过期。
-    const stamp = now();
     if (stamp - current.updatedAtMs >= 1000) setState({ ...current, updatedAtMs: stamp });
+  }
+  function onReport(event: Event): void {
+    const report = event as Dx52InputReportEvent;
+    const bytes = new Uint8Array(report.data.buffer, report.data.byteOffset, report.data.byteLength);
+    feedFrame(bytes, report.reportId ?? null, 'inputreport');
   }
   function onDisconnect(event: Event): void {
     const target = (event as Partial<Dx52DisconnectEvent>).device;
@@ -471,6 +799,7 @@ export function startDx52(
     device = null;
     const lastSnapshot = { ...snapshotDiagnostics(false), active: false };
     resetFrames();
+    resetTransport();
     setState(null);
     setStatus({ kind: 'waiting' });
     diagnosticsSnapshot = lastSnapshot;
@@ -489,6 +818,10 @@ export function startDx52(
     device = null;
     stopTimers();
     resetFrames();
+    resetTransport();
+    descriptor = null;
+    outputCandidates = [];
+    featureCandidates = [];
     current?.removeEventListener('inputreport', onReport);
     if (current?.opened) await settle(() => current.close());
     setState(null);
@@ -509,6 +842,15 @@ export function startDx52(
     }
     device = found;
     stopWaitingRetry();
+    resetTransport();
+    descriptor = summarizeDx52Descriptors(found);
+    outputCandidates = dx52ReportCandidates(descriptor, 'output').filter(
+      (report): report is SendCandidate => report.kind !== 'input',
+    );
+    featureCandidates = dx52ReportCandidates(descriptor, 'feature').filter(
+      (report): report is SendCandidate => report.kind !== 'input',
+    );
+    publishDiagnostics();
     found.addEventListener('inputreport', onReport);
     requestSnapshot();
   }
@@ -531,7 +873,7 @@ export function startDx52(
         setStatus({ kind: 'unauthorized' });
         return;
       }
-      const found = picked.find((candidate) => isDx52ProductName(candidate.productName));
+      const found = pickDx52Device(picked);
       if (!found) {
         diagnosticsError = request ? 'no device picked' : 'no authorized device found';
         publishDiagnostics();

@@ -226,6 +226,22 @@ export function SoundPressureSection() {
   const dx52Status = useAtomValueRawSync(dx52.status);
   const dx52State = useAtomValueRawSync(dx52.state);
   const dx52Diagnostics = useAtomValueRawSync(dx52.diagnostics);
+  const descriptor = dx52Diagnostics.descriptor;
+  const reportList = (reports: readonly { reportId: number; length: number }[]): string =>
+    reports.length ? reports.map((report) => `${report.reportId}@${report.length}`).join(',') : '—';
+  const descriptorText = descriptor
+    ? `collections=${descriptor.collectionCount} input=${reportList(
+        descriptor.inputs,
+      )} output=${reportList(descriptor.outputs)} feature=${reportList(descriptor.features)}`
+    : 'unavailable';
+  const transport = dx52Diagnostics.transport;
+  const transportText = `send=${
+    transport.send ? `${transport.send.kind}#${transport.send.reportId}@${transport.send.length}` : '—'
+  } receive=${
+    transport.receive
+      ? `${transport.receive.kind}#${transport.receive.reportId ?? '—'}`
+      : '—'
+  } locked=${transport.locked}`;
   const [copied, setCopied] = useState(false);
   const copyDiagnostics = async () => {
     if (!(await copyText(formatDx52Diagnostics(dx52Diagnostics)))) return;
@@ -578,6 +594,12 @@ export function SoundPressureSection() {
               {dx52Diagnostics.snapshot.missing.length
                 ? ` · missing=${dx52Diagnostics.snapshot.missing.join(',')}`
                 : ''}
+            </span>
+            <span data-dx52-diag-descriptor={descriptorText}>
+              {t('settings.dx52DiagDescriptor')}: {descriptorText}
+            </span>
+            <span data-dx52-diag-transport={transportText}>
+              {t('settings.dx52DiagTransport')}: {transportText}
             </span>
             <span>
               {t('settings.dx52DiagLastError')}: {dx52Diagnostics.lastError ?? '—'}

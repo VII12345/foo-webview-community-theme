@@ -232,6 +232,8 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
   'settings.dx52Reread': '重新读取',
   'settings.dx52DiagStatus': '状态',
   'settings.dx52DiagSnapshot': '快照',
+  'settings.dx52DiagDescriptor': 'HID 报告',
+  'settings.dx52DiagTransport': '传输',
   'settings.dx52DiagLastError': '最后错误',
   'settings.dx52Connecting': '正在连接 DX5 II…',
   'settings.dx52Busy': '无法打开 DX5 II；请关闭 TOPPING Home 后重试',

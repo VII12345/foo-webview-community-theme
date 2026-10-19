@@ -4,6 +4,7 @@ import { createConfigWriter } from '../../../src/host/configWrite.ts';
 import {
   buildDx52Frame,
   DX52_COMMANDS,
+  type Dx52HidCollectionInfo,
   type Dx52HidDevice,
   type Dx52HidHost,
 } from '../../../src/playback/dx52.ts';
@@ -19,8 +20,11 @@ import { installFakeHost } from '../../fixtures/unitHost.ts';
 class FakeDevice extends EventTarget implements Dx52HidDevice {
   opened = false;
   productName = 'TOPPING DX5 II';
+  collections?: readonly Dx52HidCollectionInfo[];
   readonly sent: Uint8Array[] = [];
+  readonly reportIds: number[] = [];
   failOpen = false;
+  failSend: Error | null = null;
   async open(): Promise<void> {
     if (this.failOpen) throw new Error('busy');
     this.opened = true;
@@ -28,7 +32,9 @@ class FakeDevice extends EventTarget implements Dx52HidDevice {
   async close(): Promise<void> {
     this.opened = false;
   }
-  async sendReport(_reportId: number, data: BufferSource): Promise<void> {
+  async sendReport(reportId: number, data: BufferSource): Promise<void> {
+    if (this.failSend) throw this.failSend;
+    this.reportIds.push(reportId);
     this.sent.push(
       data instanceof Uint8Array ? new Uint8Array(data) : new Uint8Array(data as ArrayBuffer),
     );
@@ -36,6 +42,28 @@ class FakeDevice extends EventTarget implements Dx52HidDevice {
   emit(frame: Uint8Array): void {
     const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
     this.dispatchEvent(Object.assign(new Event('inputreport'), { data: view }));
+  }
+}
+
+class FeatureDevice extends FakeDevice {
+  readonly featureSent: { readonly reportId: number; readonly data: Uint8Array }[] = [];
+  readonly featureResponses: Uint8Array[] = [];
+  async sendFeatureReport(reportId: number, data: BufferSource): Promise<void> {
+    if (this.failSend) throw this.failSend;
+    this.featureSent.push({
+      reportId,
+      data:
+        data instanceof Uint8Array ? new Uint8Array(data) : new Uint8Array(data as ArrayBuffer),
+    });
+  }
+  async receiveFeatureReport(_reportId: number): Promise<DataView> {
+    const frame = this.featureResponses.shift();
+    if (!frame) {
+      const error = new Error('not found');
+      error.name = 'NotFoundError';
+      throw error;
+    }
+    return new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
   }
 }
 
@@ -86,14 +114,17 @@ function emitRange(
   }
 }
 
-function setup(failOpen = false) {
+function setup(
+  failOpen = false,
+  createDevice: () => FakeDevice = () => new FakeDevice(),
+) {
   vi.useFakeTimers();
   onTestFinished(() => vi.useRealTimers());
   const host = installFakeHost();
   const store = createStore();
   const writer = createConfigWriter(host.fb, createMemoryDataWriter().writer);
   const hid = new FakeHid();
-  const device = new FakeDevice();
+  const device = createDevice();
   device.failOpen = failOpen;
   hid.devices.push(device);
   const service = startDx52(store, writer, { configHost: host.fb, hid, now: () => 123 });
@@ -377,5 +408,83 @@ describe('DX5 II 自动读取服务', () => {
     expect(text).toContain('snapshot:');
     expect(text).toContain('hex=');
     expect(text).toContain('missing=');
+    expect(text).toContain('descriptor:');
+    expect(text).toContain('transport:');
+  });
+
+  it('按描述符声明的 64 字节长度发送，并记录成功结果', async () => {
+    const device = new FakeDevice();
+    device.collections = [
+      {
+        usagePage: 0xff00,
+        outputReports: [{ reportId: 0, items: [{ reportSize: 8, reportCount: 64 }] }],
+      },
+    ];
+    const { store, service } = setup(false, () => device);
+    await enable(service);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(device.sent[0]).toHaveLength(64);
+    const sends = store.get(service.diagnostics).reports.filter(
+      (report) => report.direction === 'send',
+    );
+    expect(sends[0]).toMatchObject({
+      transport: 'output',
+      reportId: 0,
+      declaredLength: 64,
+      ok: true,
+    });
+    emitSnapshot(device, settingsWords());
+    expect(store.get(service.status)).toEqual({ kind: 'connected' });
+  });
+
+  it('发送被拒绝时记录 ok=false 与错误，而不是假装已发送', async () => {
+    const device = new FakeDevice();
+    device.failSend = new Error('invalid report length');
+    device.collections = [
+      {
+        usagePage: 0xff00,
+        outputReports: [{ reportId: 0, items: [{ reportSize: 8, reportCount: 16 }] }],
+      },
+    ];
+    const { store, service } = setup(false, () => device);
+    await enable(service);
+    await vi.advanceTimersByTimeAsync(0);
+    const diagnostics = store.get(service.diagnostics);
+    const failed = diagnostics.reports.find(
+      (report) => report.direction === 'send' && report.ok === false,
+    );
+    expect(failed?.error).toContain('invalid report length');
+    expect(diagnostics.transport.attempts.join(' ')).toContain('invalid report length');
+    expect(store.get(service.status)).toEqual({ kind: 'connecting' });
+  });
+
+  it('只有 Feature Report 的设备通过轮询接收快照', async () => {
+    const device = new FeatureDevice();
+    device.collections = [
+      {
+        usagePage: 0xff00,
+        featureReports: [{ reportId: 1, items: [{ reportSize: 8, reportCount: 16 }] }],
+      },
+    ];
+    const words = settingsWords();
+    words.forEach((word, index) => {
+      device.featureResponses.push(
+        buildDx52Frame(DX52_COMMANDS.getSettings, word, 0x11, words.length, index + 1),
+      );
+    });
+    const { store, service } = setup(false, () => device);
+    await enable(service);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(store.get(service.status)).toEqual({ kind: 'connected' });
+    expect(store.get(service.state)).toMatchObject({ partial: false, powered: true });
+    const diagnostics = store.get(service.diagnostics);
+    expect(diagnostics.transport.receive).toEqual({ kind: 'feature', reportId: 1 });
+    expect(diagnostics.transport.send).toMatchObject({ kind: 'feature', reportId: 1 });
+    expect(
+      diagnostics.reports.some(
+        (report) => report.direction === 'receive' && report.transport === 'feature',
+      ),
+    ).toBe(true);
+    expect(diagnostics.descriptor?.features[0]).toMatchObject({ reportId: 1, length: 16 });
   });
 });

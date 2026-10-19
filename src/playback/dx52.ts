@@ -315,12 +315,34 @@ export function isDx52ProductName(name: string): boolean {
 // ---------------------------------------------------------------------------
 // WebHID 的最小类型。TypeScript 的 DOM lib 没有 `navigator.hid`。
 
+export interface Dx52HidReportItem {
+  readonly reportSize?: number;
+  readonly reportCount?: number;
+}
+
+export interface Dx52HidReportInfo {
+  readonly reportId?: number;
+  readonly items?: readonly Dx52HidReportItem[];
+}
+
+export interface Dx52HidCollectionInfo {
+  readonly usagePage?: number;
+  readonly usage?: number;
+  readonly inputReports?: readonly Dx52HidReportInfo[];
+  readonly outputReports?: readonly Dx52HidReportInfo[];
+  readonly featureReports?: readonly Dx52HidReportInfo[];
+  readonly children?: readonly Dx52HidCollectionInfo[];
+}
+
 export interface Dx52HidDevice extends EventTarget {
   readonly opened: boolean;
   readonly productName: string;
+  readonly collections?: readonly Dx52HidCollectionInfo[];
   open(): Promise<void>;
   close(): Promise<void>;
   sendReport(reportId: number, data: BufferSource): Promise<void>;
+  sendFeatureReport?(reportId: number, data: BufferSource): Promise<void>;
+  receiveFeatureReport?(reportId: number): Promise<DataView>;
 }
 
 export interface Dx52HidHost extends EventTarget {
@@ -341,6 +363,145 @@ export interface Dx52DisconnectEvent extends Event {
 
 export interface Dx52ConnectEvent extends Event {
   readonly device: Dx52HidDevice;
+}
+
+export type Dx52ReportKind = 'input' | 'output' | 'feature';
+
+export interface Dx52ReportDescriptor {
+  readonly kind: Dx52ReportKind;
+  readonly reportId: number;
+  /** 描述符声明的字节数；发送前按它补零或截断。 */
+  readonly length: number;
+  readonly usagePage: number;
+}
+
+export interface Dx52DescriptorSummary {
+  readonly available: boolean;
+  readonly collectionCount: number;
+  readonly inputs: readonly Dx52ReportDescriptor[];
+  readonly outputs: readonly Dx52ReportDescriptor[];
+  readonly features: readonly Dx52ReportDescriptor[];
+}
+
+/** HID report 的字节数 = 所有 item 的 reportSize × reportCount 之和，向上取整。 */
+export function reportByteLength(report: Dx52HidReportInfo): number {
+  const bits = (report.items ?? []).reduce(
+    (total, item) =>
+      total + Math.max(0, item.reportSize ?? 0) * Math.max(0, item.reportCount ?? 0),
+    0,
+  );
+  return Math.ceil(bits / 8);
+}
+
+function reportPriority(report: Dx52ReportDescriptor): [number, number, number] {
+  return [report.usagePage >= 0xff00 ? 0 : 1, report.reportId === 0 ? 0 : 1, report.reportId];
+}
+
+function sortReports(reports: readonly Dx52ReportDescriptor[]): Dx52ReportDescriptor[] {
+  return [...reports].sort((left, right) => {
+    const a = reportPriority(left);
+    const b = reportPriority(right);
+    return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+  });
+}
+
+/** 递归读出 collections 里的 input/output/feature report；同 ID 取最长的那份。 */
+export function summarizeDx52Descriptors(
+  device: Pick<Dx52HidDevice, 'collections'>,
+): Dx52DescriptorSummary {
+  const collections = device.collections ?? [];
+  const found = new Map<string, Dx52ReportDescriptor>();
+  let collectionCount = 0;
+  const visit = (items: readonly Dx52HidCollectionInfo[], inheritedUsagePage: number): void => {
+    for (const collection of items) {
+      collectionCount += 1;
+      const usagePage = collection.usagePage ?? inheritedUsagePage;
+      const add = (kind: Dx52ReportKind, report: Dx52HidReportInfo): void => {
+        const length = reportByteLength(report);
+        if (length <= 0) return;
+        const reportId = report.reportId ?? 0;
+        const key = `${kind}:${reportId}`;
+        const previous = found.get(key);
+        if (
+          !previous ||
+          length > previous.length ||
+          (usagePage >= 0xff00 && previous.usagePage < 0xff00)
+        ) {
+          found.set(key, { kind, reportId, length, usagePage });
+        }
+      };
+      for (const report of collection.inputReports ?? []) add('input', report);
+      for (const report of collection.outputReports ?? []) add('output', report);
+      for (const report of collection.featureReports ?? []) add('feature', report);
+      if (collection.children?.length) visit(collection.children, usagePage);
+    }
+  };
+  visit(collections, 0);
+  const all = [...found.values()];
+  return {
+    available: collections.length > 0,
+    collectionCount,
+    inputs: sortReports(all.filter((report) => report.kind === 'input')),
+    outputs: sortReports(all.filter((report) => report.kind === 'output')),
+    features: sortReports(all.filter((report) => report.kind === 'feature')),
+  };
+}
+
+/**
+ * 发送候选：描述符可用时只试它声明的报告；描述符缺失时退回 16/64 字节的 report ID 0。
+ * 长度小于 15 的报告塞不下整帧，直接跳过。
+ */
+export function dx52ReportCandidates(
+  summary: Dx52DescriptorSummary,
+  kind: 'output' | 'feature',
+): readonly Dx52ReportDescriptor[] {
+  const declared = (kind === 'output' ? summary.outputs : summary.features).filter(
+    (report) => report.length >= 15,
+  );
+  if (declared.length > 0) return declared;
+  if (summary.available) return [];
+  return [
+    { kind, reportId: 0, length: 16, usagePage: 0 },
+    { kind, reportId: 0, length: 64, usagePage: 0 },
+  ];
+}
+
+/** 按描述符长度补零或截断；小于 15 字节的 report 放不下整帧。 */
+export function fitDx52Report(
+  frame: Uint8Array<ArrayBuffer>,
+  length: number,
+): Uint8Array<ArrayBuffer> | null {
+  if (!Number.isFinite(length) || length < 15) return null;
+  if (length === frame.length) return frame;
+  if (length < frame.length) return frame.slice(0, length);
+  const padded = new Uint8Array(length);
+  padded.set(frame);
+  return padded;
+}
+
+/** 同名 HID 接口可能有多个；优先带 vendor output/feature 报告的那个。 */
+export function dx52DeviceScore(device: Dx52HidDevice): number {
+  const summary = summarizeDx52Descriptors(device);
+  const vendor = (reports: readonly Dx52ReportDescriptor[]): boolean =>
+    reports.some((report) => report.usagePage >= 0xff00);
+  let score = 0;
+  if (summary.outputs.length > 0) score += 8;
+  if (summary.features.length > 0) score += 4;
+  if (vendor(summary.outputs) || vendor(summary.features)) score += 4;
+  if (
+    summary.outputs.some((report) => report.length >= 16) ||
+    summary.features.some((report) => report.length >= 16)
+  )
+    score += 2;
+  return score;
+}
+
+export function pickDx52Device(
+  devices: readonly Dx52HidDevice[],
+): Dx52HidDevice | undefined {
+  return devices
+    .filter((device) => isDx52ProductName(device.productName))
+    .sort((left, right) => dx52DeviceScore(right) - dx52DeviceScore(left))[0];
 }
 
 export function navigatorHid(): Dx52HidHost | null {

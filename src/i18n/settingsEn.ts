@@ -235,6 +235,8 @@ export const settingsEn = {
   'settings.dx52Reread': 'Re-read settings',
   'settings.dx52DiagStatus': 'Status',
   'settings.dx52DiagSnapshot': 'Snapshot',
+  'settings.dx52DiagDescriptor': 'HID reports',
+  'settings.dx52DiagTransport': 'Transport',
   'settings.dx52DiagLastError': 'Last error',
   'settings.dx52Connecting': 'Connecting to DX5 II…',
   'settings.dx52Busy': 'Cannot open DX5 II; close TOPPING Home and retry',
