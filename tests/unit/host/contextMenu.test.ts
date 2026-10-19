@@ -156,6 +156,45 @@ describe('knownCommandsOf', () => {
     expect(ratingValueOf(rating ?? null, PROPERTIES)).toBeNull();
   });
 
+  it('radioChecked 与 checked 都算勾选', () => {
+    const radio = command('3', { radioChecked: true });
+    const tree: ContextTree = {
+      roots: [
+        submenu('Rating', [
+          command('1'),
+          command('2'),
+          radio,
+          command('4'),
+          command('5'),
+        ]),
+      ],
+      target: { mode: 'selection' },
+    };
+    expect(knownCommandsOf(tree).rating?.current).toBe(3);
+  });
+
+  it('宿主响应经过 SDK 后 radioChecked 仍在', async () => {
+    const host = installFakeHost();
+    host.answer('menu.getContextMenu', {
+      success: true,
+      mode: 'selection',
+      locale: 'en',
+      i18n: true,
+      withAvailability: true,
+      items: [
+        submenu('Rating', [
+          command('1'),
+          command('2'),
+          command('3', { radioChecked: true }),
+          command('4'),
+          command('5'),
+        ]),
+      ],
+    });
+    const tree = await readContextTree(host.fb, { mode: 'selection' }, 'en');
+    expect(knownCommandsOf(tree).rating?.current).toBe(3);
+  });
+
   it('同一标签匹到几条、或已置灰时当没有', () => {
     const doubled: ContextTree = {
       roots: [command('Properties'), command('属性', { enabled: false }), command('Properties')],
