@@ -64,6 +64,10 @@ import {
   startSoundPressure,
 } from '../playback/soundPressurePrefs.ts';
 import { dx52Key, startDx52 } from '../playback/dx52Prefs.ts';
+import {
+  customHeadphoneMeasurementsKey,
+  startCustomHeadphoneMeasurements,
+} from '../playback/customHeadphoneMeasurements.ts';
 import { playingTrackKeyAtom } from '../playback/playingTrack.ts';
 import { createPlaylistActions, playlistActionsKey } from '../playlist/playlistActions.ts';
 import { startPlaylistPageServices, playlistPageKey } from '../playlist/playlistPageServices.ts';
@@ -246,6 +250,10 @@ export function startServices(dataWriter: BrowserDataWriter, prefs: PagePrefStor
   const playback = scope.add(playbackKey, startPlayback(store));
   loadVolumeScale(store);
   scope.add(soundPressureKey, startSoundPressure(store, configWriter));
+  scope.add(
+    customHeadphoneMeasurementsKey,
+    startCustomHeadphoneMeasurements(store, fb),
+  );
   scope.add(dx52Key, startDx52(store, configWriter));
   scope.own(startNowPlaying(store));
   const windowShell = scope.add(windowShellKey, startWindowShell(store));

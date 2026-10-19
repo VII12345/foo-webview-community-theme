@@ -20,6 +20,7 @@ import {
   measurementProfileOf,
   referenceImpedanceOhm,
 } from '../../playback/headphoneMeasurements.ts';
+import { customMeasurementProfilesAtom } from '../../playback/customHeadphoneMeasurements.ts';
 import {
   estimateSoundPressure,
   estimateSoundPressureFromBands,
@@ -168,7 +169,8 @@ export const soundPressureViewAtom: Atom<SoundPressureView> = atom((get) => {
       : { rig, amp: selected.amp };
 
   const headphone = selected.headphone;
-  const profile = measurementProfileOf(headphone?.measurementProfileId);
+  const customMeasurements = get(customMeasurementProfilesAtom);
+  const profile = measurementProfileOf(headphone?.measurementProfileId, customMeasurements);
   const edges = bands.edges.length ? bands.edges : SPL_BAND_EDGES;
   const referenceOhm = headphone
     ? referenceImpedanceOhm(profile, headphone.impedanceOhm)
