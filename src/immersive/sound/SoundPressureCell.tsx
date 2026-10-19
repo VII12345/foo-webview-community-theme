@@ -10,6 +10,7 @@ import {
   formatVoltage,
   type SoundPressureReading,
 } from '../../playback/soundPressure.ts';
+import { splUnit } from '../../playback/splWeighting.ts';
 import { soundPressureViewAtom, type SoundPressureAuto } from './soundPressureReading.ts';
 import { SoundPressurePanel } from './SoundPressurePanel.tsx';
 import styles from './SoundPressureCell.module.css';
@@ -71,7 +72,7 @@ const lufsText = (value: number | null): string =>
  */
 export function SoundPressureCell({ variant }: SoundPressureCellProps) {
   const t = useAtomValueRawSync(translateAtom);
-  const { rig, amp, headphone, reading, averageReading, averageLufs, auto } =
+  const { rig, amp, headphone, reading, averageReading, averageLufs, weighting, auto } =
     useAtomValueRawSync(soundPressureViewAtom);
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -160,7 +161,7 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
         className={styles.trigger}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`${t('immersive.soundPressure')}: ${keyTitle}, ${formatSpl(reading.spl)} dB SPL`}
+        aria-label={`${t('immersive.soundPressure')}: ${keyTitle}, ${formatSpl(reading.spl)} ${splUnit(weighting)}`}
         onClick={() => (open ? close() : setOpen(true))}
       >
         <span className={styles.key} title={keyTitle}>
@@ -172,7 +173,7 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
           </span>
         )}
         <span className={styles.value} data-sound-pressure-spl>
-          {formatSpl(reading.spl)} dB SPL
+          {formatSpl(reading.spl)} {splUnit(weighting)}
         </span>
         <span className={styles.detail}>{detail}</span>
         {variant === 'stage' && (
@@ -181,7 +182,8 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
             data-sound-pressure-average
             title={t('immersive.soundPressureAverageHint')}
           >
-            {t('immersive.soundPressureAverage')} {formatSpl(averageReading.spl)} dB SPL ·{' '}
+            {t('immersive.soundPressureAverage')} {formatSpl(averageReading.spl)}{' '}
+            {splUnit(weighting)} ·{' '}
             {lufsText(averageLufs)} LUFS
           </span>
         )}
@@ -192,6 +194,7 @@ export function SoundPressureCell({ variant }: SoundPressureCellProps) {
           reading={reading}
           averageReading={averageReading}
           averageLufs={averageLufs}
+          weighting={weighting}
           autoDetail={autoDetail}
           panelSide="below"
           variant={variant}

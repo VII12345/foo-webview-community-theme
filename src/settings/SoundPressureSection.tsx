@@ -31,6 +31,12 @@ import {
   type SensitivityUnit,
 } from '../playback/soundPressure.ts';
 import { soundPressureKey } from '../playback/soundPressurePrefs.ts';
+import { HEADPHONE_MEASUREMENT_OPTIONS } from '../playback/headphoneMeasurementOptions.ts';
+import {
+  SPL_WEIGHTING_KEY,
+  SPL_WEIGHTINGS,
+  type SplWeighting,
+} from '../playback/splWeighting.ts';
 import {
   dx52OutputInfo,
   type Dx52Jack,
@@ -58,6 +64,7 @@ type HeadphoneDraft = {
   readonly impedance: string;
   readonly sensitivity: string;
   readonly unit: SensitivityUnit;
+  readonly measurementProfileId: string | null;
 };
 
 type Draft = AmpDraft | HeadphoneDraft;
@@ -135,6 +142,14 @@ function HeadphoneForm({
 }) {
   const t = useAtomValueRawSync(translateAtom);
   const unitId = useId();
+  const profileId = useId();
+  const profileOptions = [
+    { value: '', label: t('settings.measurementProfileNone') },
+    ...HEADPHONE_MEASUREMENT_OPTIONS.map((option) => ({
+      value: option.id,
+      label: option.name,
+    })),
+  ];
   const changeUnit = (unit: SensitivityUnit) => {
     if (unit === draft.unit) return;
     const impedance = Number(draft.impedance);
@@ -202,6 +217,18 @@ function HeadphoneForm({
           </Button>
         </div>
       </div>
+      <div className={`${styles.field} ${styles.wide}`}>
+        <span id={profileId}>{t('settings.measurementProfile')}</span>
+        <SettingsSelect
+          labelId={profileId}
+          descriptionId={profileId}
+          options={profileOptions}
+          value={draft.measurementProfileId ?? ''}
+          onChange={(value) =>
+            onChange({ ...draft, measurementProfileId: value || null })
+          }
+        />
+      </div>
       {failed && <p className={styles.error} role="alert">{t('settings.saveFailed')}</p>}
       <div className={`${styles.actions} ${styles.wide}`}>
         <Button appearance="primary" onClick={onSave}>
@@ -224,6 +251,7 @@ export function SoundPressureSection() {
   const service = useService(soundPressureKey);
   const dx52 = useService(dx52Key);
   const rig = useAtomValueRawSync(service.rig);
+  const weighting = useAtomValueRawSync(service.weighting);
   const dx52Enabled = useAtomValueRawSync(dx52.enabled);
   const dx52Jack = useAtomValueRawSync(dx52.jack);
   const dx52Status = useAtomValueRawSync(dx52.status);
@@ -275,6 +303,7 @@ export function SoundPressureSection() {
       impedance: String(item?.impedanceOhm ?? HEADPHONE_IMPEDANCE_DEFAULT),
       sensitivity: String(item?.sensitivity ?? HEADPHONE_SENS_DEFAULT),
       unit: item?.sensitivityUnit ?? 'dbPerMw',
+      measurementProfileId: item?.measurementProfileId ?? null,
     });
     setConfirm(null);
     setFailed(false);
@@ -306,7 +335,13 @@ export function SoundPressureSection() {
         setFailed(true);
         return;
       }
-      const input = { name, impedanceOhm, sensitivity, sensitivityUnit: draft.unit };
+      const input = {
+        name,
+        impedanceOhm,
+        sensitivity,
+        sensitivityUnit: draft.unit,
+        measurementProfileId: draft.measurementProfileId,
+      };
       if (draft.id) service.updateHeadphone(draft.id, input);
       else if (!service.addHeadphone(input)) {
         setFailed(true);
@@ -349,6 +384,10 @@ export function SoundPressureSection() {
     { value: 'single', label: t('settings.dx52JackSingle') },
     { value: 'balanced', label: t('settings.dx52JackBalanced') },
   ];
+  const weightingOptions = SPL_WEIGHTINGS.map((value) => ({
+    value,
+    label: t(`settings.splWeighting${value}`),
+  }));
   const dx52Description = (() => {
     if (!dx52Enabled) return t('settings.dx52OffHint');
     if (dx52Status.kind === 'unsupported') return t('settings.dx52Unsupported');
@@ -389,7 +428,7 @@ export function SoundPressureSection() {
         <>
           <SettingsSaveNotice
             persistence={service.persistence}
-            keys={[HEADPHONE_RIG_KEY]}
+            keys={[HEADPHONE_RIG_KEY, SPL_WEIGHTING_KEY]}
           />
           <SettingsSaveNotice
             persistence={dx52.persistence}
@@ -429,6 +468,16 @@ export function SoundPressureSection() {
           )}
         </SettingsRow>
       )}
+      <SettingsRow title={t('settings.splWeighting')} description={t('settings.splWeightingHint')} field>
+        {(ids) => (
+          <SettingsSelect
+            {...ids}
+            options={weightingOptions}
+            value={weighting}
+            onChange={(value) => service.setWeighting(value as SplWeighting)}
+          />
+        )}
+      </SettingsRow>
       <SettingsRow title={t('settings.currentAmp')} field>
         {(ids) => (
           <SettingsSelect

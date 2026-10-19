@@ -219,7 +219,7 @@ export const settingsEn = {
   'settings.volumeScaleDb': 'Decibels (same as foobar2000)',
   'settings.soundPressure': 'Headphone output estimate',
   'settings.soundPressureHint':
-    'Uses Short-term LUFS and the player volume; ReplayGain is not applied.',
+    'Uses raw PCM RMS, the FFT spectrum and an optional measurement profile; ReplayGain is not applied.',
   'settings.dx52Auto': 'Read DAC/amp automatically',
   'settings.dx52AutoHint': 'Topping DX52 only',
   'settings.dx52OffHint': 'Read DX5 II volume, gain and output when enabled',
@@ -252,6 +252,14 @@ export const settingsEn = {
   'settings.dx52Authorize': 'Authorize again',
   'settings.dx52HighGain': 'High gain',
   'settings.dx52LowGain': 'Low gain',
+  'settings.measurementProfile': 'Measurement profile',
+  'settings.measurementProfileNone': 'None (nominal parameters only)',
+  'settings.splWeighting': 'SPL weighting',
+  'settings.splWeightingHint':
+    'Frequency weighting for the SPL readout only; the Loudness gauge stays K-weighted LUFS. The 80 dB safety margin is always A-weighted.',
+  'settings.splWeightingA': 'A-weighted',
+  'settings.splWeightingK': 'K-weighted (BS.1770)',
+  'settings.splWeightingZ': 'Z-weighted (flat)',
   'settings.currentAmp': 'Current amplifier',
   'settings.currentHeadphone': 'Current headphones',
   'settings.noDevice': 'None selected',
