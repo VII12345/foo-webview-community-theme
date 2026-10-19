@@ -113,6 +113,45 @@ describe('统计查询', () => {
     // Top 歌曲按月时长降序。
     expect(data.month.tracks.map((row) => row.title)).toEqual(['上周听', '本周听', '今天听']);
     expect(data.month.tracks[1]?.path).toBe('E:/Music/本周听.flac');
+    // 全部歌曲跨全部时间聚合，按总时长降序。
+    expect(data.songs.map((row) => row.title)).toEqual([
+      '去年听',
+      '今年听',
+      '上月听',
+      '上周听',
+      '本周听',
+      '今天听',
+    ]);
+    expect(data.songs[0]).toMatchObject({ firstYmd: '2025-12-01', lastYmd: '2025-12-01' });
+  });
+
+  it('全部歌曲按 track_crc 跨天合并，并保留首末日期', async () => {
+    const SQL = await initSqlJs();
+    const db = new SQL.Database();
+    db.run(`CREATE TABLE monthly_count (
+      ymd TEXT NOT NULL, track_crc TEXT NOT NULL, path TEXT NOT NULL DEFAULT '',
+      title TEXT, artist TEXT, album TEXT, length_seconds REAL NOT NULL DEFAULT 0,
+      playcount INTEGER NOT NULL DEFAULT 0, total_time_seconds REAL NOT NULL DEFAULT 0,
+      PRIMARY KEY (ymd, track_crc));`);
+    db.run(`INSERT INTO monthly_count
+      (ymd, track_crc, path, title, artist, album, playcount, total_time_seconds)
+      VALUES ('2026-09-01','same','E:/Music/same.flac','同一首','A','专辑',1,60),
+             ('2026-10-03','same','E:/Music/same.flac','同一首','A','专辑',2,120),
+             ('2026-10-04','other','E:/Music/other.flac','另一首','B','别的',1,30);`);
+    const bytes = db.export();
+    db.close();
+    const data = await queryStats(bytes, new Date(2026, 9, 17));
+    expect(data.songs.find((row) => row.crc === 'same')).toEqual({
+      crc: 'same',
+      title: '同一首',
+      artist: 'A',
+      album: '专辑',
+      path: 'E:/Music/same.flac',
+      seconds: 180,
+      plays: 3,
+      firstYmd: '2026-09-01',
+      lastYmd: '2026-10-03',
+    });
   });
 
   it('库为空时各期都是零', async () => {
@@ -122,6 +161,7 @@ describe('统计查询', () => {
     expect(data.month.tracks).toEqual([]);
     expect(data.month.artists).toEqual([]);
     expect(data.month.trend).toEqual([]);
+    expect(data.songs).toEqual([]);
   });
 
   it('老库没有 path 列时仍能读统计，封面路径为空', async () => {
@@ -139,6 +179,41 @@ describe('统计查询', () => {
     db.close();
     const data = await queryStats(bytes, new Date(2026, 9, 17));
     expect(data.month.tracks[0]).toMatchObject({ title: '老库', path: '' });
+    expect(data.songs[0]).toMatchObject({
+      crc: 'old',
+      title: '老库',
+      artist: 'A',
+      album: '',
+      path: '',
+      seconds: 60,
+      plays: 1,
+      firstYmd: '2026-10-17',
+      lastYmd: '2026-10-17',
+    });
+  });
+
+  it('老库连 playcount 与 total_time_seconds 都没有时仍能读，数值按 0', async () => {
+    const SQL = await initSqlJs();
+    const db = new SQL.Database();
+    db.run(`CREATE TABLE monthly_count (
+      ymd TEXT NOT NULL, track_crc TEXT NOT NULL, title TEXT, artist TEXT,
+      PRIMARY KEY (ymd, track_crc));`);
+    db.run(
+      `INSERT INTO monthly_count (ymd, track_crc, title, artist)
+       VALUES ('2026-10-17','bare','只有标题','A')`,
+    );
+    const bytes = db.export();
+    db.close();
+    const data = await queryStats(bytes, new Date(2026, 9, 17));
+    expect(data.month.totals).toEqual({ seconds: 0, plays: 0, tracks: 1 });
+    expect(data.songs[0]).toMatchObject({
+      crc: 'bare',
+      title: '只有标题',
+      album: '',
+      path: '',
+      seconds: 0,
+      plays: 0,
+    });
   });
 });
 
