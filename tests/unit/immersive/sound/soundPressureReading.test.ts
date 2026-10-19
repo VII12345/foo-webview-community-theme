@@ -31,13 +31,14 @@ describe('DX5 II 自动读数', () => {
     });
   });
 
-  it('WebHID 不可用、未授权、关机分别给出原因', () => {
+  it('WebHID 不可用、未授权、等待设备、关机分别给出原因', () => {
     expect(dx52Reading(true, { kind: 'unsupported' }, null, 'auto').reason).toBe(
       'unsupported',
     );
     expect(dx52Reading(true, { kind: 'unauthorized' }, null, 'auto').reason).toBe(
       'unauthorized',
     );
+    expect(dx52Reading(true, { kind: 'waiting' }, null, 'auto').reason).toBe('waiting');
     expect(
       dx52Reading(true, connected, { ...state, powered: false }, 'auto').reason,
     ).toBe('off');

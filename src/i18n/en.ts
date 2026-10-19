@@ -359,6 +359,8 @@ export const en = {
   'toast.retry': 'Retry',
   'toast.playbackCommandFailed': 'The playback action failed',
   'toast.playbackReadFailed': 'Could not read the playback state from foobar2000',
+  'dialog.dx52Title': 'DX5 II auto-read failed',
+  'dialog.dx52Close': 'Close',
   'albumDetail.kind': 'Album',
   'albumDetail.table': 'Tracks',
   'albumDetail.shuffle': 'Shuffle',

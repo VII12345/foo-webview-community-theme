@@ -40,6 +40,8 @@ function autoHint(auto: SoundPressureAuto): MessageKey | null {
       return 'settings.dx52Unsupported';
     case 'unauthorized':
       return 'settings.dx52Unauthorized';
+    case 'waiting':
+      return 'settings.dx52Waiting';
     case 'connecting':
       return 'settings.dx52Connecting';
     case 'busy':

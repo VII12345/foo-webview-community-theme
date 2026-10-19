@@ -324,6 +324,7 @@ export function SoundPressureSection() {
     if (!dx52Enabled) return t('settings.dx52OffHint');
     if (dx52Status.kind === 'unsupported') return t('settings.dx52Unsupported');
     if (dx52Status.kind === 'unauthorized') return t('settings.dx52Unauthorized');
+    if (dx52Status.kind === 'waiting') return t('settings.dx52Waiting');
     if (dx52Status.kind === 'connecting') return t('settings.dx52Connecting');
     if (dx52Status.kind === 'busy') return t('settings.dx52Busy');
     if (dx52Status.kind === 'error') return t('settings.dx52Error');
@@ -339,11 +340,16 @@ export function SoundPressureSection() {
         : '';
     return `${dx52State.deviceName || 'TOPPING DX5 II'} · ${output.label} · ${gain} · ${dx52State.volumeDb.toFixed(1)} dB${rate}`;
   })();
-  const dx52CanAuthorize =
-    dx52Enabled &&
-    (dx52Status.kind === 'unauthorized' ||
-      dx52Status.kind === 'busy' ||
-      dx52Status.kind === 'error');
+  const dx52Action: {
+    readonly label: 'settings.dx52Authorize' | 'settings.dx52Retry';
+    run(): void;
+  } | null = !dx52Enabled
+    ? null
+    : dx52Status.kind === 'unauthorized' || dx52Status.kind === 'waiting'
+      ? { label: 'settings.dx52Authorize', run: () => dx52.authorize() }
+      : dx52Status.kind === 'error' || dx52Status.kind === 'busy'
+        ? { label: 'settings.dx52Retry', run: () => dx52.retry() }
+        : null;
   return (
     <SettingsExpander
       icon={<Headphones20Regular />}
@@ -373,9 +379,9 @@ export function SoundPressureSection() {
                 onChange={(_, data) => dx52.setEnabled(data.checked)}
               />
             </Tooltip>
-            {dx52CanAuthorize && (
-              <Button size="small" onClick={() => dx52.authorize()}>
-                {t('settings.dx52Authorize')}
+            {dx52Action && (
+              <Button size="small" onClick={() => dx52Action.run()}>
+                {t(dx52Action.label)}
               </Button>
             )}
           </div>

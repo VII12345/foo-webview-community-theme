@@ -24,6 +24,21 @@ export const DX52_COMMANDS = {
   heartbeat: 0x7134,
 } as const;
 
+/** 设备主动推送的单值命令；连接期间其余多帧应答都可当作设置快照。 */
+export const DX52_PUSH_COMMANDS: ReadonlySet<number> = new Set([
+  DX52_COMMANDS.power,
+  DX52_COMMANDS.volume,
+  DX52_COMMANDS.mute,
+  DX52_COMMANDS.input,
+  DX52_COMMANDS.output,
+  DX52_COMMANDS.headphoneGain,
+  DX52_COMMANDS.volumeStep,
+]);
+
+export function isDx52PushCommand(cmd: number): boolean {
+  return DX52_PUSH_COMMANDS.has(cmd);
+}
+
 export type Dx52Input = 'usb' | 'optical' | 'coaxial' | 'bluetooth' | 'unknown';
 export type Dx52Route =
   | 'all'
@@ -305,6 +320,10 @@ export interface Dx52InputReportEvent extends Event {
 }
 
 export interface Dx52DisconnectEvent extends Event {
+  readonly device: Dx52HidDevice;
+}
+
+export interface Dx52ConnectEvent extends Event {
   readonly device: Dx52HidDevice;
 }
 

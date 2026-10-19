@@ -160,15 +160,98 @@ describe('DX5 II 自动读取服务', () => {
     expect(busy.store.get(busy.service.status)).toEqual({ kind: 'busy' });
   });
 
-  it('设备断开后清空读数，开关仍保持开启', async () => {
+  it('设备断开后清空读数并进入等待，开关仍保持开启', async () => {
     const { host, store, hid, device, service } = setup();
     await enable(service);
     emitSnapshot(device, settingsWords());
     expect(store.get(service.state)).not.toBeNull();
     hid.dispatchEvent(new Event('disconnect'));
     expect(store.get(service.state)).toBeNull();
-    expect(store.get(service.status)).toEqual({ kind: 'unauthorized' });
+    expect(store.get(service.status)).toEqual({ kind: 'waiting' });
     expect(host.config.get(DX52_AUTO_KEY)).toBe(true);
+  });
+
+  it('快照迟到时仍能在截止前连上', async () => {
+    const { store, device, service } = setup();
+    await enable(service);
+    await vi.advanceTimersByTimeAsync(1000);
+    emitSnapshot(device, settingsWords());
+    expect(store.get(service.status)).toEqual({ kind: 'connected' });
+  });
+
+  it('部分快照含关键字段时按部分快照连接，一个字段都没有则报错', async () => {
+    const partial = setup();
+    await enable(partial.service);
+    const words = settingsWords();
+    for (const index of [0, 9, 11, 12, 13]) {
+      partial.device.emit(
+        buildDx52Frame(DX52_COMMANDS.getSettings, words[index]!, 0x11, words.length, index + 1),
+      );
+    }
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(partial.store.get(partial.service.status)).toEqual({ kind: 'connected' });
+    expect(partial.store.get(partial.service.state)).toMatchObject({
+      powered: true,
+      volumeDb: -60,
+      route: 'hp_single',
+    });
+
+    const empty = setup();
+    await enable(empty.service);
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(empty.store.get(empty.service.status)).toEqual({ kind: 'error' });
+    expect(empty.store.get(empty.service.failure)).toBe('error');
+  });
+
+  it('读取失败后重试重新请求快照，不弹设备选择器', async () => {
+    const { store, device, service } = setup();
+    await enable(service);
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(store.get(service.status)).toEqual({ kind: 'error' });
+    const requested = vi.spyOn(device, 'sendReport');
+    const before = requested.mock.calls.length;
+    service.retry();
+    await vi.advanceTimersByTimeAsync(80);
+    expect(requested.mock.calls.length).toBeGreaterThan(before);
+    expect(store.get(service.status)).toEqual({ kind: 'connecting' });
+  });
+
+  it('失败提醒可关闭，重试后再次失败会重新出现', async () => {
+    const { store, service } = setup();
+    await enable(service);
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(store.get(service.failure)).toBe('error');
+    service.dismissFailure();
+    expect(store.get(service.failure)).toBeNull();
+    service.retry();
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(store.get(service.failure)).toBe('error');
+  });
+
+  it('hid connect 事件在断开后自动重连', async () => {
+    const { store, hid, device, service } = setup();
+    await enable(service);
+    emitSnapshot(device, settingsWords());
+    hid.dispatchEvent(new Event('disconnect'));
+    expect(store.get(service.status)).toEqual({ kind: 'waiting' });
+    hid.dispatchEvent(Object.assign(new Event('connect'), { device }));
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(80);
+    emitSnapshot(device, settingsWords());
+    expect(store.get(service.status)).toEqual({ kind: 'connected' });
+  });
+
+  it('已开启但找不到已授权设备时进入等待而不是未授权', async () => {
+    const host = installFakeHost();
+    host.config.set(DX52_AUTO_KEY, true);
+    const store = createStore();
+    const writer = createConfigWriter(host.fb, createMemoryDataWriter().writer);
+    const hid = new FakeHid();
+    const service = startDx52(store, writer, { configHost: host.fb, hid });
+    onTestFinished(() => service.dispose());
+    await service.ready;
+    await vi.advanceTimersByTimeAsync(0);
+    expect(store.get(service.status)).toEqual({ kind: 'waiting' });
   });
 
   it('已授权时启动只走 getDevices，不弹选择器', async () => {

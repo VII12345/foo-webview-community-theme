@@ -29,6 +29,7 @@ import { liveLoudnessAtom } from '../gauges/liveLoudness.ts';
 export type Dx52Reason =
   | 'unsupported'
   | 'unauthorized'
+  | 'waiting'
   | 'connecting'
   | 'busy'
   | 'error'
@@ -71,7 +72,12 @@ function autoReason(
 ): Dx52Reason | null {
   if (!enabled) return null;
   if (!state?.connected || !state.powered) {
-    if (status.kind === 'unsupported' || status.kind === 'unauthorized' || status.kind === 'busy')
+    if (
+      status.kind === 'unsupported' ||
+      status.kind === 'unauthorized' ||
+      status.kind === 'waiting' ||
+      status.kind === 'busy'
+    )
       return status.kind;
     if (status.kind === 'connecting') return 'connecting';
     if (status.kind === 'error') return 'error';

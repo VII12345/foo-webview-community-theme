@@ -355,6 +355,8 @@ export const zhCN: Messages = {
   'toast.retry': '重试',
   'toast.playbackCommandFailed': '播放操作失败',
   'toast.playbackReadFailed': '播放状态读取失败',
+  'dialog.dx52Title': 'DX5 II 自动读取失败',
+  'dialog.dx52Close': '关闭',
   'albumDetail.kind': '专辑',
   'albumDetail.table': '曲目',
   'albumDetail.shuffle': '随机播放',
