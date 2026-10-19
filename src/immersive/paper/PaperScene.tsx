@@ -6,7 +6,12 @@ import { PaperDecor } from '../decor/PaperDecor.tsx';
 import type { DecorArc } from '../decor/paperDecor.ts';
 import { useDecorGuards } from '../decor/useDecorGuards.ts';
 import { rgbaOf } from '../frame/cssColor.ts';
-import { immersiveComponentsAtom, hiddenModulesFor } from '../page/immersiveComponents.ts';
+import {
+  groupVisible,
+  hiddenModulesFor,
+  immersiveComponentsAtom,
+  moduleHidden,
+} from '../page/immersiveComponents.ts';
 import {
   immersiveTerrainAtom,
   immersiveTextBoostAtom,
@@ -150,7 +155,7 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
           alphaFar={ALPHA_FAR}
         />
       )}
-      {!hidden.has('decor') && (
+      {groupVisible(variant, tier, hidden, 'decor') && (
         <PaperDecor
           guards={guards}
           origin={origin}
@@ -158,6 +163,8 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
           arcs={geometry.arcs}
           scale={scale}
           unit={stage ? scale : undefined}
+          showGrid={!moduleHidden(hidden, 'decor.grid')}
+          showArcs={!moduleHidden(hidden, 'decor.arcs')}
         />
       )}
       {terrain && stage && !hidden.has('ruler') && <TerrainRuler />}

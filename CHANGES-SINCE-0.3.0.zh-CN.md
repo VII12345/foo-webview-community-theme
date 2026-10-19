@@ -80,3 +80,27 @@
   - `tests/e2e/immersive-lyrics.spec.ts`：沉浸内搜索、选词后歌词更新、Esc 先关面板、右侧卡预览恢复。
   - `tests/e2e/immersive-page.spec.ts`：右上角控件、Esc 与 Tab 行为不回归。
   - `tests/e2e/lyrics-panel.spec.ts`：右侧卡搜索与历史快照不回归（同时稳定了几处等待可见性的断言）。
+
+## 4. 沉浸组件开关细化到每个可见元素
+
+- 组件可见性改为“父组 + 叶子”两层：
+  - 父组保留旧 ID（`right.header`、`right.meter`、`right.meta`、`right.gauges`、`right.fileInfo`、`dial.album`、`dial.cells`、`card.title`、`card.cells`、`right.lyrics`、`decor`），旧存档继续隐藏整组。
+  - 新叶子：
+    - 背景：`decor.grid`、`decor.arcs`。
+    - 罗盘：`dial.albumText`、`dial.trackNo`、`dial.cell.date`、`dial.cell.track`、`dial.cell.label`。
+    - 卡片：`card.titleText`、`card.artist`、`card.cell.date`、`card.cell.track`、`card.cell.label`。
+    - 四行字：`right.header.from`、`.title`、`.by`、`.quality`。
+    - 仪表：`right.meter.stereo`、`.bpm`、`.soundPressure`、`.albumArtist`、`.duration`。
+    - 版心元数据：`right.meta.stereo`、`.soundPressure`、`.year`、`.label`、`.duration`、`.elapsed`。
+    - 量表：`right.gauges.dynamicRange`、`.loudness`。
+    - 文件信息：`right.fileInfo.sampleRate`、`.bitDepth`、`.channels`、`.bitrate`、`.fileSize`、`.format`。
+    - 歌词卡：`right.lyrics.main`、`.sub`、`.source`、`.status`。
+- 隐藏判断走祖先链：隐藏父组即隐藏全部子项；隐藏单个叶子只影响该元素。父组在布局里按“至少一个可用子项可见”决定是否收起。
+- 设置页按背景、罗盘、卡片、四行字、仪表、版心元数据、右栏媒体、歌词分组，只列当前视图/布局实际可用的叶子；父组有可用子项时不重复显示父开关。
+- 行内单个元素隐藏留空，整行/整带全隐藏时沿用原有垂直重排；三格与文件信息过滤后横向重排。
+- 网格与弧线在同一 canvas 里按 `showGrid`/`showArcs` 分开绘制；canvas 上带 `data-decor-grid`/`data-decor-arcs` 供测试与调试。
+- 验证：
+  - `tests/unit/immersive/page/immersiveComponents.test.ts`：父/子可见性、设置页叶子过滤、新 ID 的场景/档位可用性。
+  - `tests/e2e/immersive-components.spec.ts`：旧父 ID 兼容 + 四行字/仪表格/量表/文件信息/三格/歌词主副行/卡片曲名艺人/网格弧线逐项开关。
+  - `tests/e2e/settings-immersive.spec.ts`：设置页叶子列表与旧持久化行为。
+  - `tests/e2e/immersive-page.spec.ts`、`immersive-tiers.spec.ts`：布局与档位不回归。

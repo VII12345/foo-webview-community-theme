@@ -3,6 +3,7 @@ import { lyricsDisplayKey, lyricsFontFamily } from '../../lyrics/lyricsDisplay.t
 import { useAtomValueRawSync } from 'jotai/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { translateAtom } from '../../i18n/locale.ts';
+import { moduleHidden } from '../page/immersiveComponents.ts';
 import { lyricCardAtom, lyricLogAtom, LYRIC_STATUS_MESSAGES } from './lyricLog.ts';
 import { LYRIC_FONT, LYRIC_TEXT_WIDTH } from '../paper/paperStage.ts';
 import { fittedFontSize } from '../fields/titleScroll.ts';
@@ -50,7 +51,14 @@ function cardWidth(main: HTMLElement | null, sub: HTMLElement | null): number {
  * 卡宽随字：两行里较宽的一行加左内边距 46 与右内边距 46 + 34，夹在 420…1520 之间；字宽超过 1394 时
  * 按比例降字号（主行最低 20、副行最低 16），仍超就尾部省略。
  */
-export function LyricCard({ top }: { readonly top?: number } = {}) {
+export function LyricCard({
+  top,
+  hidden = new Set<string>(),
+}: {
+  readonly top?: number;
+  /** 隐藏模块；按 `right.lyrics.*` 过滤。 */
+  readonly hidden?: ReadonlySet<string>;
+} = {}) {
   const t = useAtomValueRawSync(translateAtom);
   const displayService = useService(lyricsDisplayKey);
   const display = useAtomValueRawSync(displayService.display);
@@ -63,8 +71,14 @@ export function LyricCard({ top }: { readonly top?: number } = {}) {
         ? t('immersive.lyricsPlain', { n: lineCount })
         : t(LYRIC_STATUS_MESSAGES[state])
       : '';
-  const shown = Boolean(notice) || synced !== null;
-  const twoLine = Boolean(synced?.sub);
+  const mainShown = !moduleHidden(hidden, 'right.lyrics.main');
+  const subShown = !moduleHidden(hidden, 'right.lyrics.sub');
+  const sourceShown = !moduleHidden(hidden, 'right.lyrics.source');
+  const statusShown = !moduleHidden(hidden, 'right.lyrics.status');
+  const shown = synced
+    ? mainShown || subShown || sourceShown
+    : statusShown && Boolean(notice);
+  const twoLine = Boolean(subShown && synced?.sub);
 
   const mainRef = useRef<HTMLDivElement>(null);
   const subRef = useRef<HTMLDivElement>(null);
@@ -120,15 +134,17 @@ export function LyricCard({ top }: { readonly top?: number } = {}) {
     >
       {synced ? (
         <>
-          <div
-            ref={mainRef}
-            className={`${styles.text} ${styles.main}`}
-            style={{ fontSize: `${fit.main}px`, fontFamily: lyricsFontFamily(display.fontFamily) }}
-            data-field="lyric-main"
-          >
-            <WordSyncedText words={synced.mainWords} text={synced.main} />
-          </div>
-          {synced.sub ? (
+          {mainShown && (
+            <div
+              ref={mainRef}
+              className={`${styles.text} ${styles.main}`}
+              style={{ fontSize: `${fit.main}px`, fontFamily: lyricsFontFamily(display.fontFamily) }}
+              data-field="lyric-main"
+            >
+              <WordSyncedText words={synced.mainWords} text={synced.main} />
+            </div>
+          )}
+          {subShown && synced.sub ? (
             <div
               ref={subRef}
               className={`${styles.text} ${styles.sub}`}
@@ -139,11 +155,13 @@ export function LyricCard({ top }: { readonly top?: number } = {}) {
               <WordSyncedText words={synced.subWords} text={synced.sub} />
             </div>
           ) : null}
-          <span className={`${styles.text} ${styles.source}`} data-field="lyrics-source">
-            {`${source} · synced`}
-          </span>
+          {sourceShown && (
+            <span className={`${styles.text} ${styles.source}`} data-field="lyrics-source">
+              {`${source} · synced`}
+            </span>
+          )}
         </>
-      ) : (
+      ) : statusShown ? (
         <div
           className={`${styles.text} ${styles.plain}`}
           data-field={state === 'plain' ? 'lyrics-plain' : 'lyrics-status'}
@@ -151,7 +169,7 @@ export function LyricCard({ top }: { readonly top?: number } = {}) {
         >
           {notice}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

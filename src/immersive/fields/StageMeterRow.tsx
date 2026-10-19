@@ -1,6 +1,7 @@
 import { useAtomValueRawSync } from 'jotai/react';
 import type { ReactNode } from 'react';
 import { currentTrackAtom } from '../../playback/playback.ts';
+import { moduleHidden } from '../page/immersiveComponents.ts';
 import { SoundPressureCell } from '../sound/SoundPressureCell.tsx';
 import { StageBpm } from '../tempo/StageBpm.tsx';
 import { durationTextAtom, remainingTextAtom } from './clockText.ts';
@@ -31,6 +32,8 @@ export interface StageMeterRowProps {
   readonly stereo: ReactNode;
   /** 整行相对舞台的纵向位移；可见模块变化时由布局算。 */
   readonly offsetY?: number;
+  /** 当前视图/布局隐藏的模块；按仪表格的叶子 ID 过滤。 */
+  readonly hidden?: ReadonlySet<string>;
 }
 
 /**
@@ -39,21 +42,32 @@ export interface StageMeterRowProps {
  * 或为空时不出）| Duration（附行剩余时间）。本身是铺满舞台的定位层，各件按舞台坐标绝对定位，字按基线落位。
  * 缺值写 `—`，键名保留。
  */
-export function StageMeterRow({ stereo, offsetY = 0 }: StageMeterRowProps) {
+export function StageMeterRow({ stereo, offsetY = 0, hidden = new Set<string>() }: StageMeterRowProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const albumArtist =
     track?.albumArtist && track.albumArtist !== track.artist ? track.albumArtist : '';
+  const show = (
+    id:
+      | 'right.meter.stereo'
+      | 'right.meter.bpm'
+      | 'right.meter.soundPressure'
+      | 'right.meter.albumArtist'
+      | 'right.meter.duration',
+  ) => !moduleHidden(hidden, id);
+  const stereoShown = show('right.meter.stereo');
+  const bpmShown = show('right.meter.bpm');
+  const pressureShown = show('right.meter.soundPressure');
   return (
     <div
       className={styles.meter}
       style={offsetY !== 0 ? { transform: `translateY(${offsetY}px)` } : undefined}
     >
-      <div className={styles['stereo-cell']}>{stereo}</div>
-      <span className={`${styles.divider} ${styles.first}`} aria-hidden />
-      <StageBpm />
-      <span className={`${styles.divider} ${styles.second}`} aria-hidden />
-      <SoundPressureCell variant="stage" />
-      {albumArtist && (
+      {stereoShown && <div className={styles['stereo-cell']}>{stereo}</div>}
+      {stereoShown && bpmShown && <span className={`${styles.divider} ${styles.first}`} aria-hidden />}
+      {bpmShown && <StageBpm />}
+      {bpmShown && pressureShown && <span className={`${styles.divider} ${styles.second}`} aria-hidden />}
+      {pressureShown && <SoundPressureCell variant="stage" />}
+      {show('right.meter.albumArtist') && albumArtist && (
         <>
           <span className={`${styles.base} ${styles['sub-key']} ${styles['album-artist-key']}`}>
             Album artist
@@ -63,7 +77,7 @@ export function StageMeterRow({ stereo, offsetY = 0 }: StageMeterRowProps) {
           </div>
         </>
       )}
-      <DurationCell />
+      {show('right.meter.duration') && <DurationCell />}
     </div>
   );
 }

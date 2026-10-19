@@ -16,6 +16,7 @@ import {
 import { MISSING, formatGaugeDb } from '../paper/paperScale.ts';
 import { trackDynamicsAtom } from './trackDynamics.ts';
 import { GaugeBar, type ScaleLabel } from './GaugeBar.tsx';
+import { moduleHidden } from '../page/immersiveComponents.ts';
 import styles from './PaperGauges.module.css';
 
 interface GaugeScale {
@@ -99,8 +100,10 @@ function gaugesOf(readings: GaugeReadings): Gauge[] {
  * 小标与值条用热色，数字用数据墨，Integrated 用次一档的字色。没有值（整轨还在解、取不了、静音）时写 `—`、
  * 值条缩回 0，轨照画；值条的过渡在 `GaugeBar`，读数怎么来见 `loudness.ts`。
  */
-export function PaperGauges() {
-  const gauges = gaugesOf(useAtomValueRawSync(readingsAtom));
+export function PaperGauges({ hidden = new Set<string>() }: { readonly hidden?: ReadonlySet<string> } = {}) {
+  const gauges = gaugesOf(useAtomValueRawSync(readingsAtom)).filter(
+    (gauge) => !moduleHidden(hidden, `right.gauges.${gauge.id}` as never),
+  );
   return (
     <div className={styles.gauges}>
       {gauges.map((gauge) => (

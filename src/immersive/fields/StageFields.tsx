@@ -1,6 +1,7 @@
 import { useAtomValueRawSync } from 'jotai/react';
 import { useRef, type ReactNode } from 'react';
 import { currentTrackAtom } from '../../playback/playback.ts';
+import { moduleHidden } from '../page/immersiveComponents.ts';
 import { MISSING, stageQualityLine } from '../paper/paperScale.ts';
 import { STAGE_TITLE, STAGE_TITLE_SOFTNESS, STAGE_TITLE_SPEED } from '../paper/paperStage.ts';
 import { trackExtrasAtom } from './trackExtras.ts';
@@ -29,6 +30,8 @@ export interface StageFieldsProps {
   readonly meterTop?: number | null;
   readonly showLyrics?: boolean;
   readonly lyricsTop?: number | null;
+  /** 当前视图/布局隐藏的模块；四行字与仪表各格按叶子 ID 过滤。 */
+  readonly hidden?: ReadonlySet<string>;
 }
 
 /**
@@ -50,6 +53,7 @@ export function StageFields({
   meterTop = 296,
   showLyrics = true,
   lyricsTop = 700,
+  hidden = new Set<string>(),
 }: StageFieldsProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const extras = useAtomValueRawSync(trackExtrasAtom);
@@ -63,36 +67,60 @@ export function StageFields({
   const titleBox = useRef<HTMLHeadingElement>(null);
   const titleText = useRef<HTMLSpanElement>(null);
   const { rolling } = useTitleScroll(titleBox, titleText, title, TITLE_SCROLL);
+  const show = (id: 'right.header.from' | 'right.header.title' | 'right.header.by' | 'right.header.quality') =>
+    !moduleHidden(hidden, id);
+  const headerShown =
+    show('right.header.from') ||
+    show('right.header.title') ||
+    show('right.header.by') ||
+    show('right.header.quality');
 
   return (
     <div className={styles.fields}>
-      {showFields && showHeader && headerTop !== null && (
+      {showFields && showHeader && headerTop !== null && headerShown && (
         <div
           className={styles.headerBlock}
           style={headerTop !== 82 ? { transform: `translateY(${headerTop - 82}px)` } : undefined}
         >
-          <span className={styles['hot-square']} aria-hidden />
-          <div className={`${styles.base} ${styles.from}`} data-decor-guard="40">
-            <span>From:</span> <span data-field="album">{track?.album || MISSING}</span>
-          </div>
-          <h1
-            ref={titleBox}
-            className={`${styles.base} ${styles.title}`}
-            style={{ width: STAGE_TITLE.width }}
-            data-rolling={rolling || undefined}
-            data-field="title"
-          >
-            <span ref={titleText} className={styles['title-text']}>
-              {title}
-            </span>
-          </h1>
-          <span className={`${styles.base} ${styles.key} ${styles['by-key']}`} data-decor-guard="40">
-            By
-          </span>
-          <div className={`${styles.base} ${styles.artist}`} data-field="artist" data-decor-guard="40">
-            {track?.artist || MISSING}
-          </div>
-          {quality && (
+          {show('right.header.from') && (
+            <>
+              <span className={styles['hot-square']} aria-hidden />
+              <div className={`${styles.base} ${styles.from}`} data-decor-guard="40">
+                <span>From:</span> <span data-field="album">{track?.album || MISSING}</span>
+              </div>
+            </>
+          )}
+          {show('right.header.title') && (
+            <h1
+              ref={titleBox}
+              className={`${styles.base} ${styles.title}`}
+              style={{ width: STAGE_TITLE.width }}
+              data-rolling={rolling || undefined}
+              data-field="title"
+            >
+              <span ref={titleText} className={styles['title-text']}>
+                {title}
+              </span>
+            </h1>
+          )}
+          {show('right.header.by') && (
+            <>
+              <span
+                className={`${styles.base} ${styles.key} ${styles['by-key']}`}
+                data-decor-guard="40"
+              >
+                By
+              </span>
+              <div
+                className={`${styles.base} ${styles.artist}`}
+                data-field="artist"
+                data-decor-guard="40"
+              >
+                {track?.artist || MISSING}
+              </div>
+            </>
+          )}
+          {show('right.header.quality') && quality && (
             <>
               <span className={`${styles.base} ${styles.key} ${styles['quality-key']}`}>Quality</span>
               <div className={`${styles.base} ${styles.quality}`} data-field="quality">
@@ -103,7 +131,7 @@ export function StageFields({
         </div>
       )}
       {showMeter && meterTop !== null && (
-        <StageMeterRow stereo={stereo} offsetY={meterTop - 296} />
+        <StageMeterRow stereo={stereo} offsetY={meterTop - 296} hidden={hidden} />
       )}
       {lyrics && showLyrics && (
         <div

@@ -12,6 +12,7 @@ import { StageStereo } from '../stereo/StageStereo.tsx';
 import { PaperWaveform } from '../waveform/PaperWaveform.tsx';
 import { STAGE_CROSSES, STAGE_HEIGHT, STAGE_PAD, STAGE_WIDTH } from './paperStage.ts';
 import { cardTops, stageRightTops } from './paperComponentLayout.ts';
+import { groupVisible, moduleHidden, type ImmersivePanelId } from '../page/immersiveComponents.ts';
 import { PaperMarks } from './PaperMarks.tsx';
 import styles from './PaperStage.module.css';
 import { StageScaleContext } from './stageScale.ts';
@@ -52,7 +53,8 @@ export function PaperStage({ scale, origin, variant = 'paper', hidden = new Set<
   const metered = variant === 'paper' || focus;
   // 四行字：只有卡片歌词档不出（卡片上已有曲名与艺人）。
   const showFields = variant !== 'cardLyrics';
-  const show = (id: string) => !hidden.has(id);
+  const show = (id: ImmersivePanelId) => !moduleHidden(hidden, id);
+  const group = (id: ImmersivePanelId) => groupVisible(variant, 'full', hidden, id);
   const rightTops = stageRightTops(variant, 'full', hidden);
   const cardLayout = card ? cardTops(variant, hidden) : null;
   const frame: CSSProperties = {
@@ -92,14 +94,15 @@ export function PaperStage({ scale, origin, variant = 'paper', hidden = new Set<
         )}
         <StageFields
           stereo={<StageStereo />}
-          showMeter={metered && show('right.meter')}
+          showMeter={metered && group('right.meter')}
           showFields={showFields}
-          showHeader={show('right.header')}
+          showHeader={group('right.header')}
           headerTop={rightTops.header}
           meterTop={rightTops.meter}
           lyrics={focus ? <FocusLyricLog /> : undefined}
-          showLyrics={show('right.lyrics')}
+          showLyrics={group('right.lyrics')}
           lyricsTop={rightTops.lyrics}
+          hidden={hidden}
         />
         {variant === 'paper' && show('right.spectrum') && rightTops.spectrum !== null && (
           <div
@@ -120,25 +123,25 @@ export function PaperStage({ scale, origin, variant = 'paper', hidden = new Set<
                 <PaperWaveform />
               </div>
             )}
-            {show('right.gauges') && rightTops.gauges !== null && (
+            {group('right.gauges') && rightTops.gauges !== null && (
               <div className={`${styles.slot} ${styles.gauges}`} style={{ top: rightTops.gauges }}>
-                <PaperGauges />
+                <PaperGauges hidden={hidden} />
               </div>
             )}
-            {show('right.fileInfo') && rightTops.fileInfo !== null && (
+            {group('right.fileInfo') && rightTops.fileInfo !== null && (
               <div
                 className={`${styles.slot} ${styles['file-info']}`}
                 style={{ top: rightTops.fileInfo }}
               >
-                <PaperFileInfo />
+                <PaperFileInfo hidden={hidden} />
               </div>
             )}
           </>
         )}
-        {variant === 'paper' && show('right.lyrics') && (
-          <LyricCard top={rightTops.lyrics} />
+        {variant === 'paper' && group('right.lyrics') && (
+          <LyricCard top={rightTops.lyrics} hidden={hidden} />
         )}
-        {animatedLyrics && show('right.lyrics') && (
+        {animatedLyrics && group('right.lyrics') && (
           <ImmersiveLyricsPlayer
             fontScale={scale > 0 ? 1 / scale : 1}
             top={

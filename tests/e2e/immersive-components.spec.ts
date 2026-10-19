@@ -83,3 +83,60 @@ test('版心档隐藏 meta 后 Year 消失，频谱仍在', async ({ page }) => 
   await expect(view.locator('[data-field-slot="spectrum"]')).toBeVisible();
   expect(errors).toStrictEqual([]);
 });
+
+test('细粒度：四行字、仪表格、量表与文件信息各叶子独立', async ({ page }) => {
+  await setHidden(page, {
+    'paper/full': [
+      'right.header.from',
+      'right.meter.duration',
+      'right.gauges.dynamicRange',
+      'right.fileInfo.sampleRate',
+      'dial.cell.date',
+    ],
+  });
+  const { view, errors } = await openImmersive(page);
+  await expect(view.locator('[data-field="album"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="title"]')).toBeVisible();
+  await expect(view.locator('[data-field="duration"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="soundPressure"]')).toBeVisible();
+  await expect(view.locator('[data-field="dynamicRange"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="loudness"]')).toBeVisible();
+  await expect(view.locator('[data-field="sampleRate"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="bitrate"]')).toBeVisible();
+  await expect(view.locator('[data-field="date"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="track"]')).toBeVisible();
+  expect(errors).toStrictEqual([]);
+});
+
+test('细粒度：歌词卡主/副行与装饰网格/弧线分开', async ({ page }) => {
+  await setHidden(page, { 'paper/full': ['right.lyrics.sub', 'decor.arcs'] });
+  const { view, errors } = await openImmersive(page, {
+    onHost(host) {
+      host.answer('lyrics.get', {
+        success: true,
+        available: true,
+        source: 'embedded',
+        path: '',
+        lyrics: '[00:40]一句\n[00:40]一句译文\n[00:45]二句',
+        synced: true,
+      });
+    },
+  });
+  await expect(view.locator('[data-field="lyric-main"]')).toBeVisible();
+  await expect(view.locator('[data-field="lyric-sub"]')).toHaveCount(0);
+  await expect(view.locator('[data-decor-arcs]')).toHaveCount(0);
+  await expect(view.locator('[data-decor-grid]')).toBeVisible();
+  expect(errors).toStrictEqual([]);
+});
+
+test('细粒度：卡片歌词的曲名/艺人与三格分开', async ({ page }) => {
+  await setHidden(page, { 'cardLyrics/full': ['card.artist', 'card.cell.label'] });
+  const { view, errors } = await openImmersive(page);
+  await view.getByRole('button', { name: '沉浸视图', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '卡片歌词', exact: true }).click();
+  await expect(view.locator('[data-field="cardTitle"]')).toBeVisible();
+  await expect(view.locator('[data-field="cardArtist"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="label"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="date"]')).toBeVisible();
+  expect(errors).toStrictEqual([]);
+});

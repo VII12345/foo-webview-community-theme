@@ -2,10 +2,13 @@ import { createStore } from 'jotai/vanilla';
 import { describe, expect, it } from 'vitest';
 import {
   chooseImmersiveComponent,
+  groupVisible,
   hiddenModulesFor,
   IMMERSIVE_COMPONENTS_KEY,
   immersiveComponentsAtom,
+  isLeafPanel,
   loadImmersiveComponents,
+  moduleHidden,
   panelsFor,
   readImmersiveComponents,
 } from '../../../../src/immersive/page/immersiveComponents.ts';
@@ -116,5 +119,74 @@ describe('沉浸组件可见性', () => {
     expect(hiddenModulesFor(store.get(immersiveComponentsAtom), 'paper', 'full')).toEqual(
       new Set(['right.waveform']),
     );
+  });
+
+  it('父 ID 继续隐藏整组，叶子只隐藏自己', () => {
+    const parentHidden = new Set(['right.header']);
+    expect(moduleHidden(parentHidden, 'right.header.from')).toBe(true);
+    expect(moduleHidden(parentHidden, 'right.header.title')).toBe(true);
+    expect(moduleHidden(parentHidden, 'right.meter.stereo')).toBe(false);
+
+    const leafHidden = new Set(['right.header.from']);
+    expect(moduleHidden(leafHidden, 'right.header.from')).toBe(true);
+    expect(moduleHidden(leafHidden, 'right.header.title')).toBe(false);
+    expect(groupVisible('paper', 'full', leafHidden, 'right.header')).toBe(true);
+    expect(groupVisible('paper', 'full', parentHidden, 'right.header')).toBe(false);
+  });
+
+  it('父组只看可用子项：整组隐藏才让布局收起，单个叶子隐藏仍保留行', () => {
+    const onlyOne = new Set([
+      'right.meter.stereo',
+      'right.meter.bpm',
+      'right.meter.soundPressure',
+      'right.meter.albumArtist',
+    ]);
+    expect(groupVisible('paper', 'full', onlyOne, 'right.meter')).toBe(true);
+    const all = new Set([
+      'right.meter.stereo',
+      'right.meter.bpm',
+      'right.meter.soundPressure',
+      'right.meter.albumArtist',
+      'right.meter.duration',
+    ]);
+    expect(groupVisible('paper', 'full', all, 'right.meter')).toBe(false);
+    // 动画歌词场景里 right.lyrics 是叶子，没有可用的子项。
+    expect(groupVisible('lyrics', 'full', new Set(['right.lyrics']), 'right.lyrics')).toBe(false);
+    expect(groupVisible('lyrics', 'full', new Set(), 'right.lyrics')).toBe(true);
+  });
+
+  it('设置页只把叶子摆出来：父组有可用子项时不显示父开关', () => {
+    expect(isLeafPanel('paper', 'full', 'right.header')).toBe(false);
+    expect(isLeafPanel('paper', 'full', 'right.header.title')).toBe(true);
+    expect(isLeafPanel('paper', 'full', 'right.lyrics')).toBe(false);
+    expect(isLeafPanel('paper', 'full', 'right.lyrics.main')).toBe(true);
+    expect(isLeafPanel('lyrics', 'full', 'right.lyrics')).toBe(true);
+    expect(isLeafPanel('cardLyrics', 'full', 'card.title')).toBe(false);
+    expect(isLeafPanel('cardLyrics', 'full', 'card.titleText')).toBe(true);
+    expect(isLeafPanel('card', 'full', 'card.titleText')).toBe(false);
+    expect(isLeafPanel('paper', 'compact', 'right.fileInfo.sampleRate')).toBe(false);
+    expect(isLeafPanel('paper', 'portrait', 'right.fileInfo.sampleRate')).toBe(true);
+  });
+
+  it('新叶子按场景/档位出现在 panelsFor，父 ID 仍保留', () => {
+    const paperFull = panelsFor('paper', 'full');
+    for (const id of [
+      'decor.grid',
+      'decor.arcs',
+      'right.header.from',
+      'right.meter.duration',
+      'right.gauges.loudness',
+      'right.fileInfo.format',
+      'dial.cell.date',
+      'right.lyrics.sub',
+    ] as const)
+      expect(paperFull.has(id), id).toBe(true);
+    const paperCompact = panelsFor('paper', 'compact');
+    expect(paperCompact.has('right.meter')).toBe(false);
+    expect(paperCompact.has('right.meta.year')).toBe(true);
+    expect(paperCompact.has('dial.trackNo')).toBe(true);
+    expect(paperCompact.has('dial.cell.date')).toBe(false);
+    expect(panelsFor('cardLyrics', 'full').has('card.artist')).toBe(true);
+    expect(panelsFor('card', 'full').has('card.artist')).toBe(false);
   });
 });

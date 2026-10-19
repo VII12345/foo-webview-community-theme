@@ -4,6 +4,7 @@ import { useAtomValueRawSync } from 'jotai/react';
 import type { CSSProperties } from 'react';
 import { translateAtom } from '../../i18n/locale.ts';
 import { currentTrackAtom } from '../../playback/playback.ts';
+import { moduleHidden } from '../page/immersiveComponents.ts';
 import { NowPlayingRating } from '../../shell/player/now-playing/NowPlayingRating.tsx';
 import { displayTitle } from '../../shell/player/now-playing/nowPlaying.ts';
 import { NowPlayingMenu } from '../../shell/player/context-menu/NowPlayingMenu.tsx';
@@ -41,7 +42,7 @@ export function StageCard({ title, hidden, tops }: StageCardProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const menu = useNowPlayingMenu(track);
   const classes = useStyles();
-  const show = (id: string) => !hidden.has(id);
+  const show = (id: string) => !moduleHidden(hidden, id as never);
   const coverBox: CSSProperties = {
     left: STAGE_CARD_COVER.x,
     top: tops.cover ?? STAGE_CARD_COVER.y,
@@ -62,12 +63,14 @@ export function StageCard({ title, hidden, tops }: StageCardProps) {
           data-card-meta
           {...menu.trigger}
         >
-          {title && show('card.title') && (
+          {title && (show('card.titleText') || show('card.artist')) && (
             <div className={styles.text} data-card-text>
-              <div className={styles.title} data-field="cardTitle">
-                {track ? displayTitle(track) : t('player.idle')}
-              </div>
-              {track?.artist && (
+              {show('card.titleText') && (
+                <div className={styles.title} data-field="cardTitle">
+                  {track ? displayTitle(track) : t('player.idle')}
+                </div>
+              )}
+              {show('card.artist') && track?.artist && (
                 <div className={styles.artist} data-field="cardArtist">
                   {track.artist}
                 </div>
@@ -107,7 +110,7 @@ export function StageCard({ title, hidden, tops }: StageCardProps) {
           extras
         />
       )}
-      {tops.cells !== null && <DialCells card style={{ left: 250, top: tops.cells }} />}
+      {tops.cells !== null && <DialCells card hidden={hidden} scope="card" style={{ left: 250, top: tops.cells }} />}
       <NowPlayingMenu at={menu.at} onClose={menu.close} />
     </div>
   );

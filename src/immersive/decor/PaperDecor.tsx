@@ -7,7 +7,7 @@ import { colorSchemeAtom } from '../../theme/colorScheme.ts';
 import { coverRampAtom as accentRampAtom } from '../../theme/accentState.ts';
 import { canvasRatio } from '../paper/stageScale.ts';
 import { buildDecor, seedFromKey, type Decor, type DecorArc, type Rect } from './paperDecor.ts';
-import { drawDecor, type DecorStyle } from './paperDecorDraw.ts';
+import { drawDecor, type DecorParts, type DecorStyle } from './paperDecorDraw.ts';
 import styles from './PaperDecor.module.css';
 
 export interface PaperDecorProps {
@@ -23,6 +23,9 @@ export interface PaperDecorProps {
   readonly scale: number;
   /** 网页版一个像素在场景里多长，记号尺寸与密度按它算；不给按版心换算。 */
   readonly unit?: number;
+  /** 网格与弧线可分开隐藏；都关时不挂这一层。 */
+  readonly showGrid?: boolean;
+  readonly showArcs?: boolean;
 }
 
 interface DecorInput extends Omit<PaperDecorProps, 'unit'> {
@@ -40,6 +43,7 @@ function createDecorPainter() {
   let height = 0;
   let decor: Decor | null = null;
   let style: DecorStyle | null = null;
+  let parts: DecorParts = { grid: true, arcs: true };
 
   /** 解析不了的值 `fillStyle` 会忽略、留着上一次的，所以先复位成透明：坏 token 画不出东西，不会串成别的色。 */
   function normalized(value: string): string {
@@ -50,11 +54,16 @@ function createDecorPainter() {
   }
 
   function paint(): void {
-    if (ctx && decor && style) drawDecor(ctx, decor, style);
+    if (ctx && decor && style) drawDecor(ctx, decor, style, parts);
   }
 
   return {
     paint,
+    setParts(next: DecorParts): void {
+      if (next.grid === parts.grid && next.arcs === parts.arcs) return;
+      parts = next;
+      paint();
+    },
     /** 按 CSS 尺寸开物理像素；这一层铺在舞台外，不乘舞台缩放。改 canvas 尺寸会清空位图。 */
     resize(canvas: HTMLCanvasElement, cssWidth: number, cssHeight: number): void {
       const ratio = canvasRatio(1);
@@ -93,7 +102,16 @@ function createDecorPainter() {
  * 十六进制，作画时要给渐变配同色的透明端，得先认得出颜色。主题的样式规则在同一次提交里先于各 effect 写进文档，
  * ramp 或深浅一变，effect 里现读就是新值。
  */
-export function PaperDecor({ guards, origin, sheet, arcs, scale, unit }: PaperDecorProps) {
+export function PaperDecor({
+  guards,
+  origin,
+  sheet,
+  arcs,
+  scale,
+  unit,
+  showGrid = true,
+  showArcs = true,
+}: PaperDecorProps) {
   const seed = useAtomValueRawSync(decorSeedAtom);
   const ramp = useAtomValueRawSync(accentRampAtom);
   const scheme = useAtomValueRawSync(colorSchemeAtom);
@@ -104,6 +122,9 @@ export function PaperDecor({ guards, origin, sheet, arcs, scale, unit }: PaperDe
   useLayoutEffect(() => {
     latest.current = input;
   });
+  useEffect(() => {
+    painter.setParts({ grid: showGrid, arcs: showArcs });
+  }, [painter, showGrid, showArcs]);
 
   useEffect(() => {
     const element = canvas.current;
@@ -130,5 +151,13 @@ export function PaperDecor({ guards, origin, sheet, arcs, scale, unit }: PaperDe
     if (element) painter.recolor(element);
   }, [painter, ramp, scheme]);
 
-  return <canvas ref={canvas} className={styles.decor} aria-hidden />;
+  return (
+    <canvas
+      ref={canvas}
+      className={styles.decor}
+      data-decor-grid={showGrid || undefined}
+      data-decor-arcs={showArcs || undefined}
+      aria-hidden
+    />
+  );
 }

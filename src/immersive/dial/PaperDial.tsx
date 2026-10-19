@@ -1,6 +1,7 @@
 import { useAtomValueRawSync } from 'jotai/react';
 import { useMemo, type CSSProperties } from 'react';
 import { currentTrackAtom } from '../../playback/playback.ts';
+import { moduleHidden } from '../page/immersiveComponents.ts';
 import { COVER_SIZE, DIAL_CENTER } from '../paper/paperLayout.ts';
 import { formatTrackNo } from '../paper/paperScale.ts';
 import { COMPACT_SCALE, type DialPlacement } from '../paper/paperTiers.ts';
@@ -119,7 +120,7 @@ export interface PaperDialProps {
  */
 export function PaperDial({ dial, column, hidden = new Set<string>() }: PaperDialProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
-  const show = (id: string) => !hidden.has(id);
+  const show = (id: string) => !moduleHidden(hidden, id as never);
   const layout = useMemo(() => (dial ? dialLayout(dial) : narrowLayout(column)), [dial, column]);
   const { left, top, size } = layout.cover;
   const coverBox: CSSProperties = { left, top, width: size, height: size };
@@ -147,14 +148,14 @@ export function PaperDial({ dial, column, hidden = new Set<string>() }: PaperDia
             {tick.text}
           </span>
         ))}
-      {show('dial.album') && (
+      {show('dial.albumText') && (
         <div className={`${styles.text} ${styles.album}`} style={layout.album} data-field="dialAlbum">
           {track?.album ?? ''}
         </div>
       )}
       {show('dial.cover') && <DialCover box={coverBox} guard={47} />}
       {show('dial.brackets') && <PaperBrackets box={bracketBox} arm={BRACKET_ARM} />}
-      {show('dial.album') && (
+      {show('dial.trackNo') && (
         <div className={styles.text} style={layout.trackNo} data-field="trackNo">
           {formatTrackNo(track?.trackNumber)}
         </div>

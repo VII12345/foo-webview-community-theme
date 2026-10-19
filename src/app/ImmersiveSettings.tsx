@@ -46,6 +46,7 @@ import {
   IMMERSIVE_PANEL_GROUPS,
   IMMERSIVE_PANEL_LABELS,
   immersiveComponentsAtom,
+  isLeafPanel,
   panelsFor,
 } from '../immersive/page/immersiveComponents.ts';
 import type { PaperTier } from '../immersive/paper/paperTiers.ts';
@@ -228,7 +229,9 @@ export function ImmersiveSettings() {
           )}
         </SettingsRow>
         {IMMERSIVE_PANEL_GROUPS.map((group) => {
-          const panels = group.panels.filter((id) => available.has(id));
+          const panels = group.panels.filter(
+            (id) => available.has(id) && isLeafPanel(panelView, layout, id),
+          );
           if (panels.length === 0) return null;
           return (
             <section key={group.id} className={styles.group}>
