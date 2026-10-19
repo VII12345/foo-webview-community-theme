@@ -22,6 +22,7 @@ export const DX52_COMMANDS = {
   headphoneGain: 0x7117,
   volumeStep: 0x711e,
   connectState: 0x1101,
+  sampleRate: 0x1107,
   heartbeat: 0x7134,
 } as const;
 
@@ -34,6 +35,7 @@ export const DX52_PUSH_COMMANDS: ReadonlySet<number> = new Set([
   DX52_COMMANDS.output,
   DX52_COMMANDS.headphoneGain,
   DX52_COMMANDS.volumeStep,
+  DX52_COMMANDS.sampleRate,
 ]);
 
 export function isDx52PushCommand(cmd: number): boolean {
@@ -83,10 +85,16 @@ export interface Dx52Frame {
 }
 
 const INPUTS: readonly Dx52Input[] = ['usb', 'optical', 'coaxial', 'bluetooth'];
+/** 真机快照里 USB 输入值是 6，不是数组下标 0。 */
+function inputOf(value: number): Dx52Input {
+  return value === 6 ? 'usb' : INPUTS[value] ?? 'unknown';
+}
+
+/** 真机：0 是线路输出，4 是 4.4mm 平衡耳机；3 仍是 6.35mm 单端。 */
 const ROUTES: readonly Dx52Route[] = [
-  'all',
-  'hp_all',
   'line_all',
+  'hp_all',
+  'all',
   'hp_single',
   'hp_balanced',
   'line_single',
@@ -178,6 +186,7 @@ export function readDx52Settings(
   const volumeStepDb: 0.5 | 1 = (words[32] ?? 0) === 1 ? 1 : 0.5;
   const volumeRaw = words[9] ?? 0;
   const balance = words[17] ?? 0;
+  const rawRate = words[27] ?? 0;
   return {
     connected: true,
     powered: (words[0] ?? 0) === 1,
@@ -186,10 +195,11 @@ export function readDx52Settings(
     volumeStepDb,
     volumeDb: Math.max(-99, Math.min(0, -(volumeRaw * volumeStepDb))),
     muted: (words[10] ?? 0) === 1,
-    input: INPUTS[words[11] ?? 0] ?? 'unknown',
+    input: inputOf(words[11] ?? 0),
     route: ROUTES[words[12] ?? 0] ?? 'unknown',
     highGain: (words[13] ?? 0) === 1,
-    sampleRate: (words[27] ?? 0) > 0 ? (words[27] ?? 0) : null,
+    // 真机快照的 word27 不是采样率（常见值是 1）；只有像采样率的值才采用，实际以 0x1107 推送为准。
+    sampleRate: rawRate >= 8000 ? rawRate : null,
     lineMode: (words[19] ?? -1) === 0 ? 'preamp' : (words[19] ?? -1) === 1 ? 'dac' : 'unknown',
     balanceDb: (balance > 0x7fffffff ? balance - 0x100000000 : balance) / 10,
     updatedAtMs: now,
@@ -214,9 +224,15 @@ export function applyDx52Push(state: Dx52State, frame: Dx52Frame, now: number): 
     case DX52_COMMANDS.mute:
       return { ...state, muted: frame.data === 1, updatedAtMs: now };
     case DX52_COMMANDS.input:
-      return { ...state, input: INPUTS[frame.data] ?? 'unknown', updatedAtMs: now };
+      return { ...state, input: inputOf(frame.data), updatedAtMs: now };
     case DX52_COMMANDS.output:
       return { ...state, route: ROUTES[frame.data] ?? 'unknown', updatedAtMs: now };
+    case DX52_COMMANDS.sampleRate:
+      return {
+        ...state,
+        sampleRate: frame.data > 0 ? frame.data : null,
+        updatedAtMs: now,
+      };
     case DX52_COMMANDS.headphoneGain:
       return { ...state, highGain: frame.data === 1, updatedAtMs: now };
     case DX52_COMMANDS.volumeStep: {

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { createConfigWriter } from '../../../src/host/configWrite.ts';
 import {
   buildDx52Frame,
+  dx52AmpProfile,
   DX52_COMMANDS,
   type Dx52HidCollectionInfo,
   type Dx52HidDevice,
@@ -97,6 +98,13 @@ function settingsWords(): number[] {
 function emitSnapshot(device: FakeDevice, words: readonly number[]): void {
   words.forEach((word, index) => {
     device.emit(buildDx52Frame(DX52_COMMANDS.getSettings, word, 0x11, words.length, index + 1));
+  });
+}
+
+/** 真机 0 基快照：cur 从 0 开始。 */
+function emitSnapshot0(device: FakeDevice, words: readonly number[]): void {
+  words.forEach((word, index) => {
+    device.emit(buildDx52Frame(DX52_COMMANDS.getSettings, word, 0x11, words.length, index));
   });
 }
 
@@ -316,6 +324,61 @@ describe('DX5 II 自动读取服务', () => {
     await vi.advanceTimersByTimeAsync(80);
     expect(requested).not.toHaveBeenCalled();
     expect(device.opened).toBe(true);
+  });
+
+  it('真机 52 字快照：先到的多帧推送流不会把 frameBase 带偏', async () => {
+    const { store, device, service } = setup();
+    await enable(service);
+    // 连接时设备先推的 0x7131/0x7130/0x7133 多帧流；都不是设置快照。
+    for (let index = 0; index < 8; index += 1)
+      device.emit(buildDx52Frame(0x7131, 0x1234 + index, 0x20, 8, index));
+    for (let index = 0; index < 2; index += 1)
+      device.emit(buildDx52Frame(0x7130, 0x5678 + index, 0x20, 2, index));
+    for (let index = 0; index < 12; index += 1)
+      device.emit(buildDx52Frame(0x7133, 0x9abc + index, 0x20, 12, index));
+    // 4.4mm 平衡输出；word0=1 电源，word9=48 音量，word11=6 USB，word12=4 4.4mm。
+    const words = [
+      1, 540366916, 18761, 0, 0, 0, 0, 0, 25, 48, 0, 6, 4, 0, 0, 0, 0, 0, 0, 2, 0, 1, 1, 1,
+      1, 1, 1, 1, 0, 9, 80, 1, 0, 1, 1, 1, 1, 0, 0, 14, 15, 2, 1, 1, 595, 595, 595, 257, 30,
+      1, 0, 0,
+    ];
+    device.emit(buildDx52Frame(DX52_COMMANDS.sampleRate, 44100, 0x20));
+    emitSnapshot0(device, words);
+    expect(store.get(service.status)).toEqual({ kind: 'connected' });
+    expect(store.get(service.state)).toMatchObject({
+      powered: true,
+      deviceName: 'DX5 II',
+      volumeRaw: 48,
+      volumeDb: -24,
+      input: 'usb',
+      route: 'hp_balanced',
+      highGain: false,
+      sampleRate: 44100,
+      partial: false,
+    });
+    expect(store.get(service.diagnostics).snapshot).toMatchObject({
+      total: 52,
+      received: 45,
+      complete: true,
+    });
+  });
+
+  it('真机线路输出：word12=0 读成线路，不当作耳机', async () => {
+    const { store, device, service } = setup();
+    await enable(service);
+    const words = [
+      1, 540366916, 18761, 0, 0, 0, 0, 0, 25, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1, 1, 1, 1,
+      1, 1, 1, 0, 9, 80, 1, 0, 1, 1, 1, 1, 0, 0, 14, 15, 2, 1, 1, 595, 595, 595, 257, 30, 1,
+      0, 0,
+    ];
+    emitSnapshot0(device, words);
+    expect(store.get(service.state)).toMatchObject({
+      powered: true,
+      input: 'usb',
+      route: 'line_all',
+      volumeRaw: 0,
+    });
+    expect(dx52AmpProfile(store.get(service.state)!)).toBeNull();
   });
 
   it('total=1 的短应答不会被当成 45 字段快照，也不会误报已关机', async () => {

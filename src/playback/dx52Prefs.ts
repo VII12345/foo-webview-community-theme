@@ -332,6 +332,7 @@ export function startDx52(
   let featurePollBusy = false;
   const featureErrorReported = new Set<number>();
   let receivedAny = false;
+  let pendingSampleRate: number | null = null;
   let sendQueue: Promise<void> = Promise.resolve();
   let snapshotGeneration = 0;
   const recentFrames = new Map<string, number>();
@@ -468,6 +469,7 @@ export function startDx52(
     transportLocked = false;
     lastFeatureSend = null;
     receivedAny = false;
+    pendingSampleRate = null;
     recentFrames.clear();
     featureErrorReported.clear();
     transportAttempts = [];
@@ -639,7 +641,8 @@ export function startDx52(
     heartbeat = setInterval(() => send(DX52_COMMANDS.heartbeat, 1, 0x20), HEARTBEAT_MS);
   }
   function isSnapshotFrame(frame: Dx52Frame): boolean {
-    if (frame.total < SNAPSHOT_MIN_FRAMES) return false;
+    // 真机连接时还会推 0x7130/0x7131/0x7133 等多帧流；它们不是设置快照，不能拿来定 frameBase。
+    if (frame.total < DX52_SNAPSHOT_WORDS) return false;
     return frame.cmd === DX52_COMMANDS.getSettings || !isDx52PushCommand(frame.cmd);
   }
   function isComplete(): boolean {
@@ -659,7 +662,10 @@ export function startDx52(
   function acceptSnapshot(partial: boolean): void {
     snapshotActive = false;
     clearSnapshotTimers();
-    setState(readDx52Settings(snapshotWords(), now(), { partial }));
+    const next = readDx52Settings(snapshotWords(), now(), { partial });
+    setState(
+      pendingSampleRate === null ? next : { ...next, sampleRate: pendingSampleRate },
+    );
     setStatus({ kind: 'connected' });
     clearFailureDismissed();
     startHeartbeat();
@@ -762,6 +768,12 @@ export function startDx52(
     }
     if (snapshotActive && isSnapshotFrame(frame)) {
       if (frameBase === null) frameBase = frame.cur === 0 ? 0 : 1;
+      // 先看到 1 基帧、后来真机的 0 基快照重发时，以 0 基重新收，避免整体错位一格。
+      else if (frameBase === 1 && frame.cur === 0) {
+        frameBase = 0;
+        frameWords.clear();
+        frameTotal = 0;
+      }
       if (frame.total > frameTotal) frameTotal = frame.total;
       const index = frame.cur - frameBase;
       if (index < 0 || index >= DX52_SNAPSHOT_WORDS) {
@@ -775,6 +787,9 @@ export function startDx52(
       if (isComplete()) acceptSnapshot(false);
       return;
     }
+    // 采样率推送常在快照之前到达；先记下来，快照接受时一起写入。
+    if (frame.cmd === DX52_COMMANDS.sampleRate)
+      pendingSampleRate = frame.data > 0 ? frame.data : null;
     const current = store.get(stateAtom);
     if (!current) return;
     const next = applyDx52Push(current, frame, now());
