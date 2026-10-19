@@ -14,17 +14,28 @@ import {
   dx52StatusAtom,
   type Dx52Status,
 } from '../../playback/dx52Prefs.ts';
-import { headphoneRigAtom } from '../../playback/soundPressurePrefs.ts';
+import { headphoneRigAtom, splWeightingAtom } from '../../playback/soundPressurePrefs.ts';
+import {
+  bandResponseDb,
+  measurementProfileOf,
+  referenceImpedanceOhm,
+} from '../../playback/headphoneMeasurements.ts';
 import {
   estimateSoundPressure,
+  estimateSoundPressureFromBands,
+  estimateSoundPressureFromRms,
   selectedRig,
   type AmpProfile,
   type HeadphoneProfile,
   type HeadphoneRig,
   type SoundPressureReading,
 } from '../../playback/soundPressure.ts';
+import { SPL_BAND_EDGES } from '../../playback/splBands.ts';
+import type { SplWeighting } from '../../playback/splWeighting.ts';
 import { channelWeightSum } from '../gauges/loudnessMeter.ts';
 import { liveLoudnessAtom } from '../gauges/liveLoudness.ts';
+import { liveBandPowerAtom } from '../spectrum/liveBandPower.ts';
+import { weightTables } from './splWeightingCurves.ts';
 
 export type Dx52Reason =
   | 'unsupported'
@@ -54,15 +65,20 @@ export interface SoundPressureView {
   /** 曲首至今已播放片段的平均读数；没有足够数据时为 no-loudness。 */
   readonly averageReading: SoundPressureReading;
   readonly averageLufs: number | null;
+  readonly weighting: SplWeighting;
   readonly auto: SoundPressureAuto;
 }
 
 const UNAVAILABLE: SoundPressureReading = {
   state: 'no-loudness',
   spl: null,
+  splA: null,
+  splK: null,
+  splZ: null,
   powerMw: null,
   voltage: null,
   marginDb: null,
+  method: 'none',
 };
 
 function autoReason(
@@ -127,13 +143,13 @@ export const soundPressureAutoActiveAtom: Atom<boolean> = atom((get) => {
   return selectedRig(get(headphoneRigAtom)).headphone !== null;
 });
 
-/** 沉浸组件用的组合：设备选择 + 当前 Short-term LUFS + 播放器音量/静音。 */
+/** 沉浸组件用的组合：设备选择 + 当前频谱/RMS + 播放器音量/静音。 */
 export const soundPressureViewAtom: Atom<SoundPressureView> = atom((get) => {
   const rig = get(headphoneRigAtom);
   const selected = selectedRig(rig);
-  const { shortTerm, average, channels } = get(liveLoudnessAtom);
-  const weightSum = channelWeightSum(channels);
-  const channelGainDb = weightSum > 0 ? 10 * Math.log10(2 / weightSum) : 0;
+  const live = get(liveLoudnessAtom);
+  const bands = get(liveBandPowerAtom);
+  const weighting = get(splWeightingAtom);
   const volumeDb = get(volumeDbAtom);
   const muted = get(mutedAtom);
   const enabled = get(dx52EnabledAtom);
@@ -151,31 +167,99 @@ export const soundPressureViewAtom: Atom<SoundPressureView> = atom((get) => {
         }
       : { rig, amp: selected.amp };
 
-  const shortLufs = enabled && !active ? null : shortTerm;
-  const avgLufs = enabled && !active ? null : average;
+  const headphone = selected.headphone;
+  const profile = measurementProfileOf(headphone?.measurementProfileId);
+  const edges = bands.edges.length ? bands.edges : SPL_BAND_EDGES;
+  const referenceOhm = headphone
+    ? referenceImpedanceOhm(profile, headphone.impedanceOhm)
+    : 0;
+  const ampOutputImpedanceOhm = active ? 0.2 : 0;
+  const responseDb = headphone
+    ? bandResponseDb(profile, edges, ampOutputImpedanceOhm, headphone.impedanceOhm)
+    : new Float64Array(Math.max(0, edges.length - 1));
+  const weights = weightTables(edges, bands.sampleRate || 48000);
+  const shortLufs = enabled && !active ? null : live.shortTerm;
+  const avgLufs = enabled && !active ? null : live.average;
   const isMuted = muted || (enabled && active ? (state?.muted ?? false) : false);
-  const reading =
-    enabled && !active
-      ? UNAVAILABLE
-      : estimateSoundPressure(
-          { shortTermLufs: shortLufs, volumeDb, muted: isMuted, channelGainDb },
-          effective.rig,
-        );
-  const averageReading =
-    enabled && !active
-      ? UNAVAILABLE
-      : estimateSoundPressure(
-          { shortTermLufs: avgLufs, volumeDb, muted: isMuted, channelGainDb },
-          effective.rig,
-        );
+  const weightSum = channelWeightSum(live.channels);
+  const channelGainDb = weightSum > 0 ? 10 * Math.log10(2 / weightSum) : 0;
+
+  const sharesFor = (
+    rms: readonly number[] | null,
+    left: Float32Array | null,
+    right: Float32Array | null,
+  ): readonly (ArrayLike<number> | null)[] | null => {
+    if (!rms || !left || left.length === 0) return null;
+    if (rms.length > 2) return null;
+    if (bands.channels <= 1 || !right || right.length !== left.length)
+      return Array.from({ length: rms.length }, () => left);
+    return rms.length >= 2 ? [left, right] : [left];
+  };
+
+  const estimate = (
+    rms: readonly number[] | null,
+    left: Float32Array | null,
+    right: Float32Array | null,
+    lufs: number | null,
+  ): SoundPressureReading => {
+    if (enabled && !active) return UNAVAILABLE;
+    const shares = sharesFor(rms, left, right);
+    if (shares && !bands.failed) {
+      return estimateSoundPressureFromBands(
+        {
+          sharesByChannel: shares,
+          rmsDbfsByChannel: rms,
+          bandResponseDb: responseDb,
+          bandWeightDb: weights,
+          volumeDb,
+          muted: isMuted,
+          weighting,
+          referenceImpedanceOhm: referenceOhm,
+          ampOutputImpedanceOhm,
+        },
+        effective.rig,
+      );
+    }
+    if (rms) {
+      return estimateSoundPressureFromRms(
+        {
+          rmsDbfsByChannel: rms,
+          volumeDb,
+          muted: isMuted,
+          weighting,
+          referenceImpedanceOhm: referenceOhm,
+          ampOutputImpedanceOhm,
+        },
+        effective.rig,
+      );
+    }
+    return estimateSoundPressure(
+      { shortTermLufs: lufs, volumeDb, muted: isMuted, channelGainDb },
+      effective.rig,
+    );
+  };
+
+  const reading = estimate(
+    enabled && !active ? null : live.rmsDbfsByChannel,
+    bands.shortTermLeft,
+    bands.shortTermRight,
+    shortLufs,
+  );
+  const averageReading = estimate(
+    enabled && !active ? null : live.averageRmsDbfsByChannel,
+    bands.averageLeft,
+    bands.averageRight,
+    avgLufs,
+  );
 
   return {
     rig,
     amp: effective.amp,
-    headphone: selected.headphone,
+    headphone,
     reading,
     averageReading,
     averageLufs: avgLufs,
+    weighting,
     auto: { enabled, active, reason: decision.reason, output: decision.output, state },
   };
 });

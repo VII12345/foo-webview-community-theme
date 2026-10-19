@@ -10,6 +10,7 @@ import {
   HEADPHONE_RIG_KEY,
   type HeadphoneRig,
 } from '../../../src/playback/soundPressure.ts';
+import { SPL_WEIGHTING_KEY } from '../../../src/playback/splWeighting.ts';
 import { createMemoryDataWriter } from '../../fixtures/dataWriter.ts';
 import { installFakeHost, type UnitHostOptions } from '../../fixtures/unitHost.ts';
 import { hostFailure } from '../../fixtures/hostAnswers.ts';
@@ -43,6 +44,45 @@ describe('耳机设备的偏好服务', () => {
     await ready(env.service);
     expect(env.store.get(env.service.rig)).toEqual(emptyRig());
     expect(stored(env)).toBeUndefined();
+  });
+
+  it('耳机测量档案 id 随耳机持久化，可用 null 清除', async () => {
+    const env = setup();
+    await ready(env.service);
+    const id = env.service.addHeadphone({
+      name: 'FT1',
+      impedanceOhm: 32,
+      sensitivity: 98,
+      sensitivityUnit: 'dbPerMw',
+      measurementProfileId: 'huihifi-ft1',
+    });
+    await env.service.persistence.settled();
+    expect(stored(env)?.headphones[0]).toMatchObject({
+      id,
+      measurementProfileId: 'huihifi-ft1',
+    });
+    env.service.updateHeadphone(id!, {
+      name: 'FT1',
+      impedanceOhm: 32,
+      sensitivity: 98,
+      sensitivityUnit: 'dbPerMw',
+      measurementProfileId: null,
+    });
+    await env.service.persistence.settled();
+    expect(stored(env)?.headphones[0]?.measurementProfileId).toBeNull();
+  });
+
+  it('声压加权默认 A，切换后落盘，坏值回退 A', async () => {
+    const env = setup();
+    await ready(env.service);
+    expect(env.store.get(env.service.weighting)).toBe('A');
+    env.service.setWeighting('K');
+    await env.service.persistence.settled();
+    expect(env.host.config.get(SPL_WEIGHTING_KEY)).toBe('K');
+
+    const invalid = setup({ config: { [SPL_WEIGHTING_KEY]: 'Q' } });
+    await ready(invalid.service);
+    expect(invalid.store.get(invalid.service.weighting)).toBe('A');
   });
 
   it('增删改选都写进 config，删除选中项时同一次写入清掉选择', async () => {

@@ -18,6 +18,16 @@ export interface BinsFrame {
   nyquist: number;
 }
 
+/** 左右声道分别给出的频点帧；用于频谱级 SPL。 */
+export interface StereoBinsFrame {
+  readonly left: readonly number[];
+  readonly right: readonly number[];
+  readonly firstBin: number;
+  readonly binHz: number;
+  readonly nyquist: number;
+  readonly channelCount: number;
+}
+
 /** 静音与空带的值：宿主 dB 功率的下限。 */
 export const BIN_FLOOR_DB = -160;
 
@@ -40,6 +50,36 @@ export function binsFrameOf(payload: unknown): BinsFrame | null {
     return null;
   }
   return { values: spectrum, firstBin, binHz: sampleRate / fftSize, nyquist: sampleRate / 2 };
+}
+
+/** 左右声道频点帧；`channelCount` 为 1 时 right 通常与 left 相同。 */
+export function stereoBinsFrameOf(payload: unknown): StereoBinsFrame | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  if (!('output' in payload) || payload.output !== 'bins') return null;
+  if (!('left' in payload) || !('right' in payload)) return null;
+  if (!('firstBin' in payload) || !('fftSize' in payload) || !('sampleRate' in payload)) {
+    return null;
+  }
+  const { left, right, firstBin, fftSize, sampleRate } = payload;
+  if (!Array.isArray(left) || !Array.isArray(right)) return null;
+  if (left.length === 0 || right.length === 0) return null;
+  if (!left.every(isNumber) || !right.every(isNumber)) return null;
+  if (!isNumber(firstBin) || !Number.isInteger(firstBin) || firstBin < 0) return null;
+  if (!isNumber(fftSize) || !(fftSize > 0) || !isNumber(sampleRate) || !(sampleRate > 0)) {
+    return null;
+  }
+  const channelCount =
+    'channelCount' in payload && isNumber(payload.channelCount) && payload.channelCount > 0
+      ? Math.floor(payload.channelCount)
+      : 2;
+  return {
+    left,
+    right,
+    firstBin,
+    binHz: sampleRate / fftSize,
+    nyquist: sampleRate / 2,
+    channelCount,
+  };
 }
 
 /**

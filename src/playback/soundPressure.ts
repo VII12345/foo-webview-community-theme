@@ -1,9 +1,11 @@
 /**
- * 耳机输出声压估算的共享模型：设备参数、灵敏度换算与从实时 LUFS 到 dB SPL 的纯计算。
+ * 耳机输出声压估算的共享模型：设备参数、灵敏度换算与从实时电平到 dB SPL 的纯计算。
  *
  * 这是估算，不是测量：不建模耳放输出阻抗、耳机阻抗随频率的变化、耳道耦合与头相关传输，
  * 也不叠加 ReplayGain。所有外部值（config）进入前都要经过本文件的校验与夹取。
  */
+
+import type { SplWeighting } from './splWeighting.ts';
 
 export type SensitivityUnit = 'dbPerMw' | 'dbPerV';
 
@@ -22,6 +24,8 @@ export type HeadphoneProfile = {
   readonly impedanceOhm: number;
   readonly sensitivity: number;
   readonly sensitivityUnit: SensitivityUnit;
+  /** 可选测量档案 id；未知 id 保留在配置里，找不到档案时回退标称模型。 */
+  readonly measurementProfileId?: string | null;
 };
 
 export type HeadphoneRig = {
@@ -64,16 +68,23 @@ export type SoundPressureState =
   | 'no-headphone'
   | 'no-device';
 
+export type SoundPressureMethod = 'bands' | 'rms' | 'lufs' | 'none';
+
 export interface SoundPressureReading {
   readonly state: SoundPressureState;
-  /** dB SPL；不可算时为 null。 */
+  /** 当前显示加权的 dB SPL；不可算时为 null。 */
   readonly spl: number | null;
+  /** 三种加权的同一帧读数；没有频谱时 A/K 可能为 null。 */
+  readonly splA: number | null;
+  readonly splK: number | null;
+  readonly splZ: number | null;
   /** mW；不可算时为 null。 */
   readonly powerMw: number | null;
   /** Vrms；不可算时为 null。 */
   readonly voltage: number | null;
-  /** 80 − SPL，正数是余量，负数是超出；不可算时为 null。 */
+  /** 80 − SPL_A，正数是余量，负数是超出；不可算时为 null。 */
   readonly marginDb: number | null;
+  readonly method: SoundPressureMethod;
 }
 
 export interface SoundPressureInput {
@@ -129,6 +140,7 @@ export function headphoneDraft(): Omit<HeadphoneProfile, 'id'> {
     impedanceOhm: HEADPHONE_IMPEDANCE_DEFAULT,
     sensitivity: HEADPHONE_SENS_DEFAULT,
     sensitivityUnit: 'dbPerMw',
+    measurementProfileId: null,
   };
 }
 
@@ -151,6 +163,7 @@ export function normalizeHeadphone(raw: unknown): HeadphoneProfile | undefined {
   const unit = field(raw, 'sensitivityUnit');
   const sensitivityUnit: SensitivityUnit =
     unit === 'dbPerV' ? 'dbPerV' : 'dbPerMw';
+  const measurement = text(field(raw, 'measurementProfileId'));
   return {
     id,
     name,
@@ -167,6 +180,7 @@ export function normalizeHeadphone(raw: unknown): HeadphoneProfile | undefined {
       sensitivityUnit === 'dbPerV' ? HEADPHONE_SENS_DB_V_MAX : HEADPHONE_SENS_DB_MW_MAX,
     ),
     sensitivityUnit,
+    measurementProfileId: measurement ?? null,
   };
 }
 
@@ -243,6 +257,237 @@ export function convertSensitivity(
     : value + 10 * Math.log10(impedanceOhm / 1000);
 }
 
+/** dB/mW 灵敏度换成 dB/V；参考阻抗默认用标称值，有测量档案时可传 1 kHz 实测值。 */
+export function sensitivityDbPerVAtReference(
+  profile: HeadphoneProfile,
+  referenceImpedanceOhm = profile.impedanceOhm,
+): number {
+  if (profile.sensitivityUnit === 'dbPerV') return profile.sensitivity;
+  return profile.sensitivity + 10 * Math.log10(1000 / referenceImpedanceOhm);
+}
+
+/** 满幅正弦 = 0 dBFS；meanSquare 是样本均方。 */
+export function rmsDbfsOfMeanSquare(meanSquare: number): number | null {
+  return Number.isFinite(meanSquare) && meanSquare > 0
+    ? 10 * Math.log10(2 * meanSquare)
+    : null;
+}
+
+/** 数字 RMS 电平（满幅正弦 0 dBFS）→ 每声道源电压。 */
+export function voltageFromRms(
+  rmsDbfs: number,
+  volumeDb: number,
+  ampGainDb: number,
+  vrmsAt0db: number,
+): number | null {
+  if (![rmsDbfs, volumeDb, ampGainDb, vrmsAt0db].every(Number.isFinite)) return null;
+  const voltage = vrmsAt0db * 10 ** ((rmsDbfs + volumeDb + ampGainDb) / 20);
+  return Number.isFinite(voltage) && voltage > 0 ? voltage : null;
+}
+
+/** 耳放输出阻抗分压；Zamp 默认 0，DX52 传 0.2 Ω。 */
+export function loadVoltage(
+  sourceVoltage: number,
+  zHeadphone: number,
+  zAmp = 0,
+): number | null {
+  if (![sourceVoltage, zHeadphone, zAmp].every(Number.isFinite)) return null;
+  if (!(sourceVoltage > 0) || !(zHeadphone > 0) || zAmp < 0) return null;
+  const voltage = (sourceVoltage * zHeadphone) / (zAmp + zHeadphone);
+  return Number.isFinite(voltage) && voltage > 0 ? voltage : null;
+}
+
+/** 单频点电压 → SPL（电压参考 FR 与频率加权都以 dB 叠加）。 */
+export function splFromVoltage(
+  voltage: number | null,
+  sensitivityDbV: number,
+  frDb = 0,
+  weightingDb = 0,
+): number | null {
+  if (voltage === null || !(voltage > 0)) return null;
+  const value =
+    sensitivityDbV + 20 * Math.log10(voltage) + frDb + weightingDb;
+  return Number.isFinite(value) ? value : null;
+}
+
+const noneReading = (state: SoundPressureState): SoundPressureReading => ({
+  state,
+  spl: null,
+  splA: null,
+  splK: null,
+  splZ: null,
+  powerMw: null,
+  voltage: null,
+  marginDb: null,
+  method: 'none',
+});
+
+const mutedReading = (): SoundPressureReading => ({
+  state: 'muted',
+  spl: null,
+  splA: null,
+  splK: null,
+  splZ: null,
+  powerMw: 0,
+  voltage: 0,
+  marginDb: SPL_SAFETY_LIMIT_DB,
+  method: 'none',
+});
+
+function readyRig(
+  rig: HeadphoneRig,
+  muted: boolean,
+): { readonly amp: AmpProfile; readonly headphone: HeadphoneProfile } | SoundPressureReading {
+  const { amp, headphone } = selectedRig(rig);
+  if (!rig.amps.length && !rig.headphones.length) return noneReading('no-device');
+  if (!amp) return noneReading('no-amp');
+  if (!headphone) return noneReading('no-headphone');
+  if (muted) return mutedReading();
+  return { amp, headphone };
+}
+
+function channelPower(
+  v0: number,
+  rmsDbfs: number,
+  shares: ArrayLike<number>,
+  responseDb: ArrayLike<number>,
+  weightDb: ArrayLike<number>,
+): number | null {
+  if (!Number.isFinite(rmsDbfs)) return null;
+  const rms = 10 ** (rmsDbfs / 20);
+  let power = 0;
+  for (let band = 0; band < shares.length; band += 1) {
+    const share = Number(shares[band]);
+    if (!Number.isFinite(share) || share <= 0) continue;
+    const response = Number(responseDb[band] ?? 0);
+    const weight = Number(weightDb[band] ?? 0);
+    power +=
+      v0 *
+      v0 *
+      rms *
+      rms *
+      share *
+      10 ** (((Number.isFinite(response) ? response : 0) + (Number.isFinite(weight) ? weight : 0)) / 10);
+  }
+  return power > 0 && Number.isFinite(power) ? power : null;
+}
+
+export interface BandSoundPressureInput {
+  /** 每声道、每个 band 的功率占比；单声道可只给一路。 */
+  readonly sharesByChannel: readonly (ArrayLike<number> | null)[] | null;
+  /** 每声道 RMS，满幅正弦 0 dBFS。 */
+  readonly rmsDbfsByChannel: readonly number[] | null;
+  /** 每 band 的电压响应 dB（含耳放分压和测量 FR）。 */
+  readonly bandResponseDb: ArrayLike<number>;
+  readonly bandWeightDb: {
+    readonly A: ArrayLike<number>;
+    readonly K: ArrayLike<number>;
+    readonly Z: ArrayLike<number>;
+  };
+  readonly volumeDb: number;
+  readonly muted: boolean;
+  readonly weighting: SplWeighting;
+  readonly referenceImpedanceOhm: number;
+  readonly ampOutputImpedanceOhm?: number;
+}
+
+/** 频谱/频带路径：先算每声道三种加权的 SPL，再取较响声道。 */
+export function estimateSoundPressureFromBands(
+  input: BandSoundPressureInput,
+  rig: HeadphoneRig,
+): SoundPressureReading {
+  const resolved = readyRig(rig, input.muted);
+  if ('state' in resolved) return resolved;
+  const { amp, headphone } = resolved;
+  const { sharesByChannel, rmsDbfsByChannel } = input;
+  if (!sharesByChannel || !rmsDbfsByChannel) return noneReading('no-loudness');
+  const v0 = amp.vrmsAt0db * 10 ** ((input.volumeDb + amp.gainDb) / 20);
+  if (!Number.isFinite(v0) || v0 <= 0) return noneReading('no-loudness');
+  const sensV = sensitivityDbPerVAtReference(headphone, input.referenceImpedanceOhm);
+  let bestA: number | null = null;
+  let bestK: number | null = null;
+  let bestZ: number | null = null;
+  let bestVoltage: number | null = null;
+  let bestPower: number | null = null;
+  for (let channel = 0; channel < sharesByChannel.length; channel += 1) {
+    const shares = sharesByChannel[channel];
+    const rmsDbfs = rmsDbfsByChannel[channel];
+    if (!shares || rmsDbfs === undefined || !Number.isFinite(rmsDbfs)) continue;
+    const powerA = channelPower(v0, rmsDbfs, shares, input.bandResponseDb, input.bandWeightDb.A);
+    const powerK = channelPower(v0, rmsDbfs, shares, input.bandResponseDb, input.bandWeightDb.K);
+    const powerZ = channelPower(v0, rmsDbfs, shares, input.bandResponseDb, input.bandWeightDb.Z);
+    const splA = powerA === null ? null : sensV + 10 * Math.log10(powerA);
+    const splK = powerK === null ? null : sensV + 10 * Math.log10(powerK);
+    const splZ = powerZ === null ? null : sensV + 10 * Math.log10(powerZ);
+    if (splA !== null && (bestA === null || splA > bestA)) {
+      bestA = splA;
+      bestK = splK;
+      bestZ = splZ;
+      const source = v0 * 10 ** (rmsDbfs / 20);
+      bestVoltage = source;
+      bestPower = (1000 * source * source) / input.referenceImpedanceOhm;
+    }
+  }
+  if (bestA === null) return noneReading('no-loudness');
+  const selected =
+    input.weighting === 'A' ? bestA : input.weighting === 'K' ? bestK : bestZ;
+  const marginDb = SPL_SAFETY_LIMIT_DB - bestA;
+  return {
+    state: marginDb < 0 ? 'over' : 'ok',
+    spl: selected ?? bestA,
+    splA: bestA,
+    splK: bestK,
+    splZ: bestZ,
+    powerMw: bestPower,
+    voltage: bestVoltage,
+    marginDb,
+    method: 'bands',
+  };
+}
+
+/** 只有 PCM RMS、没有频谱时的回退：平坦响应 + Z 加权。 */
+export function estimateSoundPressureFromRms(
+  input: Omit<BandSoundPressureInput, 'sharesByChannel' | 'bandResponseDb' | 'bandWeightDb'>,
+  rig: HeadphoneRig,
+): SoundPressureReading {
+  const resolved = readyRig(rig, input.muted);
+  if ('state' in resolved) return resolved;
+  const { amp, headphone } = resolved;
+  if (!input.rmsDbfsByChannel) return noneReading('no-loudness');
+  const sensV = sensitivityDbPerVAtReference(headphone, input.referenceImpedanceOhm);
+  let best: number | null = null;
+  let bestVoltage: number | null = null;
+  let bestPower: number | null = null;
+  for (const rmsDbfs of input.rmsDbfsByChannel) {
+    const voltage = voltageFromRms(
+      rmsDbfs,
+      input.volumeDb,
+      amp.gainDb,
+      amp.vrmsAt0db,
+    );
+    if (voltage === null) continue;
+    const spl = sensV + 20 * Math.log10(voltage);
+    if (best === null || spl > best) {
+      best = spl;
+      bestVoltage = voltage;
+      bestPower = (1000 * voltage * voltage) / input.referenceImpedanceOhm;
+    }
+  }
+  if (best === null) return noneReading('no-loudness');
+  const marginDb = SPL_SAFETY_LIMIT_DB - best;
+  return {
+    state: marginDb < 0 ? 'over' : 'ok',
+    spl: best,
+    splA: best,
+    splK: null,
+    splZ: best,
+    powerMw: bestPower,
+    voltage: bestVoltage,
+    marginDb,
+    method: 'rms',
+  };
+}
+
 export interface RigSelection {
   readonly amp: AmpProfile | null;
   readonly headphone: HeadphoneProfile | null;
@@ -273,29 +518,11 @@ export function estimateSoundPressure(
   input: SoundPressureInput,
   rig: HeadphoneRig,
 ): SoundPressureReading {
-  const { amp, headphone } = selectedRig(rig);
-  if (!rig.amps.length && !rig.headphones.length)
-    return { state: 'no-device', spl: null, powerMw: null, voltage: null, marginDb: null };
-  if (!amp) return { state: 'no-amp', spl: null, powerMw: null, voltage: null, marginDb: null };
-  if (!headphone)
-    return {
-      state: 'no-headphone',
-      spl: null,
-      powerMw: null,
-      voltage: null,
-      marginDb: null,
-    };
-  if (input.muted || input.volumeDb <= -100) {
-    return {
-      state: 'muted',
-      spl: null,
-      powerMw: 0,
-      voltage: 0,
-      marginDb: SPL_SAFETY_LIMIT_DB,
-    };
-  }
+  const resolved = readyRig(rig, input.muted || input.volumeDb <= -100);
+  if ('state' in resolved) return resolved;
+  const { amp, headphone } = resolved;
   if (input.shortTermLufs === null || input.shortTermLufs <= -70)
-    return { state: 'no-loudness', spl: null, powerMw: null, voltage: null, marginDb: null };
+    return noneReading('no-loudness');
 
   const digital = input.shortTermLufs + (input.channelGainDb ?? 0) + input.volumeDb;
   const voltage = amp.vrmsAt0db * 10 ** ((digital + amp.gainDb) / 20);
@@ -304,13 +531,19 @@ export function estimateSoundPressure(
     headphone.sensitivityUnit === 'dbPerV'
       ? headphone.sensitivity + 20 * Math.log10(voltage)
       : headphone.sensitivity + 10 * Math.log10(powerMw);
+  if (!Number.isFinite(voltage) || !Number.isFinite(powerMw) || !Number.isFinite(spl))
+    return noneReading('no-loudness');
   const marginDb = SPL_SAFETY_LIMIT_DB - spl;
   return {
     state: spl > SPL_SAFETY_LIMIT_DB ? 'over' : 'ok',
     spl,
+    splA: spl,
+    splK: spl,
+    splZ: spl,
     powerMw,
     voltage,
     marginDb,
+    method: 'lufs',
   };
 }
 

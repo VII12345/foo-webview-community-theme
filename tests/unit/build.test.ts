@@ -122,8 +122,9 @@ test('沉浸和视频页面不进入启动依赖，仍保留独立的生产入�
         for (const [id, module] of Object.entries(chunk.modules)) {
           if (module.renderedLength === 0) continue;
           expect(id).not.toMatch(
-            /\/immersive\/(?:analysis\/trackAnalysis|gauges\/liveLoudness|wash\/PaperCoverFlow|terrain\/terrainMount)\./,
+            /\/immersive\/(?:analysis\/trackAnalysis|gauges\/liveLoudness|spectrum\/liveBandPower|sound\/splWeightingCurves|wash\/PaperCoverFlow|terrain\/terrainMount)\./,
           );
+          expect(id).not.toMatch(/\/playback\/headphoneMeasurements\./);
         }
       }
       const retained = chunks.flatMap((chunk) =>

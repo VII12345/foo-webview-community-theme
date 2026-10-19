@@ -40,6 +40,8 @@ const EMPTY = {
   momentary: null,
   shortTerm: null,
   average: null,
+  rmsDbfsByChannel: null,
+  averageRmsDbfsByChannel: null,
   channels: 2,
   failed: false,
 };

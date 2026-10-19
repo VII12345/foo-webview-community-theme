@@ -1,5 +1,6 @@
 import { atom } from 'jotai/vanilla';
 import { startLiveLoudness } from '../immersive/gauges/liveLoudness.ts';
+import { startLiveBandPower } from '../immersive/spectrum/liveBandPower.ts';
 import {
   soundPressureAutoActiveAtom,
   soundPressureViewAtom,
@@ -14,8 +15,8 @@ export interface LoudnessIntegration {
 }
 
 /**
- * 全局实时响度与耳机音量记录器。这两件事会把 PCM 与响度模块拉进包；启动壳只动态导入这一块，
- * 主启动包仍然不包含 `liveLoudness`。沉浸页打开或 DX52 自动读数可用且正在播放时才订阅 PCM。
+ * 全局实时响度、频谱形状与耳机音量记录器。这三件事会把 PCM/频谱/响度模块拉进包；
+ * 启动壳只动态导入这一块，主启动包仍然不包含 `liveLoudness`。沉浸页打开或 DX52 自动读数可用且正在播放时才订阅。
  */
 export function startLoudnessIntegration(
   store: Store,
@@ -27,6 +28,7 @@ export function startLoudnessIntegration(
       (get(playbackAtom).state === 'playing' && get(soundPressureAutoActiveAtom)),
   );
   const live = startLiveLoudness(store, { active: demand });
+  const bands = startLiveBandPower(store, { active: demand });
   const stats = startLoudnessStats(store, {
     view: soundPressureViewAtom,
     playback: playbackAtom,
@@ -34,6 +36,7 @@ export function startLoudnessIntegration(
   return {
     dispose() {
       stats.dispose();
+      bands.dispose();
       live.dispose();
     },
   };

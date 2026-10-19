@@ -15,6 +15,7 @@ import {
   createBlockMeter,
   createLoudnessWindow,
   loudnessOf,
+  SHORT_TERM_BLOCKS,
   type BlockMeter,
 } from './loudnessMeter.ts';
 
@@ -56,6 +57,10 @@ export interface LiveLoudness {
   readonly shortTerm: number | null;
   /** 本次曲目从开始观察起、已播放片段的能量平均；换曲或停止时清空。 */
   readonly average: number | null;
+  /** 最近 3 秒每声道未加权 RMS，满幅正弦 0 dBFS；没有数据时为 null。 */
+  readonly rmsDbfsByChannel: readonly number[] | null;
+  /** 曲首至今每声道未加权 RMS 能量平均。 */
+  readonly averageRmsDbfsByChannel: readonly number[] | null;
   /** 当前流的声道数；还没读到时按立体声 2。 */
   readonly channels: number;
   /** 这次订阅宿主不接受；停止后再有曲目时再试。 */
@@ -70,6 +75,8 @@ const INITIAL: LiveLoudness = {
   momentary: null,
   shortTerm: null,
   average: null,
+  rmsDbfsByChannel: null,
+  averageRmsDbfsByChannel: null,
   channels: 2,
   failed: false,
 };
@@ -95,12 +102,51 @@ export function startLiveLoudness(
   // `undefined` 是这次订阅还没读到过帧；`null` 是读到的帧不在已知的段里。
   let lastSegment: number | null | undefined;
   // 这一拍最后一块算完时的读数；这一拍没出块时为 null。
-  let latest: Pick<LiveLoudness, 'momentary' | 'shortTerm' | 'average' | 'channels'> | null = null;
+  let latest: Pick<
+    LiveLoudness,
+    | 'momentary'
+    | 'shortTerm'
+    | 'average'
+    | 'rmsDbfsByChannel'
+    | 'averageRmsDbfsByChannel'
+    | 'channels'
+  > | null = null;
   let disposed = false;
   // 本次曲目已播放片段的能量累计；seek 不清，换曲/停止清。
   let sumEnergy = 0;
   let blockCount = 0;
   let average: number | null = null;
+  let rmsBlocks: Float64Array[] = [];
+  let averageRmsSums: number[] = [];
+  let averageRmsCount = 0;
+
+  const rmsDbfsOf = (meanSquare: number): number | null =>
+    Number.isFinite(meanSquare) && meanSquare > 0
+      ? 10 * Math.log10(2 * meanSquare)
+      : null;
+
+  const rmsDbByChannel = (): number[] | null => {
+    if (rmsBlocks.length === 0) return null;
+    const channels = rmsBlocks[0]?.length ?? 0;
+    const result: number[] = [];
+    for (let channel = 0; channel < channels; channel += 1) {
+      let sum = 0;
+      for (const block of rmsBlocks) sum += block[channel] ?? 0;
+      const value = rmsDbfsOf(sum / rmsBlocks.length);
+      result.push(value ?? Number.NEGATIVE_INFINITY);
+    }
+    return result.length ? result : null;
+  };
+
+  const averageRmsDbByChannel = (): number[] | null => {
+    if (averageRmsCount === 0) return null;
+    const result: number[] = [];
+    for (const sum of averageRmsSums) {
+      const value = rmsDbfsOf(sum / averageRmsCount);
+      result.push(value ?? Number.NEGATIVE_INFINITY);
+    }
+    return result.length ? result : null;
+  };
 
   const patch = (next: Partial<LiveLoudness>) =>
     store.set(stateAtom, { ...store.get(stateAtom), ...next });
@@ -109,10 +155,22 @@ export function startLiveLoudness(
     sumEnergy = 0;
     blockCount = 0;
     average = null;
+    averageRmsSums = [];
+    averageRmsCount = 0;
   }
 
-  function onBlock(energy: number): void {
+  function onBlock(energy: number, rawMeanSquares: readonly number[]): void {
     recent.push(energy);
+    rmsBlocks.push(Float64Array.from(rawMeanSquares));
+    if (rmsBlocks.length > SHORT_TERM_BLOCKS) rmsBlocks.shift();
+    const rmsDb = rmsDbByChannel();
+    const loudest = rmsDb?.reduce((max, value) => Math.max(max, value), Number.NEGATIVE_INFINITY);
+    if (loudest !== undefined && loudest > ABSOLUTE_GATE_LUFS) {
+      if (averageRmsSums.length !== rawMeanSquares.length) averageRmsSums = [];
+      for (let channel = 0; channel < rawMeanSquares.length; channel += 1)
+        averageRmsSums[channel] = (averageRmsSums[channel] ?? 0) + (rawMeanSquares[channel] ?? 0);
+      averageRmsCount += 1;
+    }
     const level = loudnessOf(energy);
     // 与 Integrated 一样先过绝对门限，静音/极弱段不把平均拉低。
     if (level !== null && level > ABSOLUTE_GATE_LUFS) {
@@ -124,6 +182,8 @@ export function startLiveLoudness(
       momentary: recent.momentary(),
       shortTerm: recent.shortTerm(),
       average,
+      rmsDbfsByChannel: rmsDb,
+      averageRmsDbfsByChannel: averageRmsDbByChannel(),
       channels,
     };
   }
@@ -131,6 +191,7 @@ export function startLiveLoudness(
   function restart(): void {
     meter?.reset();
     recent.clear();
+    rmsBlocks = [];
   }
 
   function consume(read: PcmRingRead, current: LiveStream): void {
@@ -142,6 +203,9 @@ export function startLiveLoudness(
       meter = createBlockMeter(spec.sampleRate, read.planes.length, onBlock);
       format = key;
       recent.clear();
+      rmsBlocks = [];
+      averageRmsSums = [];
+      averageRmsCount = 0;
     } else if (read.dropped > 0) {
       restart();
     }
@@ -176,6 +240,7 @@ export function startLiveLoudness(
     lastSegment = undefined;
     latest = null;
     recent.clear();
+    rmsBlocks = [];
     resetAverage();
     previous?.unsubscribe();
   }
@@ -213,7 +278,7 @@ export function startLiveLoudness(
     store.sub(activeAtom, follow),
     store.sub(trackRoundAtom, () => {
       resetAverage();
-      patch({ average: null });
+      patch({ average: null, averageRmsDbfsByChannel: null });
     }),
   ];
   if (options.active) offs.push(store.sub(options.active, follow));
