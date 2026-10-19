@@ -187,6 +187,59 @@
 - 统计库缺失时详情页仍显示耳机音量；loudness 缺失/拒绝时显示对应空状态。
 - 验证：`loudnessStats.test.ts` 的 `summarizeLoudnessScopes`；`stats-page.spec.ts` 的顶部块、范围切换、详情页四行概览/SPL 矩阵/四个 Top 区块、返回保持范围、打开详情不重复读文件。
 
+## 10. 全部歌曲表、耳机使用时长与侧边栏快速切换
+
+### 10.1 全部时间的所有歌曲
+
+- `monthlyStats.ts` 新增 `StatsSongRow` 与 `StatsData.songs`：按 `track_crc` 跨全部日期聚合，字段含曲名、艺人、专辑、路径、累计收听秒数、播放次数、首次/最近日期。
+- 查询一次探测 `monthly_count` 的可选列（`path`、`album`、`playcount`、`total_time_seconds`）；老库缺列时按空串/0 处理，四个时段查询也一并按探测结果拼接。
+- “全部统计”详情页新增“所有歌曲”表：
+  - 列：曲名、艺人、专辑、累计收听、播放次数、最近播放。
+  - 默认按累计收听降序；点击列头切换升降序，文本用 `Intl.Collator` 做自然排序。
+  - 搜索框匹配曲名/艺人/专辑，`useDeferredValue` 保持输入流畅。
+  - 每页 100 首，上一页/下一页；搜索或排序变化时回到第一页。
+  - 区分“统计库没有歌曲”和“搜索无结果”。
+- 详情页移除四个时段的 Top 歌曲区块，只保留四个时段的 Top 艺人；主页面的 Top 歌曲不变。
+
+### 10.2 耳机使用时长
+
+- 主页面顶部在“平均声压”右边新增第五块“耳机使用时长”，跟随今天/本周/本月/今年，值来自 `summarizeLoudnessScopes(...).overall.seconds`；无数据显示 `—`。
+- 详情页新增“各时段耳机使用时长”矩阵：每只耳机 × 四时段，末行“全部耳机”；与 SPL 矩阵共用同一份 `LoudnessSummary`，不重复读 `loudness-v1.json`。
+- 时长仍只统计 DX52 自动读数生效、已选耳机且正在播放的时间；与播放统计的 `total_time_seconds` 是两个口径，界面分别标注。
+
+### 10.3 侧边栏“我的耳机”
+
+- 展开侧边栏在“媒体库”和“播放列表”之间新增可折叠“我的耳机”分节；图标态在资料库项与播放列表锚点之间新增耳机图标，点开浮层。
+- 列表按设置里保存的顺序显示 `HeadphoneRig.headphones` 的名字；当前耳机用 `aria-pressed=true` 和行尾勾选标记。
+- 点击一行立即调用 `selectHeadphone(id)`：同步更新内存、异步落盘，不跳转页面、不弹确认框、不改变 `selectedAmpId`。
+- 分节开合状态写入现有 `default-theme.sidebar.v1` 的 `sections.headphones`；旧存档没有该键时按展开处理。
+- 空列表显示“还没有耳机”，不使用“即将推出”的禁用态。
+- 验证：`sidebarPrefs.test.ts` 的新分节解析/开合；`sidebar-headphones.spec.ts` 的展开态切换、无确认/无导航、图标态浮层、当前项标记；`sidebar-collapse.spec.ts` 的淡入淡出计数。
+
+## 11. DX52 传输探测：输出报告、Feature Report 与发送结果
+
+- 真机诊断只有 `send`、没有 `receive`。旧代码在 `sendReport` 之前就记日志，且用 `settle()` 吞掉拒绝，所以“已发送”并不代表设备接受。
+- `dx52.ts` 新增 HID 描述符读取：
+  - `reportByteLength` 按 `reportSize × reportCount` 算字节数。
+  - `summarizeDx52Descriptors` 递归 collections，汇总 input/output/feature 报告 ID 与长度。
+  - `dx52ReportCandidates` 优先 vendor usage page、report ID 0；描述符不可用时退回 16/64 字节。
+  - `fitDx52Report` 按声明长度补零/截断。
+  - `pickDx52Device` 给带 vendor 报告的接口加分，避免同名接口永远选第一个。
+- 发送改为串行并记录真实结果：
+  - `queueSend` 按候选报告发送，`ok=true/false` 与错误文本写进诊断。
+  - 输出报告发送时按描述符长度补零；发送失败自动换下一个候选。
+- Feature Report 回退：
+  - 没有 output 报告或输出发送后仍未收到任何报告时，按 feature 候选发送 `connectState`/`getSettings`。
+  - 每 50 ms 调 `receiveFeatureReport(reportId)` 轮询；`NotFoundError` 视为暂时没有数据，继续轮询；其它错误记录一次并停止该候选。
+  - 收到可解析帧后锁定发送/接收路径；后续心跳与请求走上锁定的发送路径。
+- inputreport 与 feature 轮询可能重复送同一帧；按 hex 在 1 秒窗口内去重。
+- 诊断面板新增：
+  - `HID 报告`：collections 数量与 input/output/feature 的 `reportId@长度`。
+  - `传输`：选中的 send/receive、是否锁定。
+  - 每条发送/接收记录带 `via=`、`declared=`、`ok=`、`error=`。
+- 验证：`dx52.test.ts` 的描述符/长度/设备评分；`dx52Prefs.test.ts` 的 64 字节输出、发送拒绝、Feature-only 快照；`dx52-diagnostics.spec.ts` 的 Feature-only 设备与诊断文本。
+- 仍然不能宣称真机已修复：用户重试后需要复制新的诊断。若 `descriptor:` 显示有 feature/输出报告但 `received` 仍为 0，下一步应抓取 TOPPING Home 的 USB/HID 流量，而不是继续猜字段。
+
 ## 附录 A：提交对照
 
 | 提交 | 内容 |
@@ -202,6 +255,10 @@
 | `a2d9a6b` | 文字对比度优先修正 |
 | `0a6f96f` | 统计顶部平均声压 + 全部统计二级页 |
 | `0d118f9` | 0% 时保留原强调色 + e2e 对比度取样修正 |
+| `6542570` | 全部时间的所有歌曲聚合 |
+| `8651f2f` | 全部歌曲表 + 耳机使用时长顶部块与矩阵 |
+| `07e54c1` | DX52 输出/Feature 传输探测与真实发送结果 |
+| `6666b9f` | 侧边栏“我的耳机”快速切换 |
 
 ## 附录 B：新增配置键与文件
 
@@ -213,7 +270,9 @@
 
 ## 附录 C：下一次 release notes 取用
 
-- 用户可见变化优先取第 1–9 节的标题与首段；细节（边界、存储路径、旧存档兼容）放“改进与修复”。
+- 用户可见变化优先取第 1–11 节的标题与首段；细节（边界、存储路径、旧存档兼容）放“改进与修复”。
 - 需要提醒用户的限制：耳机平均音量只统计 DX52 自动读数生效的耳机输出时段；统计从本次版本开始积累；声压仍是估算值。
-- DX52 真机字段映射仍待用户把 HID 诊断文本发回后确认；在拿到数据前不要宣称真机已修复。
+- 全部歌曲表按 `track_crc` 聚合；同一录音被插件算出不同 CRC（例如文件移动）时会显示为两行。
+- 侧边栏“我的耳机”只切换耳机配置，不连带切换耳放；DX52 自动模式下有效耳放仍由设备决定。
+- DX52 真机字段映射与 Transport 仍待用户把新诊断文本发回后确认；在拿到 `received > 0` 之前不要宣称真机已修复。
 - 升级兼容：旧沉浸组件存档（父 ID）继续有效；WebHID 授权记录仍在 WebView2 profile 中，正常升级不需要重新授权。

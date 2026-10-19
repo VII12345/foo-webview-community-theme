@@ -18,8 +18,14 @@
 
 - 新增“本周”（周一开始），时长、次数、Top 榜与趋势图都支持。
 - 新增“耳机平均音量”：只统计 DX52 自动读数生效、已选耳机且正在播放的时间，按日/周/月/年给出每只耳机的能量加权平均 SPL，以及“全部耳机”总平均。
-- 顶部“曲目数”右边显示当前范围的全部耳机平均 SPL；右上角“全部统计”打开二级页，集中展示四周期概览、每只/全部耳机平均 SPL 矩阵和各周期 Top 歌曲/艺人。
+- 顶部“曲目数”右边显示当前范围的全部耳机平均 SPL 和 DX52 耳机使用时长；右上角“全部统计”打开二级页，集中展示四周期概览、每只/全部耳机平均 SPL 与使用时长矩阵。
+- “全部统计”新增所有歌曲表：按全部时间聚合，列出曲名、艺人、专辑、累计收听、播放次数和最近播放；支持搜索、列头排序与每页 100 首分页。各时段的 Top 艺人保留。
 - 数据独立保存在 `<profile>\webview-ui-stats\loudness-v1.json`；统计库缺失时仍可显示。
+
+### 侧边栏
+
+- 在“媒体库”和“播放列表”之间新增“我的耳机”分节；图标态有对应的耳机浮层。展开后列出设置里的耳机，点一下立即切换，无需确认，也不会离开当前页面。
+- 当前耳机带勾选与 `aria-pressed`；列表为空时显示“还没有耳机”。切换耳机不会连带切换耳放。
 
 ### DX52 自动读取
 
@@ -27,15 +33,19 @@
 - 只收到关键字段时接受部分快照，并显示“设置读取不完整”，不再误报“已关机”；完整快照仍会逐项读取。
 - 设备断开显示“等待设备”并自动重连；读取失败可在设置中重试，并弹出非阻塞提醒（重试/关闭）。
 - 设置 → 耳机新增“HID 诊断”：记录发送命令、原始输入帧和解析后的字段，可一键复制。真机字段映射仍以这份诊断为准继续修正。
+- 读取 HID 描述符后按报告声明长度发送，并分别尝试 output 报告与 Feature Report；Feature 回包通过 `receiveFeatureReport` 轮询接收，同一帧在 inputreport 与轮询之间去重。
+- 诊断新增“HID 报告”和“传输”两行，以及每条发送的 `ok`/错误；这能区分“设备拒绝写入”和“设备没回包”。真机是否修复仍以用户重试后的 `received > 0` 为准。
 - 正常升级不需要重新授权：授权记录仍在 WebView2 profile 中。
 
 ## 升级说明
 
 - 旧沉浸组件存档（`right.header`、`right.meter`、`right.meta` 等父 ID）继续有效。
+- 旧侧边栏存档没有“我的耳机”开合项时按展开处理，不需要迁移。
 - 耳机平均音量从本版本开始积累，没有历史数据。
+- 所有歌曲按插件写入的 `track_crc` 聚合；同一录音被算成不同 CRC（例如文件移动）时会显示为两行。
 - 声压与平均音量仍是估算值，不建模输出阻抗、阻抗曲线、耳道耦合与头相关传输。
 - 在线歌词与艺人简介依赖公开接口，可能暂时失效。
 
 ## English summary
 
-Community-enhanced fork based on 0.3.0. Highlights: contrast-first text correction in the lyrics/card scenes (raising the slider never lowers contrast), an in-view lyric search panel, per-element immersive component switches, weekly playback statistics, DX52 per-headphone average SPL (energy-weighted, day/week/month/year plus an all-headphones average), an all-headphones average tile and an all-statistics detail page, Kugou-hash as the default ID search source, and hardened DX52 snapshot assembly with partial-settings reporting and an HID diagnostics panel. Existing component settings and WebHID authorization keep working after upgrading. Full details are in `CHANGES-SINCE-0.3.0.zh-CN.md`.
+Community-enhanced fork based on 0.3.0. Highlights: contrast-first text correction in the lyrics/card scenes (raising the slider never lowers contrast), an in-view lyric search panel, per-element immersive component switches, weekly playback statistics, DX52 per-headphone average SPL (energy-weighted, day/week/month/year plus an all-headphones average), an all-headphones average tile and headphone-time tile, an all-statistics detail page with a searchable/sortable all-songs table and per-headphone duration matrix, a “My headphones” sidebar selector between Library and Playlists, Kugou-hash as the default ID search source, and hardened DX52 snapshot assembly with descriptor-aware output/feature transport probing and an HID diagnostics panel. Existing component, sidebar and WebHID settings keep working after upgrading. Full details are in `CHANGES-SINCE-0.3.0.zh-CN.md`.
