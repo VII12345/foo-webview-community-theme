@@ -113,6 +113,7 @@ export const lyricsEn = {
   'lyrics.backgroundLast': 'Always place background vocals below the lead',
   'lyrics.overscan': 'Offscreen rendering distance (px)',
   'lyrics.search': 'Search lyrics',
+  'lyrics.searchClose': 'Close search',
   'lyrics.preview': 'Lyrics preview',
   'lyrics.details': 'Lyrics details',
   'lyrics.timing': 'Timing adjustment',

@@ -62,3 +62,21 @@
   - `tests/unit/immersive/page/immersivePrefs.test.ts`、`tests/unit/app/immersivePrefs.test.ts`：偏好读回与坏值。
   - `tests/e2e/immersive-text-boost.spec.ts`：深封面上歌词文字提亮、纸面背景不变、图纸不提亮。
   - `tests/e2e/settings-immersive.spec.ts`：滑杆保存与回读。
+
+## 3. 沉浸视图内歌词搜索
+
+- 沉浸视图右上角新增搜索键，与场景、全屏、Esc 同排；没有当前曲目时禁用。
+- 点击后在沉浸视图内弹出搜索面板，不离开视图：
+  - 复用右侧卡的歌词搜索件（关键词/ID 搜索、来源分组、候选、使用）。
+  - 不显示右侧卡的返回标题，不把搜索状态挂到右侧卡历史。
+  - 面板标题与关闭键；输入框自动聚焦。
+  - “使用”后关闭面板，歌词服务把新歌词推给当前沉浸视图。
+  - 在线歌词开关与隐私提示可在面板内操作。
+- Esc 行为：面板打开时第一次 Esc 关闭面板，第二次 Esc 才离开沉浸视图。
+- 面板打开期间控件层保持显示，不会因空闲计时把面板一起淡出。
+- `LyricsSearch` 新增可选 `heading`、`snapshot`、`onPreview`；右侧卡行为不变。
+- 顺带修正 `LyricsSearch` 的候选类型与本地格式文案类型，`tsc` 不再在这三处报错。
+- 验证：
+  - `tests/e2e/immersive-lyrics.spec.ts`：沉浸内搜索、选词后歌词更新、Esc 先关面板、右侧卡预览恢复。
+  - `tests/e2e/immersive-page.spec.ts`：右上角控件、Esc 与 Tab 行为不回归。
+  - `tests/e2e/lyrics-panel.spec.ts`：右侧卡搜索与历史快照不回归（同时稳定了几处等待可见性的断言）。

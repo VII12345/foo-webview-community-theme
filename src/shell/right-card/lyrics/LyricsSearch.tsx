@@ -19,7 +19,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { localeAtom, translateAtom } from '../../../i18n/locale.ts';
 import { useService } from '../../../kit/useService.ts';
 import { lyricsKey } from '../../../lyrics/lyricsService.ts';
-import { lyricsCandidateId } from '../../../lyrics/lyricsSearchSession.ts';
+import { lyricsCandidateId, type LyricsChoice } from '../../../lyrics/lyricsSearchSession.ts';
 import type { LyricsCandidate, LyricsIdKind, LyricsIdQuery } from '../../../lyrics/online/lyricsSource.ts';
 import { isWordLevel } from '../../../lyrics/lyricsText.ts';
 import { createSnapshotSlot } from '../../../nav/historyStack.ts';
@@ -63,13 +63,19 @@ export function LyricsSearch({
   onlineControl,
   onUsed,
   onPreview,
+  heading = true,
+  snapshot = true,
 }: {
   readonly title: string;
   readonly artist: string;
   readonly enabled: boolean;
   readonly onlineControl: ReactNode;
+  /** 右侧卡子页默认显示返回标题；沉浸面板自己画标题时关掉。 */
+  readonly heading?: boolean;
+  /** 是否把搜索状态挂到右侧卡历史；沉浸面板不挂。 */
+  readonly snapshot?: boolean;
   onUsed(): void;
-  onPreview(candidate: LyricsCandidate): void;
+  onPreview?(candidate: LyricsCandidate): void;
 }) {
   const t = useAtomValueRawSync(translateAtom);
   const locale = useAtomValueRawSync(localeAtom).active;
@@ -87,7 +93,7 @@ export function LyricsSearch({
       values.push(candidate);
       groups.set(candidate.source, values);
       return groups;
-    }, new Map<LyricsCandidate['source'], LyricsCandidate[]>()),
+    }, new Map<LyricsCandidate['source'], LyricsChoice[]>()),
   );
   // 每个实际问过的来源都出一组；成功但没有候选的也留着，写明「无结果」。
   const sourceGroups =
@@ -123,6 +129,14 @@ export function LyricsSearch({
         ? 'line'
         : 'plain'
     : null;
+  const localFormatLabel =
+    localKind === 'word'
+      ? t('lyrics.word')
+      : localKind === 'line'
+        ? t('lyrics.line')
+        : localKind === 'plain'
+          ? t('lyrics.plain')
+          : '';
   const localTranslated =
     localReady?.content.kind === 'synced' &&
     localReady.content.lines.some((line) => line.translatedLyric.trim());
@@ -187,7 +201,7 @@ export function LyricsSearch({
           : undefined;
       void service.search(value.keywords, false, id);
     },
-  });
+  }, snapshot);
   useLayoutEffect(() => {
     const pending = pendingSnapshot.current;
     if (
@@ -240,7 +254,7 @@ export function LyricsSearch({
           }
         }}
       >
-        <LyricsSubpageHeading title={t('lyrics.search')} />
+        {heading && <LyricsSubpageHeading title={t('lyrics.search')} />}
         <div className={styles['query-mode']}>
           <Select
             size="small"
@@ -378,7 +392,7 @@ export function LyricsSearch({
                   )}
                   <span className={styles.field}>
                     <SoundWaveCircle16Regular aria-label={t('lyrics.format')} />
-                    <span>{t(`lyrics.${localKind}`)}</span>
+                    <span>{localFormatLabel}</span>
                   </span>
                   {localTranslated && (
                     <span className={styles.field}>
@@ -474,16 +488,18 @@ export function LyricsSearch({
               <div className={styles.heading}>
                 <strong>{candidate.title}</strong>
                 {chosen && <span className={styles.chosen}>{t('lyrics.selected')}</span>}
-                <Tooltip content={t('lyrics.preview')} relationship="label">
-                  <Button
-                    size="small"
-                    appearance="subtle"
-                    className={controls.icon}
-                    icon={<ChevronRight16Regular />}
-                    data-lyrics-focus={`preview:${id}`}
-                    onClick={() => onPreview(candidate)}
-                  />
-                </Tooltip>
+                {onPreview && (
+                  <Tooltip content={t('lyrics.preview')} relationship="label">
+                    <Button
+                      size="small"
+                      appearance="subtle"
+                      className={controls.icon}
+                      icon={<ChevronRight16Regular />}
+                      data-lyrics-focus={`preview:${id}`}
+                      onClick={() => onPreview(candidate)}
+                    />
+                  </Tooltip>
+                )}
               </div>
               <div className={styles.byline}>
                 {candidate.artists.length > 0 && (

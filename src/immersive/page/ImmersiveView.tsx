@@ -61,10 +61,11 @@ export function ImmersiveView({ shell, current }: ImmersiveViewProps) {
   const controlsVisible = useAtomValueRawSync(controlsVisibleAtom);
   const scene = useAtomValueRawSync(immersiveSceneAtom);
   const [controlsFocused, setControlsFocused] = useState(false);
+  const [searchHeld, setSearchHeld] = useState(false);
   const root = useRef<HTMLElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const { findFirstFocusable, findLastFocusable } = useFocusFinders();
-  const shown = controlsVisible || controlsFocused;
+  const shown = controlsVisible || controlsFocused || searchHeld;
 
   useViewMotion(root, current);
   useEffect(() => {
@@ -112,7 +113,12 @@ export function ImmersiveView({ shell, current }: ImmersiveViewProps) {
           <PaperScene variant="cardLyrics" />
         )}
         <div className={styles.drag} aria-hidden />
-        <ImmersiveControls shell={shell} shown={shown} onFocusWithin={setControlsFocused} />
+        <ImmersiveControls
+          shell={shell}
+          shown={shown}
+          onFocusWithin={setControlsFocused}
+          onHoldChange={setSearchHeld}
+        />
         <PerfOverlay />
       </div>
       <span className={styles.guard} tabIndex={0} aria-hidden onFocus={guard('end')} />

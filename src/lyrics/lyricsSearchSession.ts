@@ -14,7 +14,7 @@ import type {
   LyricsSourceOutcome,
 } from './online/lyricsSource.ts';
 
-interface LyricsChoice extends LyricsCandidate {
+export interface LyricsChoice extends LyricsCandidate {
   readonly contentStatus?: 'loading' | 'missing' | 'failed';
 }
 

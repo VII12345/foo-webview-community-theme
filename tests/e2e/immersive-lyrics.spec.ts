@@ -132,8 +132,7 @@ for (const scheme of ['light', 'dark'] as const) {
     await panel(page).getByRole('switch', { name: '在线歌词' }).check();
     await panel(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
     const search = panel(page).locator('[data-lyrics-search]');
-    await search.getByRole('radio').check();
-    await search.getByRole('button', { name: '使用歌词' }).click();
+    await search.locator('[data-lyrics-candidate]').getByRole('button', { name: /使用/ }).click();
     await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('LRCLIB');
     const reads = env.host.callsTo('lyrics.get').length;
     const requests = env.host.callsTo('http.get').length;
@@ -209,7 +208,8 @@ test('未打开预览也能在沉浸视图取在线词，关闭联网后不再�
   await expect(view(page).locator('[data-field="lyrics-status"]')).toHaveText('正在搜索歌词');
   held.release();
   await expect(view(page).locator('[data-field="lyric-main"]')).toHaveText('所选句');
-  await page.keyboard.press('Escape');
+  await view(page).hover();
+  await view(page).getByRole('button', { name: '退出沉浸', exact: true }).click();
   await page.locator('[data-right-card-key="lyrics"]').click();
   await expect(panel(page).locator('[data-lyrics-source]')).toHaveText('LRCLIB');
   await panel(page).hover();
@@ -265,9 +265,36 @@ test('进入沉浸视图取消候选搜索；恢复预览后可继续查找', as
   await entry(page).click();
   await expect(view(page).locator('[data-field="lyric-main"]')).toHaveText('本地句');
   held.release();
-  await expect(panel(page).getByRole('radio')).toHaveCount(0);
+  await expect(panel(page).locator('[data-lyrics-candidate]')).toHaveCount(0);
+  await view(page).hover();
+  await view(page).getByRole('button', { name: '退出沉浸', exact: true }).click();
+  await expect(view(page)).toHaveCount(0);
+  await expect(panel(page).locator('[data-lyrics-candidate]')).toHaveCount(1);
+  expect(env.errors).toEqual([]);
+});
+
+test('沉浸视图内搜索并选用在线歌词，不离开视图；Esc 先关面板', async ({ page }) => {
+  const env = await openLyrics(page);
+  await entry(page).click();
+  await expect(view(page).locator('[data-field="lyric-main"]')).toHaveText('本地句');
+  await view(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
+  const searchPanel = page.locator('[data-immersive-search-panel]');
+  await expect(searchPanel).toBeVisible();
+  await searchPanel.getByRole('switch', { name: '在线歌词' }).click();
+  const search = searchPanel.locator('[data-lyrics-search]');
+  await search.getByRole('textbox').fill('selected');
+  await expect(search.locator('[data-lyrics-candidate]')).toHaveCount(1);
+  await search.locator('[data-lyrics-candidate]').getByRole('button', { name: '使用并记住' }).click();
+  await expect(searchPanel).toHaveCount(0);
+  await expect(view(page)).toBeVisible();
+  await expect(view(page).locator('[data-field="lyrics-source"]')).toContainText(/LRCLIB/i);
+
+  await view(page).getByRole('button', { name: '搜索歌词', exact: true }).click();
+  await expect(page.locator('[data-immersive-search-panel]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-immersive-search-panel]')).toHaveCount(0);
+  await expect(view(page)).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(view(page)).toHaveCount(0);
-  await expect(panel(page).getByRole('radio')).toHaveCount(1);
   expect(env.errors).toEqual([]);
 });
