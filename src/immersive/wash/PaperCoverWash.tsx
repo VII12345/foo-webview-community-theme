@@ -22,7 +22,7 @@ type Linear = readonly [number, number, number];
 const playingAtom = atom((get) => get(playbackAtom).state === 'playing');
 
 /** 封面混进纸面的比例：深色纸面上同样的比例显得更艳，降一档。 */
-const WASH_STRENGTH: Readonly<Record<ColorScheme, number>> = { light: 0.5, dark: 0.4 };
+export const WASH_STRENGTH: Readonly<Record<ColorScheme, number>> = { light: 0.5, dark: 0.4 };
 /** 撤旧层比淡入淡出多等这么久（毫秒），让新层最后一帧落定再撤，免得露出一帧纸面色。 */
 const SETTLE_MS = 50;
 /** 纸面色的初值；挂载时在第一层挂上之前就读到真值，这个值画不出来。 */

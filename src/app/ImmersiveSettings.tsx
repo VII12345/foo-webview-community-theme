@@ -1,4 +1,4 @@
-import { Switch } from '@fluentui/react-components';
+import { Slider, Switch } from '@fluentui/react-components';
 import {
   FullScreenMaximize20Regular,
   Grid20Regular,
@@ -16,12 +16,14 @@ import {
   chooseImmersiveTerrain,
   chooseImmersiveWash,
   chooseImmersiveScene,
+  chooseImmersiveTextBoost,
   chooseWaveformMode,
   FPS_CAPS,
   immersiveFpsCapAtom,
   immersiveHostFullscreenAtom,
   immersiveSceneAtom,
   immersiveTerrainAtom,
+  immersiveTextBoostAtom,
   immersiveWashAtom,
   IMMERSIVE_PREF_KEYS,
   IMMERSIVE_SCENES,
@@ -91,6 +93,7 @@ export function ImmersiveSettings() {
   const fullscreen = useAtomValueRawSync(immersiveHostFullscreenAtom);
   const wash = useAtomValueRawSync(immersiveWashAtom);
   const terrain = useAtomValueRawSync(immersiveTerrainAtom);
+  const textBoost = useAtomValueRawSync(immersiveTextBoostAtom);
   const waveform = useAtomValueRawSync(waveformModeAtom);
   const scene = useAtomValueRawSync(immersiveSceneAtom);
   const fps = useAtomValueRawSync(immersiveFpsCapAtom);
@@ -133,7 +136,13 @@ export function ImmersiveSettings() {
         title={t('settings.immersiveBackground')}
         defaultOpen={false}
         feedback={
-          <LocalSaveNotice keys={[IMMERSIVE_PREF_KEYS.wash, IMMERSIVE_PREF_KEYS.terrain]} />
+          <LocalSaveNotice
+            keys={[
+              IMMERSIVE_PREF_KEYS.wash,
+              IMMERSIVE_PREF_KEYS.terrain,
+              IMMERSIVE_PREF_KEYS.textBoost,
+            ]}
+          />
         }
       >
         <SettingsRow title={t('settings.immersiveWash')} field>
@@ -154,6 +163,26 @@ export function ImmersiveSettings() {
               aria-describedby={descriptionId}
               onChange={(_, data) => chooseImmersiveTerrain(store, data.checked)}
             />
+          )}
+        </SettingsRow>
+        <SettingsRow
+          title={t('settings.immersiveTextBoost')}
+          description={t('settings.immersiveTextBoostHint')}
+          field
+        >
+          {({ labelId }) => (
+            <div className={styles.textBoost}>
+              <Slider
+                min={0}
+                max={100}
+                step={1}
+                value={textBoost}
+                aria-labelledby={labelId}
+                aria-valuetext={`${textBoost}%`}
+                onChange={(_, data) => chooseImmersiveTextBoost(store, data.value)}
+              />
+              <output className={styles.textBoostValue}>{textBoost}%</output>
+            </div>
           )}
         </SettingsRow>
       </SettingsExpander>

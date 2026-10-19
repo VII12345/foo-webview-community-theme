@@ -106,6 +106,9 @@ export const settingsEn = {
   'settings.immersiveWashStatic': 'Static',
   'settings.immersiveWashOff': 'Hidden',
   'settings.immersiveTerrain': 'Terrain background',
+  'settings.immersiveTextBoost': 'Lyrics and card text brightness',
+  'settings.immersiveTextBoostHint':
+    'Brighten text automatically when the cover makes the scene dark. Applies to lyrics, card and card+lyrics scenes; 0% disables.',
   'settings.immersivePerformance': 'Performance',
   'settings.immersiveFps': 'Frame rate limit',
   'settings.immersiveFpsUnlimited': 'Unlimited',

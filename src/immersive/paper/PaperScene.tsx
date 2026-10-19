@@ -1,21 +1,34 @@
 import { useAtomValueRawSync, useStore } from 'jotai/react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { colorSchemeAtom } from '../../theme/colorScheme.ts';
+import { coverRampAtom as accentRampAtom } from '../../theme/accentState.ts';
 import { PaperDecor } from '../decor/PaperDecor.tsx';
 import type { DecorArc } from '../decor/paperDecor.ts';
 import { useDecorGuards } from '../decor/useDecorGuards.ts';
+import { rgbaOf } from '../frame/cssColor.ts';
 import { immersiveComponentsAtom, hiddenModulesFor } from '../page/immersiveComponents.ts';
-import { immersiveTerrainAtom, immersiveWashAtom } from '../page/immersivePrefs.ts';
+import {
+  immersiveTerrainAtom,
+  immersiveTextBoostAtom,
+  immersiveWashAtom,
+} from '../page/immersivePrefs.ts';
 import { ALPHA_FAR } from '../terrain/terrain.ts';
 import { TerrainCanvas } from '../terrain/TerrainCanvas.tsx';
 import { TerrainRuler } from '../terrain/TerrainRuler.tsx';
-import { PaperCoverWash } from '../wash/PaperCoverWash.tsx';
+import { PaperCoverWash, WASH_STRENGTH } from '../wash/PaperCoverWash.tsx';
+import { coverLumaAtom } from '../wash/coverSource.ts';
 import { paperGeometry, stageGeometry } from './paperTiers.ts';
 import styles from './PaperScene.module.css';
 import { PaperSheet } from './PaperSheet.tsx';
 import { PaperStage } from './PaperStage.tsx';
 import type { PaperVariant } from './paperVariant.ts';
 import { reportSceneTier } from './sceneTier.ts';
+import {
+  effectiveLuminance,
+  PAPER_LUMA_FALLBACK,
+  paperLuminanceOf,
+  textBoostFactor,
+} from './textBoost.ts';
 import { useSceneSize } from './useSceneSize.ts';
 
 /**
@@ -74,6 +87,37 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
   const stage = tier === 'full';
   const components = useAtomValueRawSync(immersiveComponentsAtom);
   const hidden = hiddenModulesFor(components, variant, tier);
+  const ramp = useAtomValueRawSync(accentRampAtom);
+  const textBoost = useAtomValueRawSync(immersiveTextBoostAtom);
+  const coverLuma = useAtomValueRawSync(coverLumaAtom);
+  const [paperLuma, setPaperLuma] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const element = root.current;
+    if (!element) return;
+    const [red, green, blue, alpha] = rgbaOf(getComputedStyle(element).backgroundColor);
+    if (alpha <= 0) {
+      setPaperLuma(null);
+      return;
+    }
+    setPaperLuma(paperLuminanceOf(red, green, blue));
+  }, [ramp, dark]);
+  const themed = variant === 'lyrics' || variant === 'card' || variant === 'cardLyrics';
+  const washShown = wash && !hidden.has('wash');
+  const scheme = dark ? 'dark' : 'light';
+  const effective =
+    coverLuma === null
+      ? null
+      : effectiveLuminance(
+          coverLuma,
+          paperLuma ?? PAPER_LUMA_FALLBACK[scheme],
+          WASH_STRENGTH[scheme],
+        );
+  const boost = themed && washShown ? textBoostFactor(effective, textBoost) : 0;
+  const boostStyle = {
+    '--paper-cover-luma': coverLuma === null ? '' : coverLuma.toFixed(3),
+    '--paper-text-boost': boost.toFixed(3),
+    '--paper-text-boost-pct': `${(boost * 100).toFixed(1)}%`,
+  } as CSSProperties;
   const guards = useDecorGuards(root, {
     origin,
     scale,
@@ -89,7 +133,15 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
   useEffect(() => () => reportSceneTier(store, null), [store]);
 
   return (
-    <div ref={root} className={styles.paper} data-tier={tier} data-scene={variant} data-dark={dark || undefined}>
+    <div
+      ref={root}
+      className={styles.paper}
+      data-tier={tier}
+      data-scene={variant}
+      data-dark={dark || undefined}
+      data-text-boost={boost > 0 ? boost.toFixed(3) : undefined}
+      style={boostStyle}
+    >
       {wash && !hidden.has('wash') && <PaperCoverWash />}
       {terrain && !hidden.has('terrain') && (
         <TerrainCanvas

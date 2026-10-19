@@ -104,6 +104,9 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
   'settings.immersiveWashStatic': '静态',
   'settings.immersiveWashOff': '不显示',
   'settings.immersiveTerrain': '背景山脊图',
+  'settings.immersiveTextBoost': '歌词与卡片文字提亮',
+  'settings.immersiveTextBoostHint':
+    '封面较暗时自动提亮文字；只影响歌词、卡片、卡片歌词三个视图，0% 关闭。',
   'settings.immersivePerformance': '性能',
   'settings.immersiveFps': '帧率上限',
   'settings.immersiveFpsUnlimited': '不限',

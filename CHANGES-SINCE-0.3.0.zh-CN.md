@@ -43,3 +43,22 @@
 - `tests/unit/immersive/sound/soundPressureReading.test.ts`：`waiting` 原因。
 - `tests/e2e/dx52-failure.spec.ts`：读取失败弹窗、重试后再次失败再弹、关闭后不再弹。
 - `tests/e2e/immersive-sound-pressure.spec.ts`、`tests/e2e/settings-sound-pressure.spec.ts`：原有 DX52 显示与设置行为不回归。
+
+## 2. 歌词/卡片文字自适应提亮
+
+- 新增配置键 `default-theme.immersive.textBoost.v1`（0–100，缺省 50）。设置 → 沉浸 → 背景新增“歌词与卡片文字提亮”滑杆，0% 关闭。
+- 只作用于沉浸视图的歌词、卡片、卡片歌词三档；图纸与聚焦视图保持原样。
+- 提亮程度按封面亮度自适应：
+  - 用预糊封面的平均线性亮度、纸面亮度与 `WASH_STRENGTH`（浅色 0.5 / 深色 0.4）估算合成底色。
+  - 合成底色 ≥ 0.55 不提亮；≤ 0.25 按设置强度全额提亮；中间线性过渡。
+  - 亮封面不会额外提亮；0% 与未开启封面底色时也不提亮。
+- 只覆盖内容层的文字颜色 token（`--colorNeutralForeground1/2/3`、`--paper-ink`、`--paper-hot`）；纸面染色、封面底色、网格与背景全部不变。
+- 当前行强调色保持不变，保留强调色识别度。
+- 新增 `src/theme/luminance.ts`、`src/immersive/paper/textBoost.ts`，封面亮度由 `imageLuminance()` / `coverLumaAtom` 提供。
+- 验证：
+  - `tests/unit/immersive/wash/coverWarp.test.ts`：线性亮度。
+  - `tests/unit/immersive/wash/coverSource.test.ts`：`coverLumaAtom`。
+  - `tests/unit/immersive/paper/textBoost.test.ts`：边界与混合。
+  - `tests/unit/immersive/page/immersivePrefs.test.ts`、`tests/unit/app/immersivePrefs.test.ts`：偏好读回与坏值。
+  - `tests/e2e/immersive-text-boost.spec.ts`：深封面上歌词文字提亮、纸面背景不变、图纸不提亮。
+  - `tests/e2e/settings-immersive.spec.ts`：滑杆保存与回读。

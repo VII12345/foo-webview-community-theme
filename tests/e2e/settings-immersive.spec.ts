@@ -33,6 +33,22 @@ test('组件显示按视图与布局保存，只列当前档位可用的模块',
   expect(settings.errors).toEqual([]);
 });
 
+test('文字提亮滑杆保存并回读', async ({ page }) => {
+  const settings = await openSettings(page);
+  await settings.expand('背景');
+  const slider = page.getByRole('slider', { name: '歌词与卡片文字提亮' });
+  await expect(slider).toHaveValue('50');
+  await slider.fill('80');
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('default-theme.immersive.textBoost.v1')))
+    .toBe('80');
+  await page.reload();
+  await enterSettings(page);
+  await settings.expand('背景');
+  await expect(page.getByRole('slider', { name: '歌词与卡片文字提亮' })).toHaveValue('80');
+  expect(settings.errors).toEqual([]);
+});
+
 test('进入设置先读沉浸偏好，修改可保存且不启动可视化服务', async ({ page }) => {
   await page.addInitScript(() => {
     if (localStorage.getItem('default-theme.immersive.wash.v1') === null) {

@@ -8,3 +8,22 @@
   font-size: var(--fontSizeBase200);
   font-weight: var(--fontWeightSemibold);
 }
+
+.textBoost {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingHorizontalM);
+  min-width: 180px;
+  width: 100%;
+}
+
+.textBoost :global(.fui-Slider) {
+  flex: 1;
+}
+
+.textBoostValue {
+  min-width: 3.5ch;
+  color: var(--colorNeutralForeground3);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
