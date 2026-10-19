@@ -198,3 +198,14 @@
   - 作用于 `fg1/fg2/fg3`、`paper-ink`、`paper-hot`，以及当前歌词行的强调色（新增 `--lyrics-active`；右侧卡仍回退 `--accent`）。
 - 背景、纸面染色、封面 wash、图纸/聚焦视图不变；配置键 `default-theme.immersive.textBoost.v1` 与缺省 50 不变，设置文案改为“歌词与卡片文字对比度”。
 - 验证：`textBoost.test.ts` 覆盖目标选择、安全百分比、任意滑杆对比度不下降；`immersive-text-boost.spec.ts` 覆盖深/中亮封面、纸面背景不变、图纸不变、当前行强调色；`settings-immersive.spec.ts` 更新滑杆名称。
+
+## 9. 统计页顶部平均声压与全部统计二级页
+
+- 统计页顶部“曲目数”右边新增第四块：当前选中范围（今天/本周/本月/今年）的 **全部耳机能量加权平均 SPL**；无数据时显示 `—`。
+- 统计页统一加载 `loudness-v1.json`，一次算出四个范围的 summary；顶部块、耳机区块和详情页共用同一份数据，打开详情不会重复读文件。
+- 新增页内二级页“全部统计”（右上角按钮，带返回）：
+  - 四周期概览表：范围、时长、次数、曲目数、全部耳机平均 SPL。
+  - 每只耳机 × 四周期的平均 SPL 矩阵，末行“全部耳机”。
+  - 各周期的 Top 歌曲与艺人（复用现有榜单）。
+- 统计库缺失时详情页仍显示耳机音量；loudness 缺失/拒绝时显示对应空状态。
+- 验证：`loudnessStats.test.ts` 的 `summarizeLoudnessScopes`；`stats-page.spec.ts` 的顶部块、范围切换、详情页四行概览/SPL 矩阵/四个 Top 区块、返回保持范围、打开详情不重复读文件。

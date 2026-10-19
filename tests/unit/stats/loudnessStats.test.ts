@@ -8,6 +8,7 @@ import {
   recordLoudness,
   startLoudnessStats,
   summarizeLoudness,
+  summarizeLoudnessScopes,
   type LoudnessFile,
   type LoudnessPlaybackView,
   type LoudnessSampleView,
@@ -109,6 +110,16 @@ describe('音量统计文件', () => {
     expect(month.overall.seconds).toBe(250);
     const year = summarizeLoudness(fileOf(), 'year', now);
     expect(year.overall.seconds).toBe(260);
+  });
+
+  it('一次算出四个范围，供顶部平均与详情页共用', () => {
+    const now = new Date(2026, 9, 17);
+    const scopes = summarizeLoudnessScopes(fileOf(), now);
+    expect(Object.keys(scopes)).toEqual(['today', 'week', 'month', 'year']);
+    expect(scopes.week.overall.seconds).toBe(250);
+    expect(scopes.month.overall.seconds).toBe(250);
+    expect(scopes.year.overall.seconds).toBe(260);
+    expect(scopes.today.overall.seconds).toBe(150);
   });
 });
 

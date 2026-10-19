@@ -74,6 +74,7 @@ test('侧边栏打开播放统计页，读出概览、Top 榜与趋势', async (
   await expect(stats.locator('[data-stats-trend] [data-stats-bar]')).toHaveCount(1);
   await expect(stats.locator('[data-stats-bar-value]')).toHaveCount(1);
   await expect(stats.locator('[data-stats-bar-value]')).toHaveText('40:00');
+  await expect(stats.locator('[data-stats-total-spl]')).toContainText('—');
   expect(env.errors).toEqual([]);
 });
 
@@ -182,6 +183,27 @@ test('本周范围与耳机平均音量：按耳机与全部耳机展示', async
   await expect(section).toContainText('JT7');
   await expect(section).toContainText('80.0 dB SPL');
   await expect(section.locator('[data-stats-headphone-all]')).toContainText('全部耳机');
+  await expect(page.locator('[data-stats-total-spl]')).toContainText('80.0 dB SPL');
+
+  const loudnessReads = () =>
+    env.host
+      .callsTo('file.read')
+      .filter((call) => String(call['path'] ?? '').endsWith('loudness-v1.json')).length;
+  const beforeReads = loudnessReads();
+  await page.getByRole('button', { name: '全部统计', exact: true }).click();
+  await expect(page.locator('[data-stats-page]')).toHaveAttribute('data-stats-view', 'details');
+  await expect(page.locator('[data-stats-detail-overview-row]')).toHaveCount(4);
+  await expect(page.locator('[data-stats-detail-spl]')).toContainText('M1');
+  await expect(page.locator('[data-stats-detail-spl]')).toContainText('JT7');
+  await expect(page.locator('[data-stats-detail-headphone-all]')).toContainText('全部耳机');
+  await expect(page.locator('[data-stats-detail-period]')).toHaveCount(4);
+  expect(loudnessReads()).toBe(beforeReads);
+  await page.getByRole('button', { name: '返回', exact: true }).click();
+  await expect(page.locator('[data-stats-page]')).toHaveAttribute('data-stats-view', 'main');
+  await expect(page.locator('[data-stats-scope="week"]')).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   expect(env.errors).toEqual([]);
 });
 

@@ -146,6 +146,19 @@ export function summarizeLoudness(
   };
 }
 
+/** 一次算出统计页需要的四个范围，避免详情页重复遍历。 */
+export function summarizeLoudnessScopes(
+  file: LoudnessFile,
+  now: Date,
+): Record<StatsScope, LoudnessSummary> {
+  return {
+    today: summarizeLoudness(file, 'today', now),
+    week: summarizeLoudness(file, 'week', now),
+    month: summarizeLoudness(file, 'month', now),
+    year: summarizeLoudness(file, 'year', now),
+  };
+}
+
 export interface LoudnessStatsHost {
   readonly misc: Pick<typeof fb.misc, 'getProfilePath'>;
   readonly file: Pick<typeof fb.file, 'read' | 'write'>;
