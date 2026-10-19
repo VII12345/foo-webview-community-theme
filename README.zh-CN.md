@@ -87,7 +87,7 @@ Default Theme 是 [foo_ui_webview2](https://github.com/NereaFantasia/foo_ui_webv
 
 - 在图纸/聚焦视图替换原来的 Genre 位置，实时显示 dB SPL、功率、电压与 80 dB 安全余量。
 - 支持多耳放/多耳机、分别选择、即时切换；参数在设置 → 耳机中维护。
-- 声压改为频谱级计算：PCM 原始 RMS 提供总电平，宿主 FFT 频谱提供频率分布，可选实测频响/阻抗档案（飞傲 FT1、飞傲 JT7、索尼 MDR-M1），并可选 A/K/Z 加权（默认 A）。Loudness 表仍是 K 加权 LUFS，80 dB 安全余量始终按 A 加权；不额外叠加 ReplayGain，宿主已应用时会计入读数。
+- 声压改为频谱级计算：PCM 原始 RMS 提供总电平，宿主 FFT 频谱提供频率分布，可选实测频响/阻抗档案（飞傲 FT1、飞傲 JT7、索尼 MDR-M1），并可选 A/K/Z 加权（默认 A）。Loudness 表仍是 K 加权 LUFS，80 dB 安全余量始终按 A 加权；不额外叠加 ReplayGain，宿主已应用时会计入读数。设置 → 耳机还可从 huihifi 链接导入更多评测档案，保存在本地 profile 的 `webview-ui-headphones\measurements-v1.json`。
 - 可选“自动读取解码/耳放信息”（悬停提示“仅适用于拓品DX52”）：首次在开关上授权一次 WebHID，之后自动读取 DX5 II 的当前输出接口、高低增益、设备音量、静音与采样率；设备音量与 foobar 音量独立叠加。组件显示当前输出（如 `4.4mm XLR · High`），浮层里列出设备状态。关闭开关时不显示任何 DX5 II 专属信息，继续使用手动耳放配置。设备断开时显示“等待设备”并自动重连；短应答不会被误判成完整设置，部分字段读取时显示“设置读取不完整”，读取失败可重试并弹出非阻塞提醒；客户端会读取 HID 描述符、按报告声明长度发送、记录真实发送结果，并在没有输入报告时回退到 Feature Report 轮询。HID 诊断面板默认隐藏，代码保留在 `SoundPressureSection.tsx`；排查时把 `SHOW_DX52_DIAGNOSTICS` 改回 `true` 即可恢复。
 
 ## 截图

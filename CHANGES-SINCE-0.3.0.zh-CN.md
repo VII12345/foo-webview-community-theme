@@ -301,6 +301,40 @@
 - `stats-page.spec.ts`：v2 fixture、默认 A 的 `dBA` 单位。
 - `build.test.ts`：新频谱/SPL 模块不在初始包。
 
+## 13. huihifi 链接导入自定义测量档案
+
+### 13.1 流程
+
+- 设置 → 耳机 → 编辑耳机 → “从 huihifi 链接导入”：
+  - 粘贴 `https://huihifi.com/evaluation/{uuid}` 或 `https://www.huihifi.com/evaluation/{uuid}`；
+  - 获取后显示名称、品牌、原始频响/阻抗点数与覆盖/内置重复/缺阻抗提示；
+  - 点“导入”写入本地档案，并自动在“测量配置”下拉选中；
+  - 仍需点耳机表单的“保存”才把 `measurementProfileId` 写进耳机配置。
+- 设置页“自定义测量档案”列出已导入档案：点数、导入日期、被多少耳机使用；删除需二次点击。
+- 删除被耳机引用的档案不会改耳机配置；该耳机会回退到平坦 FR + 标称阻抗，下拉显示“不可用（回退标称参数）”。
+
+### 13.2 存储
+
+- 便携版 profile 下：`<profile>\webview-ui-headphones\measurements-v1.json`。
+- 与 `webview-ui-stats`、`webview-ui-artists` 等现有目录同级；使用 `fb.file.write(..., { atomic: true })`。
+- Schema `{ version: 1, profiles: [...] }`；每份档案保存归一化/降采样后的 FR 与阻抗、来源链接、导入时间。
+- 最多 64 份、文件最多 2 MB；超限明确报错，不自动淘汰。
+- 自定义 id 固定 `huihifi-custom-<uuid>`；同链接重复导入覆盖同一条。
+
+### 13.3 链接与安全
+
+- 只接受 huihifi 的 https 评测链接；拒绝其它 host、端口、userinfo、额外路径与坏 UUID。
+- 不请求用户粘贴的 URL，只请求由 UUID 派生的 `https://huihifi.com/api/v1/evaluations/<uuid>`，并使用 `redirect: 'error'`，避免重定向/SSRF。
+- 载荷限制 `datas <= 64`、单表 `<= 10000` 行、body `<= 4 MB`；FR 至少 8 点、覆盖约 100 Hz–10 kHz 且含 1 kHz；阻抗可缺省。
+- 本地文件按不可信输入校验：version/id/UUID/曲线行/点数/大小；坏条目丢弃，坏文件标 `corrupt`，下一次导入覆盖。
+
+### 13.4 验证
+
+- `huihifiEvaluation.test.ts`：链接白名单、载荷解析、1 kHz 归一化、降序阻抗、缺阻抗、超限。
+- `customHeadphoneMeasurements.test.ts`：空/坏/拒绝文件、预览不发无效请求、派生 API URL、原子写路径、重复导入覆盖、删除。
+- `settings-measurement-import.spec.ts`：无效链接、预览、导入、下拉选中、保存写耳机、刷新持久化、删除。
+- `build.test.ts`：自定义导入/解析模块不把内置测量 JSON 带进初始包。
+
 ## 附录 A：提交对照
 
 | 提交 | 内容 |
@@ -322,12 +356,17 @@
 | `6666b9f` | 侧边栏“我的耳机”快速切换 |
 | `cdb0eff` | 所有歌曲表加 32 px 封面缩略图 |
 | `326a877` | 按真机 52 字快照修正 DX52 解析（解决“已关机”） |
+| `5e5e248` | 抽出不依赖 JSON 的测量曲线数学层 |
+| `2bfb183` | huihifi 评测链接与载荷解析 |
+| `c7894e0` | 自定义测量档案写入便携版 profile |
+| `38d345a` | 设置页导入/管理自定义测量档案 |
 
 ## 附录 B：新增配置键与文件
 
 - `default-theme.immersive.textBoost.v1`：0–100，缺省 50；现在表示对比度修正强度，不再固定向白色混合。
 - `default-theme.immersive.components.v1`：沿用原键；新增叶子 ID 见第 4 节，旧父 ID 继续生效。
 - `<profile>\webview-ui-stats\loudness-v2.json`：耳机 A/K/Z 能量累计文件；旧 `loudness-v1.json` 作为 legacy 读取。
+- `<profile>\webview-ui-headphones\measurements-v1.json`：用户从 huihifi 链接导入的自定义测量档案；不随主题分发。
 - `defaultTheme.playback.splWeighting`：`A` / `K` / `Z`，默认 `A`；只影响 SPL 显示，Loudness 表仍为 K 加权 LUFS。
 - 测量档案 id 存在耳机配置的 `measurementProfileId`，不新增独立配置键。
 - DX52：`defaultTheme.playback.dx52Auto`、`defaultTheme.playback.dx52Jack` 不变；诊断数据只在内存中，不落盘。
@@ -338,7 +377,8 @@
 - 用户可见变化优先取第 1–12 节的标题与首段；细节（边界、存储路径、旧存档兼容）放“改进与修复”。
 - 需要提醒用户的限制：耳机平均音量只统计 DX52 自动读数生效的耳机输出时段；统计从本次版本开始积累；声压仍是估算值。
 - 新 SPL 方法不额外叠加 ReplayGain；读数跟随宿主实际 PCM/频谱电平，宿主已应用时会计入。
-- 测量档案来自 huihifi 公开测评接口；如再分发受限，使用本地生成脚本，不把 JSON 随包提交。
+- 测量档案来自 huihifi 公开测评接口；内置三份随包，更多耳机可在设置里粘贴链接导入到本地 profile，不随主题分发。
+- 自定义档案最多 64 份；删除被耳机引用的档案会回退标称参数，需要重新选择或导入。
 - 旧 `loudness-v1.json` 的时长计入总时长，但不参与 A/K/Z 平均；统计页显示当前加权单位。
 - 全部歌曲表按 `track_crc` 聚合；同一录音被插件算出不同 CRC（例如文件移动）时会显示为两行。
 - 侧边栏“我的耳机”只切换耳机配置，不连带切换耳放；DX52 自动模式下有效耳放仍由设备决定。

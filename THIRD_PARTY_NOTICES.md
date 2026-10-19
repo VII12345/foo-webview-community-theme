@@ -7,6 +7,7 @@
 - 来源：https://huihifi.com 公开测评接口（飞傲 FT1、飞傲 JT7、索尼 MDR-M1）
 - 数据：`src/playback/headphoneMeasurements.json` 的频响与阻抗曲线，由 `scripts/build-headphone-measurements.mjs` 抓取并降采样。
 - 用途：仅用于本主题的耳机声压估算，不改变耳机声音；来源链接保存在每份档案的 `sourceUrl`。
+- 用户从设置界面导入的额外档案只保存在本地 profile 的 `webview-ui-headphones\measurements-v1.json`，不随主题分发。
 - 再分发：如权利人限制再分发，请删除随包 JSON，改为在本地运行生成脚本；不要从构建产物中移除来源说明。
 
 ## Lyricify Lyrics Helper
