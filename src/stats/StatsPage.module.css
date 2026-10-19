@@ -368,8 +368,19 @@
   text-align: end;
 }
 
+.songs-title-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingHorizontalS);
+  min-width: 0;
+}
+
 .songs-title {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sort-button {

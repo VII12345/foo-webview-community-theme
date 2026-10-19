@@ -12,6 +12,7 @@ import { translateAtom } from '../i18n/locale.ts';
 import { durationText } from '../table/cellText.ts';
 import type { StatsSongRow } from './monthlyStats.ts';
 import styles from './StatsPage.module.css';
+import { StatsArt } from './StatsArt.tsx';
 
 export const SONG_PAGE_SIZE = 100;
 
@@ -141,8 +142,11 @@ export function AllSongsTable({ songs }: { readonly songs: readonly StatsSongRow
               {rows.map((song) => (
                 <tr key={song.crc} data-stats-songs-row={song.crc}>
                   <td title={song.title || t('stats.unknown')}>
-                    <span className={styles['songs-title']}>
-                      {song.title || t('stats.unknown')}
+                    <span className={styles['songs-title-cell']}>
+                      <StatsArt path={song.path} title={song.title || t('stats.unknown')} />
+                      <span className={styles['songs-title']}>
+                        {song.title || t('stats.unknown')}
+                      </span>
                     </span>
                   </td>
                   <td title={song.artist || t('stats.unknown')}>

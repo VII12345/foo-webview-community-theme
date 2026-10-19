@@ -79,6 +79,7 @@ test('全部统计展示所有歌曲，并支持搜索、排序与分页', async
   await expect(table).toBeVisible();
   await expect(page.locator('[data-stats-songs-count]')).toContainText('105 首歌曲');
   await expect(page.locator('[data-stats-songs-row]')).toHaveCount(100);
+  await expect(page.locator('[data-stats-songs-row] [data-stats-cover]')).toHaveCount(100);
   await expect(page.locator('[data-stats-songs-page]')).toContainText('第 1 / 2 页');
 
   await page.locator('[data-stats-songs-next]').click();
