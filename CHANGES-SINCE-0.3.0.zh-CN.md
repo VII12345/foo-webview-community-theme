@@ -339,6 +339,7 @@
 
 - 现象：便携版装在 `C:\Program Files\foobar2000` 时，huihifi 链接导入提示“无法保存本地档案”；播放统计的耳机平均音量与使用时长始终为空。
 - 根因：`foo_ui_webview2` 的 `PathSecurity::ValidateFileWriteAccess` 先判系统黑名单、再判 profile 写白名单。profile 同时命中 Program Files 黑名单与 profile 白名单，`file.write` 返回 `PERMISSION_DENIED`；读取路径早已是白名单先判，所以统计页看到的是 `NOT_FOUND`（暂无数据），而不是读取失败。
+- 第二个独立原因：`startLoudnessIntegration` 启动 `startLoudnessStats` 时没有传宿主，统计记录器直接返回空操作。即使写入权限正常，也不会累计或生成 `loudness-v2.json`。现在把 `fb` 作为默认宿主同时传给实时响度、频谱与统计服务，并新增集成测试覆盖宿主接线。
 - 主机修复：
   - `ValidateFileWriteAccess` 改为“写白名单（profile/temp）→ 黑名单 → 监视目录 → 非系统卷 → 媒体库/播放列表”。
   - 判定抽到 `src/utils/WriteRulesOrder.h`，gtest 直接覆盖生产顺序。
@@ -350,7 +351,7 @@
   - 统计记录器发布 `loudnessStorageAtom`（最近采样/写入/失败码）；统计页打开前先触发一次 flush，再读 `loudness-v2.json`，避免刚播放的数据要等防抖。
   - 空状态区分“还没有采样（DX52 门控未满足）”与“已记录，等待写入”；写入失败显示带 code 的提示。
 - 组件：随包 `foo_ui_webview2.dll` 更新为 6,233,088 字节，SHA-256 `80e6cbb27597fa391c04da8815d108f2915f6286b308bc62c38170dd034ee7c3`。
-- 验证：插件 gtest 1958 项；主题单元 3791 项；`settings-measurement-import.spec.ts` 新增原子写回退与权限拒绝后重试；真机导入后 profile 下生成 `webview-ui-headphones\measurements-v1.json`，播放后生成 `webview-ui-stats\loudness-v2.json`。
+- 验证：插件 gtest 1958 项；主题单元 461 个文件 / 3792 项；`settings-measurement-import.spec.ts` 新增原子写回退与权限拒绝后重试；`loudnessIntegration.test.ts` 覆盖记录器拿到宿主；真机导入后 profile 下生成 `webview-ui-headphones\measurements-v1.json`，播放后生成 `webview-ui-stats\loudness-v2.json`。
 
 ## 附录 A：提交对照
 
