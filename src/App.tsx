@@ -24,16 +24,11 @@ import { WindowRoot } from './app/WindowRoot.tsx';
 import { LyricsRoot } from './app/LyricsRoot.tsx';
 import { ImmersiveSettingsContext } from './settings/immersiveSettingsContext.ts';
 import { ImmersiveLayoutContext } from './settings/immersiveLayoutContext.ts';
+import { ImmersiveLayoutEditor } from './app/ImmersiveLayoutEditor.tsx';
 
 const ImmersiveSettings = lazy(() =>
   import('./app/ImmersiveSettings.tsx').then(({ ImmersiveSettings }) => ({
     default: ImmersiveSettings,
-  })),
-);
-
-const ImmersiveLayoutEditor = lazy(() =>
-  import('./app/ImmersiveLayoutEditor.tsx').then(({ ImmersiveLayoutEditor }) => ({
-    default: ImmersiveLayoutEditor,
   })),
 );
 
@@ -75,11 +70,7 @@ export function App({ services }: AppProps) {
                               }
                             >
                               <ImmersiveLayoutContext
-                                value={
-                                  <Suspense fallback={null}>
-                                    <ImmersiveLayoutEditor />
-                                  </Suspense>
-                                }
+                                value={<ImmersiveLayoutEditor />}
                               >
                                 <ShellSlotsContext value={SHELL_SLOTS}>
                                   <WindowRoot>
