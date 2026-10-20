@@ -258,6 +258,7 @@ export function LyricsSearch({
         <div className={styles['query-mode']}>
           <Select
             size="small"
+            select={{ className: controls.field }}
             aria-label={t('lyrics.searchMode')}
             value={mode}
             onChange={(_, data) => {
@@ -273,6 +274,7 @@ export function LyricsSearch({
             <>
               <Select
                 size="small"
+                select={{ className: controls.field }}
                 aria-label={t('lyrics.idSource')}
                 value={idSource}
                 onChange={(_, data) => {
@@ -289,6 +291,7 @@ export function LyricsSearch({
               </Select>
               <Select
                 size="small"
+                select={{ className: controls.field }}
                 aria-label={t('lyrics.idKind')}
                 value={idKind}
                 onChange={(_, data) => {
