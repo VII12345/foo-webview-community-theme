@@ -42,7 +42,14 @@ Default Theme is the default theme for [foo_ui_webview2](https://github.com/Nere
 
 - Cover-coloured Now Playing page; closing and reopening restores the last track, playlist and position.
 - The bottom player bar restores the cover; the mini player has cover and compact layouts.
+- The mini player shows a live SPL readout next to the seek bar (`72.4 dBA`, `—` when there is no reading); the artist/album line uses the full width when a track has no rating.
 - The five card transport keys are centred; order and volume keys use transparent outlines.
+
+### Tray and background activity
+
+- The tray menu's play/pause row follows the playback state: it shows Play when stopped or paused and Pause while audio is playing.
+- Double-clicking the tray icon restores the main window, including when it was hidden to the tray — the restore runs natively, so it works while the page is suspended.
+- Settings → General → **Background activity** controls what the page does while the window is hidden or minimised: **Normal** (default) keeps live audio analysis running, **Eco** pauses visual work but keeps timers running, and **Stop loading** stops page timers and analysis (the `foo_acoustic_stats` plugin keeps recording when installed). Background sampling in Normal mode is best-effort because the browser throttles timers in hidden pages.
 
 ### Sidebar
 

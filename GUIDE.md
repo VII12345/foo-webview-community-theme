@@ -117,6 +117,8 @@ Changes apply immediately, and each view and layout keeps its own set.
 Click **Mini player** in the player bar or open it from the main menu.
 
 - **Expand album cover** switches to the cover layout; **Collapse album cover** returns to the compact layout.
+- The seek row shows a live SPL readout (`72.4 dBA`, or `—` when there is no reading); hover it for the reason or the safety margin.
+- When a track has no rating, the artist/album line uses the full width.
 - **Keep on top** keeps the mini player above other windows.
 - **Return to full window** restores the main window.
 - The More menu lets you change playback order and output device.
@@ -176,6 +178,8 @@ If that does not help, extract a complete installation package into a new templa
 ### foobar2000 keeps running after closing the window
 
 Check **Close to tray** under **Settings > General > System tray**. When enabled, closing the window does not exit the player.
+
+Double-clicking the tray icon brings the window back, including when it was hidden to the tray. What the page does while hidden is controlled by **Settings > General > Background activity**: Normal (default) keeps live analysis running, Eco pauses visual work, and Stop loading stops page timers and analysis (the `foo_acoustic_stats` plugin keeps recording when installed).
 
 ### Lyrics are missing or do not highlight word by word
 
