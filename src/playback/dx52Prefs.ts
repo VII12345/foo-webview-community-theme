@@ -286,6 +286,8 @@ export function startDx52(
     /** `null` 表示测试里显式没有 WebHID；`undefined` 时现读 navigator.hid。 */
     readonly hid?: Dx52HidHost | null;
     readonly now?: () => number;
+    /** 后台"停止加载"档：为真时不发任何命令、不跑心跳与轮询；设备句柄保持打开。 */
+    readonly suspended?: Atom<boolean>;
   } = {},
 ): Dx52Service {
   const prefs = startConfigPrefs(store, [AUTO_PREF, JACK_PREF], options.configHost, writer);
@@ -303,6 +305,7 @@ export function startDx52(
   });
   let device: Dx52HidDevice | null = null;
   let disposed = false;
+  let suspended = options.suspended ? store.get(options.suspended) : false;
   let connecting = false;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
   let waitingTimer: ReturnType<typeof setInterval> | null = null;
@@ -436,7 +439,7 @@ export function startDx52(
   function startWaitingRetry(): void {
     if (waitingTimer || disposed) return;
     waitingTimer = setInterval(() => {
-      if (disposed || connecting || device || !store.get(AUTO_PREF.atom)) return;
+      if (disposed || suspended || connecting || device || !store.get(AUTO_PREF.atom)) return;
       void connect(false);
     }, WAITING_RETRY_MS);
   }
@@ -446,6 +449,27 @@ export function startDx52(
     clearSnapshotTimers();
     stopWaitingRetry();
     clearFeatureProbes();
+  }
+  /**
+   * 后台"停止加载"档：停掉所有定时器与发送，但设备句柄保持打开。
+   *
+   * 插件接管的是统计与设备读数，页面仍是这个 WebHID 句柄的持有者：关掉再连会闪状态、
+   * 重读一遍六秒快照；而设备推来的输入报告不靠定时器，留着监听反而让状态恢复时是新鲜的。
+   */
+  function suspend(): void {
+    if (suspended) return;
+    suspended = true;
+    stopTimers();
+  }
+  function resume(): void {
+    if (!suspended) return;
+    suspended = false;
+    if (device?.opened) {
+      startHeartbeat();
+      requestSnapshot();
+    } else if (store.get(AUTO_PREF.atom)) {
+      void connect(false);
+    }
   }
   function errorText(error: unknown): string {
     if (error instanceof Error) return `${error.name}: ${error.message}`;
@@ -552,7 +576,7 @@ export function startDx52(
     return false;
   }
   function send(cmd: number, data = 0, proto = 0x10): void {
-    if (!device?.opened) return;
+    if (suspended || !device?.opened) return;
     void transmit(cmd, data, proto);
   }
   function candidateText(candidates: readonly SendCandidate[]): string {
@@ -638,6 +662,7 @@ export function startDx52(
   }
   function startHeartbeat(): void {
     if (heartbeat) clearInterval(heartbeat);
+    if (suspended) return;
     heartbeat = setInterval(() => send(DX52_COMMANDS.heartbeat, 1, 0x20), HEARTBEAT_MS);
   }
   function isSnapshotFrame(frame: Dx52Frame): boolean {
@@ -712,7 +737,7 @@ export function startDx52(
     }, SNAPSHOT_QUIET_MS);
   }
   function requestSnapshot(): void {
-    if (!device?.opened) return;
+    if (suspended || !device?.opened) return;
     clearSnapshotTimers();
     resetFrames();
     snapshotGeneration += 1;
@@ -823,7 +848,7 @@ export function startDx52(
     if (store.get(AUTO_PREF.atom)) startWaitingRetry();
   }
   function onConnect(event: Event): void {
-    if (disposed || connecting || device || !store.get(AUTO_PREF.atom)) return;
+    if (disposed || suspended || connecting || device || !store.get(AUTO_PREF.atom)) return;
     const target = (event as Partial<Dx52ConnectEvent>).device;
     if (target && !isDx52ProductName(target.productName)) return;
     void connect(false);
@@ -870,7 +895,7 @@ export function startDx52(
     requestSnapshot();
   }
   async function connect(request: boolean): Promise<void> {
-    if (disposed || connecting) return;
+    if (disposed || suspended || connecting) return;
     if (!hid) {
       setStatus({ kind: 'unsupported' });
       return;
@@ -909,6 +934,13 @@ export function startDx52(
 
   hid?.addEventListener('disconnect', onDisconnect);
   hid?.addEventListener('connect', onConnect);
+  const offSuspended = options.suspended
+    ? store.sub(options.suspended, () => {
+        if (store.get(options.suspended!)) suspend();
+        else resume();
+      })
+    : undefined;
+  if (suspended) suspend();
   void prefs.ready.then(() => {
     if (!disposed && store.get(AUTO_PREF.atom)) void connect(false);
   });
@@ -951,6 +983,7 @@ export function startDx52(
     dispose() {
       if (disposed) return;
       disposed = true;
+      offSuspended?.();
       hid?.removeEventListener('disconnect', onDisconnect);
       hid?.removeEventListener('connect', onConnect);
       stopTimers();

@@ -1,6 +1,7 @@
 import { fb } from 'foo-webview-sdk/bridge';
 import { atom, createStore } from 'jotai/vanilla';
 import { startDragOut, dragOutKey } from '../host/dragOut.ts';
+import { backgroundSuspendedAtom, loadBackgroundMode } from '../host/backgroundMode.ts';
 import { startLocale, localeKey } from '../i18n/locale.ts';
 import { startCommandRegistry, type CommandRegistry, commandsKey } from '../nav/commandRegistry.ts';
 import { registerFullscreenCommand } from '../nav/fullscreenCommand.ts';
@@ -221,8 +222,12 @@ export function startServices(dataWriter: BrowserDataWriter, prefs: PagePrefStor
   const publishSaving = () => store.set(prefSaveStatesAtom, prefs.snapshot());
   scope.stop(prefs.subscribe(publishSaving));
   publishSaving();
+  // 后台档要在服务器、DX52 起来之前读到：它们从第一拍起就看这个前提。
+  loadBackgroundMode(store);
   const startup = scope.own(startLoaderConfirmation(store));
-  const connection = scope.own(startBackendConnection(store));
+  const connection = scope.own(
+    startBackendConnection(store, fb, { suspended: backgroundSuspendedAtom }),
+  );
   const backend = scope.add(
     backendBootstrapKey,
     startBackendBootstrap(store, connection, {
@@ -254,7 +259,7 @@ export function startServices(dataWriter: BrowserDataWriter, prefs: PagePrefStor
     customHeadphoneMeasurementsKey,
     startCustomHeadphoneMeasurements(store, fb),
   );
-  scope.add(dx52Key, startDx52(store, configWriter));
+  scope.add(dx52Key, startDx52(store, configWriter, { suspended: backgroundSuspendedAtom }));
   scope.own(startNowPlaying(store));
   const windowShell = scope.add(windowShellKey, startWindowShell(store));
   scope.own(startWindowActivity(store, windowShell));

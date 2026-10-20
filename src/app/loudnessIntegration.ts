@@ -11,6 +11,11 @@ import {
   soundPressureViewAtom,
 } from '../immersive/sound/soundPressureReading.ts';
 import type { Store } from '../kit/store.ts';
+import { backgroundFrameClock } from '../host/backgroundClock.ts';
+import {
+  backgroundNormalAtom,
+  backgroundSuspendedAtom,
+} from '../host/backgroundMode.ts';
 import { miniWindowAtom } from '../host/miniWindow.ts';
 import { playbackAtom } from '../playback/playback.ts';
 import { loadLoudnessStats, startLoudnessStats } from '../stats/loudnessStats.ts';
@@ -79,22 +84,30 @@ export function startLoudnessIntegration(
   immersive: Pick<ImmersiveIntegration, 'active'>,
   host: LoudnessIntegrationHost = fb,
 ): LoudnessIntegration {
-  const demand = atom(
-    (get) =>
+  const demand = atom((get) => {
+    // "停止加载"档隐藏时先拆订阅，压过下面的迷你播放器等条件。
+    if (get(backgroundSuspendedAtom)) return false;
+    return (
       get(immersive.active) ||
       get(miniWindowAtom).active ||
-      (get(playbackAtom).state === 'playing' && get(soundPressureAutoActiveAtom)),
-  );
-  const live = startLiveLoudness(store, { active: demand, host });
-  const bands = startLiveBandPower(store, { active: demand, host });
+      (get(playbackAtom).state === 'playing' &&
+        (get(soundPressureAutoActiveAtom) || get(backgroundNormalAtom)))
+    );
+  });
+  // 隐藏页面里 rAF 不触发；"正常运行"档用定时器时钟接着采（浏览器会降频，尽力而为）。
+  const clock = backgroundFrameClock(store, backgroundNormalAtom);
+  const live = startLiveLoudness(store, { active: demand, host, clock });
+  const bands = startLiveBandPower(store, { active: demand, host, clock });
   // 写给 foo_acoustic_stats 的测量配置：插件在 foobar 进程里算声压与统计，页面挂起时它照旧在跑，
   // 但耳机档案与耳放档位在页面手里 —— 算好了写给它。
   void seedPluginStats(host);
   const config = startAcousticConfigWriter(store, host);
+  const statsActive = atom((get) => !get(backgroundSuspendedAtom));
   const stats = startLoudnessStats(store, {
     view: soundPressureViewAtom,
     playback: playbackAtom,
     host,
+    active: statsActive,
   });
   return {
     dispose() {

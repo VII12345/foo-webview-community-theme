@@ -19,6 +19,15 @@ export const settingsEn = {
   'settings.closeToTray': 'Close to tray',
   'settings.tray': 'System tray',
   'settings.startPlace': 'Open at startup',
+  'settings.backgroundMode': 'Background activity',
+  'settings.backgroundModeNormal': 'Normal',
+  'settings.backgroundModeEco': 'Eco',
+  'settings.backgroundModeStop': 'Stop loading',
+  'settings.backgroundModeNormalHint':
+    'Keep live audio analysis running while hidden; background sampling may be throttled.',
+  'settings.backgroundModeEcoHint': 'Pause visual work when hidden; timers keep running.',
+  'settings.backgroundModeStopHint':
+    'Stop page timers and analysis when hidden. foo_acoustic_stats keeps recording if installed.',
   'settings.related': 'Related settings',
   'settings.trayRejected': 'Tray setting was not applied',
   'settings.trayUnsaved': 'Applied, but the setting could not be saved',

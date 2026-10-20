@@ -6,7 +6,11 @@ import { clickSideButton } from '../fixtures/sidebarPage.ts';
 // 「常规」一组：界面语言、启动时打开、托盘的两只开关、去 foobar2000 设置的两个入口，以及没有宿主时的禁用。
 
 const LOCALE_KEY = 'defaultTheme.locale';
+const BACKGROUND_MODE_KEY = 'default-theme.background-mode.v1';
 const NEEDS_HOST = '只在 foobar2000 中可用';
+
+const storedBackgroundMode = (page: Page) =>
+  page.evaluate((name) => localStorage.getItem(name), BACKGROUND_MODE_KEY);
 
 test.use({ screenshot: 'off' });
 
@@ -216,6 +220,19 @@ test('启动时打开：选了歌曲，重新打开窗口落在歌曲页，侧�
       .getByRole('navigation', { name: '侧边栏' })
       .getByRole('button', { name: '歌曲', exact: true }),
   ).toHaveAttribute('aria-current', 'page');
+  expect(settings.errors).toEqual([]);
+});
+
+test('后台运行：默认正常运行，换成节能后记住，刷新还在', async ({ page }) => {
+  const settings = await openSettings(page);
+  await expect(settings.select('后台运行')).toHaveText('正常运行');
+  await settings.choose('后台运行', '节能模式');
+  await expect(settings.select('后台运行')).toHaveText('节能模式');
+  expect(await storedBackgroundMode(page)).toBe('eco');
+
+  await page.reload();
+  await enterSettings(page);
+  await expect(settings.select('后台运行')).toHaveText('节能模式');
   expect(settings.errors).toEqual([]);
 });
 

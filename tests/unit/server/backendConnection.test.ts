@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { createStore } from 'jotai/vanilla';
+import { atom, createStore, type Atom } from 'jotai/vanilla';
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { startBackendConnection } from '../../../src/server/backendConnection.ts';
 import type { BackendDescriptor } from '../../../src/server/backendProtocol.ts';
@@ -10,7 +10,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function setup() {
+function setup(options: { readonly suspended?: Atom<boolean> } = {}) {
   const env = installTemplateHost();
   const store = createStore();
   const target = {
@@ -49,7 +49,7 @@ function setup() {
     }),
   );
   vi.stubGlobal('fetch', fetcher);
-  const service = startBackendConnection(store, env.host.fb);
+  const service = startBackendConnection(store, env.host.fb, options);
   onTestFinished(() => service.dispose());
   return { ...env, store, target, service, write, fetcher, descriptor: () => descriptor };
 }
@@ -152,6 +152,19 @@ describe('本地后端连接', () => {
     await rejected;
     expect(env.text(`state/backend-stop-${env.descriptor().launchId}.json`)).toBe('{}');
     expect(env.store.get(env.service.failed)).toBe(false);
+  });
+
+  it('后台停止加载时不查健康，恢复时立刻补一次', async () => {
+    vi.useFakeTimers();
+    const suspended = atom(false);
+    const env = setup({ suspended });
+    await env.service.connect(env.target);
+    const before = env.fetcher.mock.calls.length;
+    env.store.set(suspended, true);
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(env.fetcher.mock.calls.length).toBe(before);
+    env.store.set(suspended, false);
+    expect(env.fetcher.mock.calls.length).toBe(before + 1);
   });
 
   it('健康检查失败可重试，成功后清除失败状态', async () => {

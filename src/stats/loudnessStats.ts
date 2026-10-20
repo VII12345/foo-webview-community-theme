@@ -4,7 +4,6 @@ import { writeTextFile, type TextFileWriteResult } from '../host/fileWrite.ts';
 import { settle } from '../host/hostCall.ts';
 import type { Store } from '../kit/store.ts';
 import {
-  previousRangeForScope,
   rangeForScope,
   ymdOfMs,
   type StatsScope,
@@ -352,6 +351,8 @@ export interface LoudnessStatsDeps {
   > | null;
   /** 读取 DX52 读数的新鲜度上限；超过就当设备状态过期。 */
   readonly staleMs?: number;
+  /** false 时停掉采样计时器（停前落盘）；缺省始终采样。后台"停止加载"档用。 */
+  readonly active?: Atom<boolean>;
 }
 
 export interface LoudnessStatsService {
@@ -418,6 +419,7 @@ export function startLoudnessStats(
   let dirty = false;
   let disposed = false;
   let timer: ReturnType<typeof setInterval> | null = null;
+  let activeOff: (() => void) | undefined;
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let saving = Promise.resolve();
   let lastTick = now();
@@ -529,6 +531,22 @@ export function startLoudnessStats(
     }
   });
 
+  /** 重新起步：先把"上一拍"对齐到此刻，别把停掉的那段算成一次采样。 */
+  function startTicking(): void {
+    if (timer || disposed) return;
+    lastTick = now();
+    const playback = store.get(deps.playback);
+    lastPosition = playback.position;
+    lastGeneration = playback.trackGeneration;
+    lastPlaybackState = playback.state;
+    timer = setInterval(tick, intervalMs);
+  }
+
+  function stopTicking(): void {
+    if (timer) clearInterval(timer);
+    timer = null;
+  }
+
   const ready = (async () => {
     const load = await loadLoudnessStats(host);
     if (disposed) return;
@@ -543,9 +561,19 @@ export function startLoudnessStats(
       filePath = loudnessStatsPath(profile);
     }
     if (disposed) return;
-    lastTick = now();
-    timer = setInterval(tick, intervalMs);
+    if (!deps.active || store.get(deps.active)) startTicking();
     documentRef?.addEventListener('visibilitychange', onVisibility);
+    if (deps.active) {
+      activeOff = store.sub(deps.active, () => {
+        if (disposed) return;
+        if (store.get(deps.active!)) {
+          startTicking();
+        } else {
+          stopTicking();
+          void flush();
+        }
+      });
+    }
   })();
 
   activeFlush = flush;
@@ -555,8 +583,9 @@ export function startLoudnessStats(
     dispose() {
       if (disposed) return;
       disposed = true;
-      if (timer) clearInterval(timer);
-      timer = null;
+      activeOff?.();
+      activeOff = undefined;
+      stopTicking();
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = null;
       offPlayback();

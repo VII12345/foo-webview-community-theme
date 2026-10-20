@@ -1,4 +1,4 @@
-import { createStore } from 'jotai/vanilla';
+import { atom, createStore, type Atom } from 'jotai/vanilla';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { createConfigWriter } from '../../../src/host/configWrite.ts';
 import {
@@ -125,6 +125,7 @@ function emitRange(
 function setup(
   failOpen = false,
   createDevice: () => FakeDevice = () => new FakeDevice(),
+  suspended?: Atom<boolean>,
 ) {
   vi.useFakeTimers();
   onTestFinished(() => vi.useRealTimers());
@@ -135,7 +136,7 @@ function setup(
   const device = createDevice();
   device.failOpen = failOpen;
   hid.devices.push(device);
-  const service = startDx52(store, writer, { configHost: host.fb, hid, now: () => 123 });
+  const service = startDx52(store, writer, { configHost: host.fb, hid, now: () => 123, suspended });
   onTestFinished(() => service.dispose());
   return { host, store, hid, device, service };
 }
@@ -182,6 +183,22 @@ describe('DX5 II 自动读取服务', () => {
     expect(host.config.get(DX52_AUTO_KEY)).toBe(false);
     expect(store.get(service.status)).toEqual({ kind: 'off' });
     expect(store.get(service.state)).toBeNull();
+  });
+
+  it('后台停止加载：不发心跳也不再发送；恢复时立刻补一次快照', async () => {
+    const suspended = atom(false);
+    const { store, device, service } = setup(false, () => new FakeDevice(), suspended);
+    await enable(service);
+    emitSnapshot(device, settingsWords());
+    const sent = device.sent.length;
+    store.set(suspended, true);
+    await vi.advanceTimersByTimeAsync(15000);
+    expect(device.sent.length).toBe(sent);
+    store.set(suspended, false);
+    // 恢复时先发连接帧，设置快照在 80 ms 后补发。
+    await vi.advanceTimersByTimeAsync(100);
+    const commands = device.sent.slice(sent).map((frame) => (frame[5]! << 8) | frame[6]!);
+    expect(commands).toContain(DX52_COMMANDS.getSettings);
   });
 
   it('没有 WebHID 时标记 unsupported，不崩溃', async () => {
