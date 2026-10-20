@@ -5,6 +5,7 @@ import { hostCommand } from '../host/hostCall.ts';
 import { waitForHost, type HostReadyFace } from '../host/waitForHost.ts';
 import { translateAtom } from '../i18n/locale.ts';
 import { currentTrackAtom, playbackOrderAtom, volumeDbAtom } from './playback.ts';
+import { playingAudibleAtom } from './playingTrack.ts';
 import type { PlaybackService } from './playbackContract.ts';
 import { isOrderName } from './playbackOrder.ts';
 import { dbOf, positionOf, volumeScaleAtom } from './volumeScale.ts';
@@ -134,6 +135,7 @@ export function startTray(store: Store, deps: TrayDeps, host: TrayFace = fb): Tr
       icon: deps.icon,
       order: store.get(playbackOrderAtom),
       volume: positionOf(store.get(volumeDbAtom), store.get(volumeScaleAtom)),
+      playing: store.get(playingAudibleAtom),
     });
     const config = trayMenuConfig({
       backdrop: acrylic ? 'acrylic' : 'none',
@@ -190,6 +192,7 @@ export function startTray(store: Store, deps: TrayDeps, host: TrayFace = fb): Tr
         volumeDbAtom,
         volumeScaleAtom,
         nativeMaterialsAllowedAtom,
+        playingAudibleAtom,
       ].map((input) => store.sub(input, scheduleMenu)),
     );
     // 建图标的往返途中曲目可能已经变了（页面加载时播放服务的初读常在这时到），这期间没人订阅，

@@ -257,6 +257,8 @@ export const en = {
   'tray.noTrack': 'Not playing',
   'tray.previous': 'Previous',
   'tray.playPause': 'Play / Pause',
+  'tray.play': 'Play',
+  'tray.pause': 'Pause',
   'tray.next': 'Next',
   'tray.showMainWindow': 'Show main window',
   'tray.volume': 'Volume',
