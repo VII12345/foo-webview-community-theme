@@ -11,6 +11,7 @@ import {
   soundPressureViewAtom,
 } from '../immersive/sound/soundPressureReading.ts';
 import type { Store } from '../kit/store.ts';
+import { miniWindowAtom } from '../host/miniWindow.ts';
 import { playbackAtom } from '../playback/playback.ts';
 import { loadLoudnessStats, startLoudnessStats } from '../stats/loudnessStats.ts';
 import type { ImmersiveIntegration } from './immersiveIntegration.ts';
@@ -81,6 +82,7 @@ export function startLoudnessIntegration(
   const demand = atom(
     (get) =>
       get(immersive.active) ||
+      get(miniWindowAtom).active ||
       (get(playbackAtom).state === 'playing' && get(soundPressureAutoActiveAtom)),
   );
   const live = startLiveLoudness(store, { active: demand, host });

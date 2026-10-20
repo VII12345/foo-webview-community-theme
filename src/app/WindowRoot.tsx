@@ -1,4 +1,4 @@
-import { Activity, useEffect, useRef, type ReactNode } from 'react';
+import { Activity, lazy, Suspense, useEffect, useRef, type ReactNode } from 'react';
 import { Button, MessageBar, MessageBarActions, MessageBarBody } from '@fluentui/react-components';
 import { Dismiss20Regular } from '@fluentui/react-icons';
 import { useAtomValueRawSync } from 'jotai/react';
@@ -8,6 +8,13 @@ import { useService } from '../kit/useService.ts';
 import { useCommand } from '../nav/useCommand.ts';
 import { MiniPlayer } from '../shell/miniplayer/MiniPlayer.tsx';
 import styles from './WindowRoot.module.css';
+
+/** 声压读数的依赖链（DX52、耳机档案）不轻：迷你播放器真打开时才拉进来，启动包不带。 */
+const MiniSoundPressure = lazy(() =>
+  import('../immersive/sound/MiniSoundPressure.tsx').then((module) => ({
+    default: module.MiniSoundPressure,
+  })),
+);
 
 export function WindowRoot({ children }: { readonly children: ReactNode }) {
   const state = useAtomValueRawSync(miniWindowAtom);
@@ -41,7 +48,15 @@ export function WindowRoot({ children }: { readonly children: ReactNode }) {
           {children}
         </div>
       </Activity>
-      {state.active && <MiniPlayer />}
+      {state.active && (
+        <MiniPlayer
+          soundPressure={
+            <Suspense fallback={null}>
+              <MiniSoundPressure />
+            </Suspense>
+          }
+        />
+      )}
       {state.failure && (
         <div className={styles.failure}>
           <MessageBar intent="error">

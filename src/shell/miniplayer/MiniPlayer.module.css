@@ -257,6 +257,14 @@
   flex: 1 1 auto;
 }
 
+/* 声压读数只占文字宽；上面那条给它撑满，这里得收回来。 */
+.spl-slot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  margin-inline-start: var(--spacingHorizontalS);
+}
+
 .seek .seek-line {
   gap: var(--spacingHorizontalS);
 }

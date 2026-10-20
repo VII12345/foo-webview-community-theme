@@ -7,7 +7,7 @@ import {
   PanelTopExpand20Regular,
 } from '@fluentui/react-icons';
 import { useAtomValueRawSync, useStore } from 'jotai/react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { CoverTheme } from '../../covers/CoverTheme.tsx';
 import { MINI_PLAYER_SCALE, miniWindowAtom, miniWindowKey } from '../../host/miniWindow.ts';
 import { translateAtom } from '../../i18n/locale.ts';
@@ -52,7 +52,7 @@ function viewOf(root: HTMLElement | null): HTMLElement[] {
  * 那条当前曲目淡出，播完才缩回窗口，紧凑态的内容再淡入。紧凑与封面两种形态互换时，内容与背景先淡出，
  * 淡出播完那一刻改窗口尺寸，换好版式再淡入：窗口尺寸由宿主一步改好，不能逐帧动，跳变藏在只剩底色的那一刻。
  */
-export function MiniPlayer() {
+export function MiniPlayer({ soundPressure }: { readonly soundPressure?: ReactNode }) {
   const t = useAtomValueRawSync(translateAtom);
   const { form, menu, busy } = useAtomValueRawSync(miniWindowAtom);
   const mini = useService(miniWindowKey);
@@ -222,6 +222,7 @@ export function MiniPlayer() {
           ) : (
             <SeekBar interactive thickness={3} thumb clock className={styles['seek-line']} />
           )}
+          {soundPressure && <div className={styles['spl-slot']}>{soundPressure}</div>}
         </div>
       </div>
     </CoverTheme>
