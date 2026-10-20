@@ -1,0 +1,98 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacingVerticalM);
+}
+
+/* 预览：舞台按比例缩放，框画在舞台坐标上。 */
+.pane {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground2);
+}
+
+.stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+.item {
+  position: absolute;
+  border: 1px solid var(--colorBrandStroke1);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--colorBrandBackground1) 18%, transparent);
+  cursor: grab;
+  touch-action: none;
+}
+
+.item[data-moved] {
+  border-style: dashed;
+  border-color: var(--colorBrandForeground1);
+}
+
+.item:active {
+  cursor: grabbing;
+}
+
+.label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 100%;
+  padding: 0 4px;
+  overflow: hidden;
+  color: var(--colorBrandForeground1);
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--colorBrandForeground1);
+  background: var(--colorBrandBackground1);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingHorizontalS);
+  min-height: 28px;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.numbers {
+  color: var(--colorNeutralForeground3);
+  font-family: var(--fontFamilyMonospace);
+  font-size: var(--fontSizeBase200);
+  font-variant-numeric: tabular-nums;
+}

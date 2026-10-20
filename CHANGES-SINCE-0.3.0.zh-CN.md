@@ -353,6 +353,55 @@
 - 组件：随包 `foo_ui_webview2.dll` 更新为 6,233,088 字节，SHA-256 `80e6cbb27597fa391c04da8815d108f2915f6286b308bc62c38170dd034ee7c3`。
 - 验证：插件 gtest 1958 项；主题单元 461 个文件 / 3792 项；`settings-measurement-import.spec.ts` 新增原子写回退与权限拒绝后重试；`loudnessIntegration.test.ts` 覆盖记录器拿到宿主；真机导入后 profile 下生成 `webview-ui-headphones\measurements-v1.json`，播放后生成 `webview-ui-stats\loudness-v2.json`。
 
+## 15. 焦点框、界面提亮、隐藏回流与组件编排
+
+### 15.1 取消全局键盘焦点框
+
+- 焦点圈都画在 `colorStrokeFocus2` 这一个 token 上：Fluent 的组件画在带 `data-fui-focus-visible` 的元素的
+  `::after` 边框与标签栏的 `box-shadow` 上，本仓库自己的 `:focus-visible` 规则也一律引它。
+- 改在主题对象上（`src/theme/themes.ts` 的 `withoutFocusRing`），一处即全局生效：应用、沉浸、封面三处
+  FluentProvider 与本仓库全部焦点规则。改在 CSS 类上不行——Fluent 把主题写成一条挂在 provider 根上的 class 规则，
+  那条规则排在 Griffel 的原子类之后，同优先级时它说了算。
+- 托盘浮层（宿主另起的文档，用的是 theme 原值）与启动页各改一处。
+- 焦点本身与 Tab 顺序不受影响，只是键盘聚焦不再有可见提示。
+
+### 15.2 封面底色按提取颜色自适应，整个界面提亮
+
+- 换掉了上一轮的"文字对比度优先"（`src/immersive/paper/textBoost.ts` 整体删除）。那套是让文字去迁就被压暗的
+  背景：深封面把场景压到中间亮度后，文字被推向黑色，对比度达标了但界面照样发暗。
+- 现在改的是根：封面底色那一层（`PaperCoverWash` 的根是 `inset: 0` 且不透明）铺满整幅场景，它就是"整个界面"
+  的背景。底色原先是 `mix(纸面, 封面, 0.5)`（比例是常数），封面亮度直接决定场景亮度。
+- 改为把亮度与色度分开：亮度按纸面亮度平移、并夹在当前深浅的可读带里（浅色档近黑字、深色档近白字各有临界），
+  色度按上限保留封面的颜色——**封面只给颜色、不给亮度**。做法照主窗口背景（`backgroundPalette.ts` 把封面的
+  HCT tone 夹在带里、`flowShaders.ts` 的 `lightField()` 把亮度与色度分开）。
+- 平移量按封面提取的亮度自适应：封面亮度离纸面越远，平移越多。同一把尺子也管住反方向——深色档 + 亮封面
+  时场景不会被冲淡，近白歌词不会失去对比。
+- 静态档（`coverWarp.ts` 的 `shade()`）与流动档（`warpShader.ts` 的片元着色器）同步改，两边算法必须一致。
+- 新配置键 `default-theme.immersive.sceneLift.v1`（0–100，缺省 70）；旧键 `textBoost.v1` 语义变了、不再用，
+  按 `kit/localPref.ts` 的约定换新键，旧键留给回滚的旧版本读。设置文案改为"界面提亮"。
+
+### 15.3 组件隐藏后按组件高度回流
+
+- 根因：full 档右栏用固定高度的"带"（`paperComponentLayout.ts`），只有整带全隐藏才收带，**带内单个叶子被隐藏
+  时那段高度原样留着**——藏掉标题，那 76 px 的字位还在，就是空白。
+- 改为每格一个盒子（`stageRightBoxes`）：右栏按行分组，行内可见格子横向流动（藏一格后面的左移），行高取可见
+  格子的最大高，整行全藏则收成 0、后面的行跟着上移。四行字拆成 From / 标题 / By 三行，各自落位。
+- 全部可见时与现有图纸坐标逐位相同（`header` 82、`meter` 296、`spectrum` 457、`waveform` 705、`media` 828、
+  `lyrics` 964）；行间距烘在行顶里，拆行时按"间距 + 内容高"分配，三行之和仍等于 214。
+
+### 15.4 沉浸组件编排器
+
+- 新配置键 `default-theme.immersive.layout.v1`：组键 `${view}/${tier}` → 模块 id → 覆盖（x/y/宽/高/次序）。
+  只存挪过的那几项，没动过的沿用默认盒子；卡片两档不分档位，一律记在 `full` 组下。
+- 设置页新增"沉浸编排"一组：按视图与布局逐个组件调整，拖框挪位置、拖右下角改大小（8 px 吸附，Esc 取消），
+  下方清单列出每个组件的 x/y/宽/高，可单个或整组恢复默认。改动即时生效。
+- 覆盖落在组件外层的一套 `translate() scale()` 上（`src/immersive/layout/Placed.tsx`）：组件内部照旧按舞台坐标
+  排，缩放的原点取默认盒子的左上角，缩放就在原地发生。
+- 粒度到每个叶子组件：右栏的四行字、仪表四格、频谱、波形、量表、文件信息、歌词；卡片两档的封面、曲名、艺人、
+  星级、更多、进度条、传输键、三格；罗盘那几件（三环、轨道、刻度、专辑名、封面、括号、三格、传输键）。
+- 目前的编排器只覆盖 full 档（1920 × 1080 的整幅舞台）与卡片两档：其余各档是版心坐标、由版心的流式排法决定，
+  组件之间没有独立的位置可改，暂不支持逐件摆放。存档结构按 `${view}/${tier}` 分组，其余各档的组留空即可。
+
 ## 附录 A：提交对照
 
 | 提交 | 内容 |
@@ -381,7 +430,9 @@
 
 ## 附录 B：新增配置键与文件
 
-- `default-theme.immersive.textBoost.v1`：0–100，缺省 50；现在表示对比度修正强度，不再固定向白色混合。
+- `default-theme.immersive.sceneLift.v1`：0–100，缺省 70；封面底色往纸面亮度拉回多少，界面整体跟着提亮。
+- `default-theme.immersive.textBoost.v1`：旧键，语义变了（文字对比度修正已删除），不再读也不再写。
+- `default-theme.immersive.layout.v1`：沉浸组件的摆放覆盖，组键 `${view}/${tier}`。
 - `default-theme.immersive.components.v1`：沿用原键；新增叶子 ID 见第 4 节，旧父 ID 继续生效。
 - `<profile>\webview-ui-stats\loudness-v2.json`：耳机 A/K/Z 能量累计文件；旧 `loudness-v1.json` 作为 legacy 读取。
 - `<profile>\webview-ui-headphones\measurements-v1.json`：用户从 huihifi 链接导入的自定义测量档案；不随主题分发。
