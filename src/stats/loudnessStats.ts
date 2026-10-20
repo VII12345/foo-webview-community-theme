@@ -10,6 +10,10 @@ import {
   type StatsScope,
 } from './statsRange.ts';
 import type { SplWeighting } from '../playback/splWeighting.ts';
+import {
+  ACOUSTIC_PLUGIN_DIRECTORY,
+  ACOUSTIC_PLUGIN_STATE_FILE,
+} from '../playback/acousticPlugin.ts';
 
 /**
  * 耳机平均音量的本地统计：只记 DX52 自动读数生效、正在播放且未静音的时间，按天 × 当前耳机
@@ -267,7 +271,7 @@ export function summarizeLoudnessScopes(
 
 export interface LoudnessStatsHost {
   readonly misc: Pick<typeof fb.misc, 'getProfilePath'>;
-  readonly file: Pick<typeof fb.file, 'read' | 'write'>;
+  readonly file: Pick<typeof fb.file, 'read' | 'write' | 'exists'>;
 }
 
 export function loudnessStatsPath(
@@ -409,6 +413,7 @@ export function startLoudnessStats(
   const documentRef = deps.document === undefined ? document : deps.document;
   let file = emptyLoudnessFile();
   let filePath: string | null = null;
+  let profilePath: string | null = null;
   let canWrite = true;
   let dirty = false;
   let disposed = false;
@@ -442,6 +447,12 @@ export function startLoudnessStats(
     const path = filePath;
     const text = JSON.stringify(file);
     saving = saving.then(async () => {
+      // 插件（`foo_acoustic_stats`）在 foobar 进程里写这份统计：网页挂起、最小化、收进托盘时
+      // 它照旧在跑，统计的真相只有一份。插件的存档在，就不抢着写同一个文件。
+      if (await pluginOwnsStats()) {
+        patchStorage({ lastWriteAtMs: now(), lastFailure: null });
+        return;
+      }
       const result = await writeLoudnessStats(host, path, text);
       if (result.ok) {
         patchStorage({ lastWriteAtMs: now(), lastFailure: null });
@@ -453,6 +464,14 @@ export function startLoudnessStats(
       }
     });
     return saving;
+  }
+
+  /** 插件的存档在不在：它在就说明插件在写这份统计。 */
+  async function pluginOwnsStats(): Promise<boolean> {
+    if (!profilePath) return false;
+    const path = `${profilePath.replace(/[\\/]+$/, '')}\\${ACOUSTIC_PLUGIN_DIRECTORY}\\${ACOUSTIC_PLUGIN_STATE_FILE}`;
+    const answer = await settle(() => host.file.exists(path));
+    return !!answer && answer.success === true && answer.exists === true;
   }
 
   function tick(): void {
@@ -519,7 +538,10 @@ export function startLoudnessStats(
       patchStorage({ canWrite: false });
     }
     const profile = await profilePathOf(host);
-    if (!disposed && profile) filePath = loudnessStatsPath(profile);
+    if (!disposed && profile) {
+      profilePath = profile;
+      filePath = loudnessStatsPath(profile);
+    }
     if (disposed) return;
     lastTick = now();
     timer = setInterval(tick, intervalMs);
