@@ -208,3 +208,24 @@ test('清单里点名字也能选中那个组件', async ({ page }) => {
   await page.keyboard.press('ArrowDown');
   await expect.poll(async () => (await placement(page, 'right.spectrum'))?.dy ?? -1).toBe(1);
 });
+
+test('挪完去看实际效果，回来时视图与选中项还在', async ({ page }) => {
+  const settings = await openSettings(page);
+  await settings.choose('当前视图', '卡片视图');
+
+  const item = page.locator('[data-layout-item="card.cover"]');
+  await expect(item).toBeVisible();
+  await item.scrollIntoViewIfNeeded();
+  const box = (await item.boundingBox())!;
+  await page.mouse.click(box.x + 10, box.y + 10);
+  await expect(item).toHaveAttribute('data-selected', 'on');
+
+  // 刷新等于离开设置页再回来：视图、布局与选中项都该照旧。
+  await page.reload();
+  await enterSettings(page);
+  await expect(page.locator('[data-layout-item="card.cover"]')).toBeVisible();
+  await expect(page.locator('[data-layout-item="card.cover"]')).toHaveAttribute(
+    'data-selected',
+    'on',
+  );
+});

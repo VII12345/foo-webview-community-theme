@@ -145,6 +145,8 @@ export const settingsEn = {
   'settings.immersiveLayoutSelectedNone':
     'No component selected: click a box in the preview, or a name in the list below.',
   'settings.immersiveLayoutSelectOne': 'Select this component',
+  'settings.immersiveLayoutRemember':
+    'The view, layout and selected component are remembered: come back after checking the result and carry on.',
   'settings.immersiveComponentsBackground': 'Background',
   'settings.immersiveComponentsDial': 'Dial',
   'settings.immersiveComponentsCard': 'Card',

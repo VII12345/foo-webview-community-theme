@@ -39,6 +39,8 @@ import {
   resetImmersivePlacementGroup,
   type ImmersivePlacement,
 } from '../immersive/layout/immersivePlacement.ts';
+import { IMMERSIVE_EDITOR_ZOOMS, type ImmersiveEditorZoom } from '../immersive/layout/immersiveEditorState.ts';
+import { useImmersiveEditorState } from '../immersive/layout/useImmersiveEditorState.ts';
 import { SettingsRow } from '../settings/SettingsRow.tsx';
 import { SettingsSelect } from '../settings/SettingsSelect.tsx';
 import styles from './ImmersiveLayoutEditor.module.css';
@@ -57,10 +59,7 @@ const ARROWS: Readonly<Record<string, { readonly dx: number; readonly dy: number
   ArrowDown: { dx: 0, dy: 1 },
 };
 
-/** 预览的缩放档：适应窗口，或按倍数放大后滚动查看。 */
-const ZOOM_CHOICES = ['fit', '1', '2'] as const;
-type ZoomChoice = (typeof ZOOM_CHOICES)[number];
-const ZOOM_LABELS: Readonly<Record<ZoomChoice, MessageKey>> = {
+const ZOOM_LABELS: Readonly<Record<ImmersiveEditorZoom, MessageKey>> = {
   fit: 'settings.immersiveLayoutZoomFit',
   '1': 'settings.immersiveLayoutZoom100',
   '2': 'settings.immersiveLayoutZoom200',
@@ -123,6 +122,9 @@ function usesArrowKeys(target: EventTarget | null): boolean {
  * 得自己补），选中的框画实心描边、清单里对应那行也标出来。键盘挂在整块编排器上，焦点在预览里、
  * 在清单里都一样能微调。
  *
+ * 视图、布局档、缩放与选中的组件都记在本机（`immersive/layout/immersiveEditorState.ts`）：
+ * 挪完去看沉浸视图的实际效果，回来时接着弄，不用重选一遍。
+ *
  * 改动只写"挪过"的那几项（`immersive/layout/immersivePlacement.ts`），没动过的组件沿用默认盒子，
  * 组件内部照旧按舞台坐标排 —— 覆盖落在组件外层的一套 `translate() scale()` 上。
  */
@@ -130,10 +132,17 @@ export function ImmersiveLayoutEditor() {
   const store = useStore();
   const t = useAtomValueRawSync(translateAtom);
   const root = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<ImmersiveScene>('paper');
-  const [focused, setFocused] = useState<ImmersivePanelId | null>(null);
-  const [zoom, setZoom] = useState<ZoomChoice>('fit');
-  const [layout, setLayout] = useState<PaperTier>('full');
+  // 上次在弄哪个：视图、布局档、预览缩放与选中的组件。回来时接着弄。
+  const {
+    view,
+    setView,
+    layout,
+    setLayout,
+    zoom,
+    setZoom,
+    selected: focused,
+    setSelected: setFocused,
+  } = useImmersiveEditorState();
   const [drag, setDrag] = useState<Drag | null>(null);
   const placements = useAtomValueRawSync(immersivePlacementsAtom);
   const components = useAtomValueRawSync(immersiveComponentsAtom);
@@ -179,7 +188,7 @@ export function ImmersiveLayoutEditor() {
       setFocused(id);
       elementOf(id)?.focus({ preventScroll: true });
     },
-    [elementOf],
+    [elementOf, setFocused],
   );
 
   /**
@@ -361,7 +370,7 @@ export function ImmersiveLayoutEditor() {
   // 换到那一档没有这个组件的视图时，选中项作废（清单里也不再标它）。
   useEffect(() => {
     if (focused && !boxes.has(focused)) setFocused(null);
-  }, [boxes, focused]);
+  }, [boxes, focused, setFocused]);
 
   /**
    * 点目录跳到「沉浸编排」这一组时，焦点落在组标题上（`useSettingsNav` 的做法）。
@@ -442,12 +451,12 @@ export function ImmersiveLayoutEditor() {
           <SettingsSelect
             {...ids2}
             value={zoom}
-            options={ZOOM_CHOICES.map((value) => ({
+            options={IMMERSIVE_EDITOR_ZOOMS.map((value) => ({
               value,
               label: t(ZOOM_LABELS[value]),
             }))}
             onChange={(value) => {
-              const next = ZOOM_CHOICES.find((item) => item === value);
+              const next = IMMERSIVE_EDITOR_ZOOMS.find((item) => item === value);
               if (next) setZoom(next);
             }}
           />
@@ -505,6 +514,8 @@ export function ImmersiveLayoutEditor() {
         {t('settings.immersiveLayoutHintMouse')}
         <br />
         {t('settings.immersiveLayoutHintKeys')}
+        <br />
+        {t('settings.immersiveLayoutRemember')}
       </p>
       <p className={styles.status} data-layout-status>
         {focused

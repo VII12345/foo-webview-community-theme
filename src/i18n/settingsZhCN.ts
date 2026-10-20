@@ -142,6 +142,8 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
   'settings.immersiveLayoutSelected': '当前选中：{name}',
   'settings.immersiveLayoutSelectedNone': '当前没有选中组件：点预览里的框，或点下面清单里的名字。',
   'settings.immersiveLayoutSelectOne': '选中这个组件',
+  'settings.immersiveLayoutRemember':
+    '上次在弄的视图、布局与选中的组件会记住：去看完实际效果回来，接着弄。',
   'settings.immersiveComponentsBackground': '背景',
   'settings.immersiveComponentsDial': '罗盘',
   'settings.immersiveComponentsCard': '卡片',
