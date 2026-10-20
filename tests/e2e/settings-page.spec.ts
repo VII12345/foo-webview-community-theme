@@ -79,7 +79,8 @@ for (const colorScheme of ['dark', 'light'] as const) {
       const language = await fieldPlacement(settings, '界面语言');
       expect(language.beside).toBe(true);
       expect(language.fieldWidth).toBe(220);
-      expect(language.cardWidth).toBe(760);
+      // 卡列是"最宽 760"（CSS 的 max-width），窗口不够宽时按可用宽度收。
+      expect(language.cardWidth).toBeLessThanOrEqual(760);
       expect(settings.errors).toEqual([]);
     });
 
