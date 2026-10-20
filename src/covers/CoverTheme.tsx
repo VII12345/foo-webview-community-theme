@@ -12,6 +12,7 @@ import { rampFrom } from '../theme/brandRamp.ts';
 import { colorSchemeAtom } from '../theme/colorScheme.ts';
 import type { CoverProfile } from '../theme/coverPalette.ts';
 import { ROLE_VALUES, roleProperties } from '../theme/roles.ts';
+import { withoutFocusRing } from '../theme/themes.ts';
 import { useCoverProfile } from './useCoverProfile.ts';
 
 export const CoverVisualContext = createContext<{ url: string; profile: CoverProfile | null }>({
@@ -50,7 +51,7 @@ export function CoverTheme({
     [profile, globalRamp],
   );
   const theme = useMemo(
-    () => (scheme === 'dark' ? createDarkTheme(ramp) : createLightTheme(ramp)),
+    () => withoutFocusRing(scheme === 'dark' ? createDarkTheme(ramp) : createLightTheme(ramp)),
     [ramp, scheme],
   );
   const visual = useMemo(() => ({ url, profile }), [url, profile]);

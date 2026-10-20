@@ -111,10 +111,12 @@ ${playPause}:active { background: ${theme.colorBrandBackgroundPressed}; }
   box-shadow: ${theme.shadow2};
 }
 .fb-slider-control { position: absolute; inset: 0; }
-/* 键盘进入编辑时焦点落在盖住轨道的透明控件上；焦点环改画在滑块上，指针拖动不出环。 */
+/* 键盘进入编辑时焦点落在盖住轨道的透明控件上；焦点环改画在滑块上，指针拖动不出环。
+   焦点框全局取消（见 ThemeRoot）：这里是宿主另起的文档、没有主题根的 CSS 变量可引，
+   焦点环那一圈直接用透明。 */
 .fb-slider-control:focus-visible { outline: none; }
 .fb-slider-track:has(> .fb-slider-control:focus-visible) .fb-slider-thumb {
-  box-shadow: 0 0 0 2px ${theme.colorNeutralBackground1}, 0 0 0 4px ${theme.colorStrokeFocus2};
+  box-shadow: 0 0 0 2px ${theme.colorNeutralBackground1};
 }
 .fb-slider-val { flex: 0 0 auto; min-width: 2em; text-align: right; color: ${theme.colorNeutralForeground3}; font-variant-numeric: tabular-nums; }
 .fb-submenu .fb-item.checked::after { content: '\\2713'; margin-left: auto; color: ${theme.colorBrandForeground1}; }

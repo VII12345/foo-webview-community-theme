@@ -13,6 +13,7 @@ import { MOTION_VARIABLES, REDUCED_MOTION_VARIABLES } from '../../motion/timing.
 import { colorSchemeAtom } from '../../theme/colorScheme.ts';
 import { ROLE_VALUES, roleProperties } from '../../theme/roles.ts';
 import { coverRampAtom as accentRampAtom } from '../../theme/accentState.ts';
+import { withoutFocusRing } from '../../theme/themes.ts';
 
 // 这一层的 className 也会被抄到它里面弹出的提示、菜单的挂载节点上，所以只放浮层里也该生效的：
 // 字体、透明底、深浅、语义变量与动效变量，不放版式。语义变量要在这一层重新声明：外层声明的
@@ -39,7 +40,7 @@ export function ImmersiveTheme({ children }: { readonly children: ReactNode }) {
   const reduced = useAtomValueRawSync(reducedMotionAtom);
   const styles = useStyles();
   const theme = useMemo(
-    () => (scheme === 'dark' ? createDarkTheme(ramp) : createLightTheme(ramp)),
+    () => withoutFocusRing(scheme === 'dark' ? createDarkTheme(ramp) : createLightTheme(ramp)),
     [ramp, scheme],
   );
   const className = mergeClasses(

@@ -19,6 +19,7 @@ import { backgroundAppearanceAtom, tintedSurface } from './background/background
 import { WindowBackground } from './background/WindowBackground.tsx';
 import { capsuleBlurAtom } from './playerBarStyle.ts';
 import { themeBackgroundTintAtom } from './background/themeBackground.ts';
+import { withoutFocusRing } from './themes.ts';
 
 // 改 Fluent 组件自身的样式要用 makeStyles：它和组件内部的原子类合并时后者让位，
 // CSS Modules 的类与之同优先级，谁生效取决于样式表的插入顺序。
@@ -118,7 +119,9 @@ export function ThemeRoot({ children }: ThemeRootProps) {
   const locale = useAtomValueRawSync(localeAtom).active;
   const styles = useStyles();
   const theme = useMemo(() => {
-    const next = scheme === 'dark' ? createDarkTheme(ramp) : createLightTheme(ramp);
+    const next = withoutFocusRing(
+      scheme === 'dark' ? createDarkTheme(ramp) : createLightTheme(ramp),
+    );
     if (drawn || themed) {
       const neutral =
         scheme === 'dark' ? next.colorNeutralBackground4 : next.colorNeutralBackground2;
