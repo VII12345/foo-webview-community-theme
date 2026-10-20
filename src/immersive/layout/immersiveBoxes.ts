@@ -7,6 +7,7 @@ import {
 import type { ImmersiveScene } from '../page/immersivePrefs.ts';
 import {
   cardTops,
+  sheetBoxes,
   stageRightBoxes,
   type StageBox,
 } from '../paper/paperComponentLayout.ts';
@@ -85,20 +86,25 @@ export function defaultBoxes(
   for (const [id, box] of stageRightBoxes(scene, tier, hidden)) {
     boxes.set(id, box);
   }
-  if (scene === 'card' || scene === 'cardLyrics') {
-    const tops = cardTops(scene, hidden);
-    for (const [id, box] of Object.entries(CARD_BOXES)) {
-      if (id === 'card.cover' && tops.cover === null) continue;
-      if (id === 'card.seek' && tops.seek === null) continue;
-      if (id === 'card.transport' && tops.transport === null) continue;
-      if (id === 'card.cells' && tops.cells === null) continue;
-      boxes.set(id as ImmersivePanelId, box);
+  if (tier === 'full') {
+    if (scene === 'card' || scene === 'cardLyrics') {
+      const tops = cardTops(scene, hidden);
+      for (const [id, box] of Object.entries(CARD_BOXES)) {
+        if (id === 'card.cover' && tops.cover === null) continue;
+        if (id === 'card.seek' && tops.seek === null) continue;
+        if (id === 'card.transport' && tops.transport === null) continue;
+        if (id === 'card.cells' && tops.cells === null) continue;
+        boxes.set(id as ImmersivePanelId, box);
+      }
+    } else {
+      const shift = dialOffsetX(scene);
+      for (const [id, box] of Object.entries(DIAL_BOXES)) {
+        boxes.set(id as ImmersivePanelId, shift ? { ...box, x: box.x + shift } : box);
+      }
     }
   } else {
-    const shift = dialOffsetX(scene);
-    for (const [id, box] of Object.entries(DIAL_BOXES)) {
-      boxes.set(id as ImmersivePanelId, shift ? { ...box, x: box.x + shift } : box);
-    }
+    // 版心各档：右栏与罗盘那几件按版心坐标排。
+    for (const [id, box] of sheetBoxes(tier, hidden)) boxes.set(id, box);
   }
   return boxes;
 }
@@ -145,6 +151,26 @@ export function placementTransform(
   return {
     transform: `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY})`,
     transformOrigin: `${box.x}px ${box.y}px`,
+  };
+}
+
+/**
+ * 覆盖落在**元素自己**上的变换：平移与缩放，原点取元素自己的左上角（也就是默认盒子的角）。
+ * 版心右栏的块已经按盒子绝对定位了，变换直接加在块上，不必再套一层定位层。
+ */
+export function placementStyle(
+  box: StageBox | undefined,
+  override: ImmersivePlacement | undefined,
+): CSSProperties | undefined {
+  if (!box || !override) return undefined;
+  const dx = override.dx ?? 0;
+  const dy = override.dy ?? 0;
+  const sw = override.sw ?? 1;
+  const sh = override.sh ?? 1;
+  if (dx === 0 && dy === 0 && sw === 1 && sh === 1) return undefined;
+  return {
+    transform: `translate(${dx}px, ${dy}px) scale(${sw}, ${sh})`,
+    transformOrigin: '0 0',
   };
 }
 

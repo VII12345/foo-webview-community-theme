@@ -18,12 +18,13 @@ import { useCommand } from '../nav/useCommand.ts';
 import { useElementWidth } from '../kit/useElementWidth.ts';
 import {
   hiddenModulesFor,
+  IMMERSIVE_LAYOUTS,
   IMMERSIVE_PANEL_LABELS,
   immersiveComponentsAtom,
   type ImmersivePanelId,
 } from '../immersive/page/immersiveComponents.ts';
 import { IMMERSIVE_SCENES, type ImmersiveScene } from '../immersive/page/immersivePrefs.ts';
-import type { PaperTier } from '../immersive/paper/paperTiers.ts';
+import { sheetGeometry, type PaperTier } from '../immersive/paper/paperTiers.ts';
 import type { StageBox } from '../immersive/paper/paperComponentLayout.ts';
 import {
   defaultBoxes,
@@ -44,6 +45,7 @@ import styles from './ImmersiveLayoutEditor.module.css';
 
 const STAGE_WIDTH = 1920;
 const STAGE_HEIGHT = 1080;
+const STAGE_SIZE = { width: STAGE_WIDTH, height: STAGE_HEIGHT };
 /** 拖动吸附的步长（舞台像素）；键盘按住 Shift 也用它。 */
 const SNAP = 8;
 
@@ -118,18 +120,22 @@ export function ImmersiveLayoutEditor() {
   const [drag, setDrag] = useState<Drag | null>(null);
   const [focused, setFocused] = useState<ImmersivePanelId | null>(null);
   const [zoom, setZoom] = useState<ZoomChoice>('fit');
-  // 目前只有 full 档（1920 × 1080 的整幅舞台）有逐件的盒子：其余各档是版心坐标、由版心的流式排法决定，
-  // 组件之间没有独立的位置可改。编排器先把 full 档这一套做通。
-  const layout: PaperTier = 'full';
-  const effectiveLayout: PaperTier = 'full';
+  const [layout, setLayout] = useState<PaperTier>('full');
+  // 卡片两档本来就按 full 舞台排，编排器里也只有它一个布局可选。
+  const card = view === 'card' || view === 'cardLyrics';
+  const effectiveLayout: PaperTier = card ? 'full' : layout;
+  const layouts = card ? (['full'] as const) : IMMERSIVE_LAYOUTS;
   const placements = useAtomValueRawSync(immersivePlacementsAtom);
   const components = useAtomValueRawSync(immersiveComponentsAtom);
-  const hidden = hiddenModulesFor(components, view, layout);
-  const boxes = defaultBoxes(view, layout, hidden);
-  const overrides = placementsFor(placements, view, layout);
+  const hidden = hiddenModulesFor(components, view, effectiveLayout);
+  const boxes = defaultBoxes(view, effectiveLayout, hidden);
+  const overrides = placementsFor(placements, view, effectiveLayout);
   const [pane, setPane] = useState<number | null>(null);
   const observe = useElementWidth<HTMLDivElement>(setPane);
-  const fit = pane && pane > 0 ? pane / STAGE_WIDTH : 0.4;
+  // 预览画的是这一档的版心：full 档是 1920 × 1080 的舞台，其余各档是版心（竖版三档是竖构图）。
+  const preview =
+    effectiveLayout === 'full' ? STAGE_SIZE : sheetGeometry(effectiveLayout).sheet;
+  const fit = pane && pane > 0 ? pane / preview.width : 0.4;
   const scale = zoom === 'fit' ? fit : Number(zoom);
 
   // 拖动途中只改本地的状态，松开才写存档；Esc 取消回到按下时的位置。
@@ -329,9 +335,15 @@ export function ImmersiveLayoutEditor() {
         {(ids2) => (
           <SettingsSelect
             {...ids2}
-            value={'full'}
-            options={[{ value: 'full', label: t(LAYOUT_LABELS.full) }]}
-            onChange={() => undefined}
+            value={effectiveLayout}
+            options={layouts.map((value) => ({
+              value,
+              label: t(LAYOUT_LABELS[value]),
+            }))}
+            onChange={(value) => {
+              const next = IMMERSIVE_LAYOUTS.find((item) => item === value);
+              if (next) setLayout(next);
+            }}
           />
         )}
       </SettingsRow>
@@ -360,14 +372,14 @@ export function ImmersiveLayoutEditor() {
       >
         <div
           className={styles.canvas}
-          style={{ width: STAGE_WIDTH * scale, height: STAGE_HEIGHT * scale }}
+          style={{ width: preview.width * scale, height: preview.height * scale }}
         >
           <div
             className={styles.stage}
             data-layout-stage
             style={{
-              width: STAGE_WIDTH,
-              height: STAGE_HEIGHT,
+              width: preview.width,
+              height: preview.height,
               transform: `scale(${scale})`,
             }}
           >

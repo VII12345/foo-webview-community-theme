@@ -1,4 +1,5 @@
 import type { PaperTier } from './paperTiers.ts';
+import { sheetGeometry } from './paperTiers.ts';
 import type { ImmersiveScene } from '../page/immersivePrefs.ts';
 import {
   groupVisible,
@@ -7,6 +8,12 @@ import {
   type ImmersivePanelId,
 } from '../page/immersiveComponents.ts';
 import { STAGE_TITLE } from './paperStage.ts';
+import {
+  BRACKET_OUTSET,
+  dialLayout,
+  narrowLayout,
+  TRANSPORT,
+} from '../dial/PaperDial.tsx';
 
 /** 舞台坐标的盒子：左上角与宽高。 */
 export interface StageBox {
@@ -239,6 +246,160 @@ export function stageRightTops(
     fileInfo: null,
     lyrics: boxes.get('right.lyrics')?.y ?? 0,
   };
+}
+
+/** 版心右栏各块的高（版心坐标）。跟 `PaperFields.module.css` 一一对应：那边改了这边要跟着改。 */
+const SHEET_HEADER = {
+  /** From 行：14 高 + 10 外边距（`spacingVerticalMNudge`）。 */
+  from: 24,
+  /** 标题：58。 */
+  title: 58,
+  /** By / Quality 行：52 + 8 外边距（`spacingVerticalS`）。 */
+  by: 60,
+  /** 分隔线：1。 */
+  rule: 1,
+} as const;
+
+/**
+ * 版心右栏的竖排：每一块的高度，歌词那一块吃掉剩下的。
+ * 一块里的模块共用一个盒子（元数据行里的年份与厂牌是同一格里并排的两项），编排器按块挪。
+ */
+const SHEET_STACK = {
+  full: [
+    { id: 'right.meta', leaves: ['right.meta.stereo', 'right.meta.soundPressure', 'right.meta.year', 'right.meta.label', 'right.meta.duration', 'right.meta.elapsed'], height: 143 },
+    { id: 'right.spectrum', leaves: ['right.spectrum'], height: 172 },
+    { id: 'right.waveform', leaves: ['right.waveform'], height: 110 },
+    { id: 'right.gauges', leaves: ['right.gauges.dynamicRange', 'right.gauges.loudness', 'right.fileInfo.sampleRate', 'right.fileInfo.bitDepth', 'right.fileInfo.channels', 'right.fileInfo.bitrate', 'right.fileInfo.fileSize', 'right.fileInfo.format'], height: 80 },
+    { id: 'right.footnote', leaves: ['right.footnote'], height: 8 },
+  ],
+  compact: [
+    { id: 'right.meta', leaves: ['right.meta.soundPressure', 'right.meta.year', 'right.meta.label', 'right.meta.duration', 'right.meta.elapsed'], height: 113 },
+    { id: 'right.spectrum', leaves: ['right.spectrum'], height: 132 },
+    { id: 'right.waveform', leaves: ['right.waveform'], height: 110 },
+    { id: 'right.gauges', leaves: ['right.gauges.dynamicRange', 'right.gauges.loudness', 'right.fileInfo.sampleRate', 'right.fileInfo.bitDepth', 'right.fileInfo.channels', 'right.fileInfo.bitrate', 'right.fileInfo.fileSize', 'right.fileInfo.format'], height: 80 },
+    { id: 'right.footnote', leaves: ['right.footnote'], height: 8 },
+  ],
+  narrow: [
+    { id: 'right.spectrum', leaves: ['right.spectrum'], height: 132 },
+    { id: 'right.waveform', leaves: ['right.waveform'], height: 110 },
+  ],
+} as const;
+
+/**
+ * 版心（收缩档与竖版各档）右栏每一块的盒子，版心坐标。
+ *
+ * 右栏原来是 flex 竖排：块的高写死在 CSS 里，块之间按内容流下来。这里把同一套高度搬成数字，
+ * 按"可见的块依次排下去"算出每块的位置——藏掉一块，后面的跟着上移，不留空白。
+ * 数字跟 `PaperFields.module.css` 一一对应，改那边要改这边。
+ */
+export function sheetBoxes(
+  tier: PaperTier,
+  hidden: ReadonlySet<string>,
+): ReadonlyMap<ImmersivePanelId, StageBox> {
+  const boxes = new Map<ImmersivePanelId, StageBox>();
+  const geometry = sheetGeometry(tier);
+  const { fields, sheet } = geometry;
+  const columnX = fields.x;
+  const columnWidth = fields.width;
+  let y = fields.y;
+
+  const showFrom = !moduleHidden(hidden, 'right.header.from');
+  const showTitle = !moduleHidden(hidden, 'right.header.title');
+  const showBy = !moduleHidden(hidden, 'right.header.by');
+  if (showFrom) {
+    boxes.set('right.header.from', { x: columnX, y, w: columnWidth, h: 14 });
+    y += SHEET_HEADER.from;
+  }
+  if (showTitle) {
+    boxes.set('right.header.title', { x: columnX, y, w: columnWidth, h: 58 });
+    y += SHEET_HEADER.title;
+  }
+  if (showBy) {
+    boxes.set('right.header.by', { x: columnX, y, w: columnWidth, h: 52 });
+    y += SHEET_HEADER.by;
+  }
+  y += SHEET_HEADER.rule;
+
+  for (const block of SHEET_STACK[fields.mode]) {
+    if (!block.leaves.some((id) => !moduleHidden(hidden, id))) continue;
+    if (block.id === 'right.gauges') {
+      // 量表与文件信息同一行里并排：两块各占自己的盒子。
+      boxes.set('right.gauges', { x: columnX, y, w: 312, h: block.height });
+      boxes.set('right.fileInfo', { x: columnX + 312, y, w: columnWidth - 312, h: block.height });
+    } else {
+      const width = block.id === 'right.meta' ? columnWidth : columnWidth;
+      boxes.set(block.id, { x: columnX, y, w: width, h: block.height });
+    }
+    y += block.height;
+  }
+
+  // 歌词那一块吃掉剩下的高度。
+  if (!moduleHidden(hidden, 'right.lyrics')) {
+    const height = Math.max(0, sheet.height - y);
+    boxes.set('right.lyrics', { x: columnX, y, w: columnWidth, h: height });
+  }
+  for (const [id, box] of sheetDialBoxes(geometry)) boxes.set(id, box);
+  return boxes;
+}
+
+/**
+ * 版心左栏罗盘那几件的盒子。位置照 `PaperDial.tsx` 的排法（同一份函数，别各算各的）。
+ * 环、轨道与刻度是画出来的，按它们的外框给盒子。
+ */
+function sheetDialBoxes(geometry: ReturnType<typeof sheetGeometry>): Map<ImmersivePanelId, StageBox> {
+  const boxes = new Map<ImmersivePanelId, StageBox>();
+  const { dial, fields } = geometry;
+  const layout = dial ? dialLayout(dial) : narrowLayout(fields);
+  const { cover, album, trackNo, transport, rings, ticks } = layout;
+  boxes.set('dial.cover', { x: cover.left, y: cover.top, w: cover.size, h: cover.size });
+  boxes.set('dial.brackets', {
+    x: cover.left - BRACKET_OUTSET,
+    y: cover.top - BRACKET_OUTSET,
+    w: cover.size + 2 * BRACKET_OUTSET,
+    h: cover.size + 2 * BRACKET_OUTSET,
+  });
+  boxes.set('dial.albumText', {
+    x: Number(album.left ?? 0),
+    y: Number(album.top ?? 0),
+    w: Number(album.width ?? 0),
+    h: 24,
+  });
+  boxes.set('dial.trackNo', {
+    x: Number(trackNo.left ?? 0),
+    y: Number(trackNo.top ?? 0),
+    w: Number(trackNo.width ?? 0),
+    h: 24,
+  });
+  boxes.set('dial.transport', {
+    x: Number(transport.left ?? 0),
+    y: Number(transport.top ?? 0),
+    w: TRANSPORT.width * layout.scale,
+    h: TRANSPORT.height * layout.scale,
+  });
+  const outer = rings[rings.length - 1];
+  if (outer) {
+    const center = Number(outer.style.left ?? 0);
+    const centerY = Number(outer.style.top ?? 0);
+    const size = Number(outer.style.width ?? 0);
+    boxes.set('dial.rings', { x: center, y: centerY, w: size, h: size });
+    const extent = (outer.radius ?? 0) * layout.scale;
+    boxes.set('dial.orbit', {
+      x: center - extent,
+      y: centerY - extent,
+      w: extent * 2,
+      h: extent * 2,
+    });
+  }
+  if (ticks.length > 0) {
+    const xs = ticks.map((tick) => Number(tick.style.left ?? 0));
+    const ys = ticks.map((tick) => Number(tick.style.top ?? 0));
+    const left = Math.min(...xs);
+    const right = Math.max(...xs);
+    const top = Math.min(...ys);
+    const bottom = Math.max(...ys);
+    boxes.set('dial.ticks', { x: left, y: top, w: right - left + 20, h: bottom - top + 20 });
+  }
+  return boxes;
 }
 
 /** 卡片左区的纵向流。只返回可见模块的 top；隐藏的模块给 null。 */

@@ -1,18 +1,23 @@
 import { useAtomValueRawSync } from 'jotai/react';
 import { useMemo, type CSSProperties } from 'react';
 import { currentTrackAtom } from '../../playback/playback.ts';
-import { moduleHidden } from '../page/immersiveComponents.ts';
+import { moduleHidden, type ImmersivePanelId } from '../page/immersiveComponents.ts';
 import { COVER_SIZE, DIAL_CENTER } from '../paper/paperLayout.ts';
 import { formatTrackNo } from '../paper/paperScale.ts';
 import { COMPACT_SCALE, type DialPlacement } from '../paper/paperTiers.ts';
+import type { StageBox } from '../paper/paperComponentLayout.ts';
+import { Placed, type Placements } from '../layout/Placed.tsx';
 import { DialCover } from './DialCover.tsx';
 import { PaperBrackets } from './PaperBrackets.tsx';
 import styles from './PaperDial.module.css';
 import { PaperOrbit } from './PaperOrbit.tsx';
 import { PaperTransport } from './PaperTransport.tsx';
 
+/** 没有布局盒子时（降级路径）用空表。 */
+const NO_BOXES: ReadonlyMap<ImmersivePanelId, StageBox> = new Map();
+
 /** 原尺寸下的环半径；圆心与封面边长同 `paperLayout.ts` 的 `DIAL_CENTER`、`COVER_SIZE`。 */
-const RINGS: readonly number[] = [196, 236, 276];
+export const RINGS: readonly number[] = [196, 236, 276];
 /** 原尺寸下刻度字的中心（版心坐标），逐个手排，不是等距的。 */
 const TICKS = [
   { text: 'W', x: 270, y: 124 },
@@ -26,7 +31,7 @@ const ALBUM_TOP = -206;
 const TRACK_NO_TOP = 195;
 const TEXT_HALF_WIDTH = 210;
 /** 传输键一组在原尺寸下的外框。 */
-const TRANSPORT = { width: 240, height: 80 } as const;
+export const TRANSPORT = { width: 240, height: 80 } as const;
 /** narrow 档那一行：封面边长与顶边、封面与右侧文字列的间距、右侧三行各自的顶边。 */
 const NARROW = {
   cover: 160,
@@ -37,7 +42,7 @@ const NARROW = {
   trackNoTop: 152,
 } as const;
 /** 四角括号在封面外扩 8 处，每个角的臂长 14（含线宽）。 */
-const BRACKET_OUTSET = 8;
+export const BRACKET_OUTSET = 8;
 const BRACKET_ARM = 14;
 
 interface Positioned {
@@ -56,7 +61,9 @@ interface DialLayout {
   readonly ticks: readonly Positioned[];
 }
 
-function narrowLayout(column: { x: number; width: number }): DialLayout {
+
+/** narrow 档没有罗盘：单栏里封面与右侧文字列的排法。 */
+export function narrowLayout(column: { x: number; width: number }): DialLayout {
   const { x, width } = column;
   const right = x + NARROW.cover + NARROW.gap;
   const textWidth = width - NARROW.cover - NARROW.gap;
@@ -72,7 +79,7 @@ function narrowLayout(column: { x: number; width: number }): DialLayout {
   };
 }
 
-function dialLayout(dial: DialPlacement): DialLayout {
+export function dialLayout(dial: DialPlacement): DialLayout {
   const s = dial.scale;
   const cover = COVER_SIZE * s;
   const textLeft = dial.x - TEXT_HALF_WIDTH * s;
@@ -106,6 +113,9 @@ export interface PaperDialProps {
   /** 单栏的左缘与宽，narrow 档排封面那一行用。 */
   readonly column: { readonly x: number; readonly width: number };
   readonly hidden?: ReadonlySet<string>;
+  /** 布局算出的每件盒子（版心坐标）；编排器里挪过或改过大小的按它落位。 */
+  readonly boxes?: ReadonlyMap<ImmersivePanelId, StageBox>;
+  readonly placements?: Placements;
 }
 
 /**
@@ -118,7 +128,13 @@ export interface PaperDialProps {
  *
  * 封面标了 `data-decor-guard`：图纸的生成式网格不在它周围放装饰。
  */
-export function PaperDial({ dial, column, hidden = new Set<string>() }: PaperDialProps) {
+export function PaperDial({
+  dial,
+  column,
+  hidden = new Set<string>(),
+  boxes,
+  placements = {},
+}: PaperDialProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const show = (id: string) => !moduleHidden(hidden, id as never);
   const layout = useMemo(() => (dial ? dialLayout(dial) : narrowLayout(column)), [dial, column]);
@@ -131,37 +147,61 @@ export function PaperDial({ dial, column, hidden = new Set<string>() }: PaperDia
   };
   return (
     <div className={dial ? styles.dial : `${styles.dial} ${styles.narrow}`}>
-      {show('dial.rings') &&
-        layout.rings.map((ring) => (
-          <span
-            key={ring.radius}
-            className={styles.ring}
-            style={ring.style}
-            data-dial-ring
-            aria-hidden
-          />
-        ))}
-      {dial && show('dial.orbit') && <PaperOrbit center={dial} scale={dial.scale} />}
-      {show('dial.ticks') &&
-        layout.ticks.map((tick) => (
-          <span key={tick.text} className={styles.tick} style={tick.style} aria-hidden>
-            {tick.text}
-          </span>
-        ))}
-      {show('dial.albumText') && (
-        <div className={`${styles.text} ${styles.album}`} style={layout.album} data-field="dialAlbum">
-          {track?.album ?? ''}
-        </div>
+      {show('dial.rings') && (
+        <Placed id="dial.rings" boxes={boxes ?? NO_BOXES} placements={placements}>
+          {layout.rings.map((ring) => (
+            <span
+              key={ring.radius}
+              className={styles.ring}
+              style={ring.style}
+              data-dial-ring
+              aria-hidden
+            />
+          ))}
+        </Placed>
       )}
-      {show('dial.cover') && <DialCover box={coverBox} guard={47} />}
-      {show('dial.brackets') && <PaperBrackets box={bracketBox} arm={BRACKET_ARM} />}
+      {dial && show('dial.orbit') && (
+        <Placed id="dial.orbit" boxes={boxes ?? NO_BOXES} placements={placements}>
+          <PaperOrbit center={dial} scale={dial.scale} />
+        </Placed>
+      )}
+      {show('dial.ticks') && (
+        <Placed id="dial.ticks" boxes={boxes ?? NO_BOXES} placements={placements}>
+          {layout.ticks.map((tick) => (
+            <span key={tick.text} className={styles.tick} style={tick.style} aria-hidden>
+              {tick.text}
+            </span>
+          ))}
+        </Placed>
+      )}
+      {show('dial.albumText') && (
+        <Placed id="dial.albumText" boxes={boxes ?? NO_BOXES} placements={placements}>
+          <div className={`${styles.text} ${styles.album}`} style={layout.album} data-field="dialAlbum">
+            {track?.album ?? ''}
+          </div>
+        </Placed>
+      )}
+      {show('dial.cover') && (
+        <Placed id="dial.cover" boxes={boxes ?? NO_BOXES} placements={placements}>
+          <DialCover box={coverBox} guard={47} />
+        </Placed>
+      )}
+      {show('dial.brackets') && (
+        <Placed id="dial.brackets" boxes={boxes ?? NO_BOXES} placements={placements}>
+          <PaperBrackets box={bracketBox} arm={BRACKET_ARM} />
+        </Placed>
+      )}
       {show('dial.trackNo') && (
-        <div className={styles.text} style={layout.trackNo} data-field="trackNo">
-          {formatTrackNo(track?.trackNumber)}
-        </div>
+        <Placed id="dial.trackNo" boxes={boxes ?? NO_BOXES} placements={placements}>
+          <div className={styles.text} style={layout.trackNo} data-field="trackNo">
+            {formatTrackNo(track?.trackNumber)}
+          </div>
+        </Placed>
       )}
       {show('dial.transport') && (
-        <PaperTransport className={styles.transport} scale={layout.scale} style={layout.transport} />
+        <Placed id="dial.transport" boxes={boxes ?? NO_BOXES} placements={placements}>
+          <PaperTransport className={styles.transport} scale={layout.scale} style={layout.transport} />
+        </Placed>
       )}
     </div>
   );

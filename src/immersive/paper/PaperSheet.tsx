@@ -1,36 +1,45 @@
+import { useAtomValueRawSync } from 'jotai/react';
+import { useMemo } from 'react';
 import { PaperDial } from '../dial/PaperDial.tsx';
 import { PaperFields } from '../fields/PaperFields.tsx';
 import { PaperGauges } from '../gauges/PaperGauges.tsx';
-import { LyricLog } from '../lyrics/LyricLog.tsx';
 import { FocusLyricLog } from '../lyrics/FocusLyricLog.tsx';
 import { ImmersiveLyricsPlayer } from '../lyrics/ImmersiveLyricsPlayer.tsx';
-import { moduleHidden } from '../page/immersiveComponents.ts';
+import { LyricLog } from '../lyrics/LyricLog.tsx';
 import { PaperSpectrum } from '../spectrum/PaperSpectrum.tsx';
 import { SoundPressureCell } from '../sound/SoundPressureCell.tsx';
-import { PaperStereo } from '../stereo/PaperStereo.tsx';
 import { PaperWaveform } from '../waveform/PaperWaveform.tsx';
+import { immersivePlacementsAtom } from '../layout/immersivePlacement.ts';
+import { placementsFor } from '../layout/immersiveBoxes.ts';
+import { moduleHidden } from '../page/immersiveComponents.ts';
+import { sheetBoxes } from './paperComponentLayout.ts';
 import { PaperMarks } from './PaperMarks.tsx';
 import styles from './PaperSheet.module.css';
+import { PaperStereo } from '../stereo/PaperStereo.tsx';
 import type { PaperGeometry } from './paperTiers.ts';
 import type { PaperVariant } from './paperVariant.ts';
 
 export interface PaperSheetProps {
-  /** 这一档的版心尺寸、位置与里面各块的排法（`paperTiers.ts`）。 */
+  /** 这一档的版心几何。 */
   readonly geometry: PaperGeometry;
   readonly variant?: PaperVariant;
   readonly hidden?: ReadonlySet<string>;
 }
 
 /**
- * 收缩档与竖版的图纸内容：按档位给的版心尺寸放进场景、不缩放文字，里面是定位十字、垫纸、罗盘与右栏。
- * 右栏里的声场是版心那一格（`PaperStereo`），歌词是三行日志（`LyricLog`）；频谱、整轨波形与量表与舞台共用同一批件，
- * 几何变量由右栏按版心档给。这一层不在舞台缩放的上下文里，canvas 件按缩放 1 开物理像素。
+ * 收缩档与竖版的图纸内容：按版心档给的几何排、不缩放文字，里面是定位十字、垫纸、罗盘与右栏。
+ * 右栏是 `PaperFields`，左栏是罗盘（narrow 档换成单栏的封面与文字列）。
+ * 这一层不在舞台缩放的上下文里，canvas 件按缩放 1 开物理像素。
  *
- * 卡片两档不走这里：它们在 `PaperScene` 里固定按 full 舞台几何排（`stageGeometry`），小窗口只是整体缩小。
+ * 卡片两档不走这里：它们在 `PaperScene` 里固定按 full 舞台排（`stageGeometry`），小窗口只是整体缩小。
  */
 export function PaperSheet({ geometry, variant = 'paper', hidden = new Set<string>() }: PaperSheetProps) {
   const { origin, sheet, fields } = geometry;
   const lyricsOnly = variant === 'lyrics';
+  const placements = useAtomValueRawSync(immersivePlacementsAtom);
+  const overrides = placementsFor(placements, variant, geometry.tier);
+  // 版心右栏与罗盘那几件的盒子：藏掉一块，后面的跟着上移，不留空白。
+  const boxes = useMemo(() => sheetBoxes(geometry.tier, hidden), [geometry.tier, hidden]);
   return (
     <div
       className={styles.sheet}
@@ -44,12 +53,16 @@ export function PaperSheet({ geometry, variant = 'paper', hidden = new Set<strin
         showCrosses={!moduleHidden(hidden, 'marks')}
         showPad={!lyricsOnly && !moduleHidden(hidden, 'pad')}
       />
-      <PaperDial dial={geometry.dial} column={fields} hidden={hidden} />
+      <PaperDial
+        dial={geometry.dial}
+        column={{ x: fields.x, width: fields.width }}
+        hidden={hidden}
+        boxes={boxes}
+        placements={overrides}
+      />
       <PaperFields
         placement={fields}
         height={sheet.height - fields.y}
-        lyricsOnly={lyricsOnly}
-        hidden={hidden}
         slots={{
           stereo: <PaperStereo />,
           soundPressure: <SoundPressureCell variant="sheet" />,
@@ -64,6 +77,9 @@ export function PaperSheet({ geometry, variant = 'paper', hidden = new Set<strin
             <LyricLog />
           ),
         }}
+        hidden={hidden}
+        boxes={boxes}
+        placements={overrides}
       />
     </div>
   );

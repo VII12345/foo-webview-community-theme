@@ -121,3 +121,29 @@ test('预览边上写着操作提示，还有缩放档', async ({ page }) => {
   await expect(page.locator('[data-layout-hint]')).toContainText('方向键');
   await expect(page.getByRole('combobox', { name: '预览缩放', exact: true })).toBeVisible();
 });
+
+test('版心各档也能排：紧凑档里拖一个组件，存档写的是偏移量', async ({ page }) => {
+  const settings = await openSettings(page);
+  await settings.choose('当前布局', '紧凑');
+  const item = page.locator('[data-layout-item="right.spectrum"]');
+  await expect(item).toBeVisible();
+  await item.scrollIntoViewIfNeeded();
+
+  const box = (await item.boundingBox())!;
+  await page.mouse.move(box.x + 10, box.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 50, box.y + 30, { steps: 6 });
+  await page.mouse.up();
+
+  // 版心各档的组键是 ${view}/${tier}。
+  const stored = async () =>
+    page.evaluate(() => {
+      const raw = localStorage.getItem('default-theme.immersive.layout.v1');
+      if (!raw) return null;
+      const groups = (JSON.parse(raw) as { groups?: Record<string, Record<string, unknown>> })
+        .groups;
+      return (groups?.['paper/compact']?.['right.spectrum'] as { dx: number } | undefined) ?? null;
+    });
+  await expect.poll(stored).not.toBeNull();
+  expect((await stored())!.dx).toBeGreaterThan(0);
+});
