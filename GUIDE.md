@@ -104,6 +104,10 @@ Click **Immersive view** in the player bar to show album art, spectrum, stereo f
 
 The immersive view and right panel share the current track's lyrics, the online lyrics switch and lyric settings.
 
+### Arranging the components
+
+Settings → Immersive arrangement: pick a view and a layout tier, then the preview shows a box per component — drag a box to move it, drag its corner to resize. The keyboard works too: arrow keys nudge by 1 pixel (hold to keep nudging, Shift for 8 pixels, Alt to resize), Tab switches between components, Esc undoes the edit. The usage hint sits next to the preview, and it can be zoomed to 100% / 200% for fine work. Changes apply immediately, and each view and layout keeps its own set.
+
 ## Mini Player
 
 Click **Mini player** in the player bar or open it from the main menu.
