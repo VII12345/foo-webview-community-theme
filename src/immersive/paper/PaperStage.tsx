@@ -13,6 +13,7 @@ import { PaperWaveform } from '../waveform/PaperWaveform.tsx';
 import { STAGE_CROSSES, STAGE_HEIGHT, STAGE_PAD, STAGE_WIDTH } from './paperStage.ts';
 import { cardTops, type StageBox } from './paperComponentLayout.ts';
 import { Placed, type Placements } from '../layout/Placed.tsx';
+import { placementStyle } from '../layout/immersiveBoxes.ts';
 import {
   groupVisible,
   moduleHidden,
@@ -74,6 +75,9 @@ export function PaperStage({
   // 每一格的盒子：右栏可见的按行排布，藏掉的行整行收掉，后面的跟着上移。
   const topOf = (id: ImmersivePanelId): number | null => boxes.get(id)?.y ?? null;
   const cardLayout = card ? cardTops(variant, hidden) : null;
+  // 动画歌词这件本来就绝对定位在自己的盒子里（左 1152、上 300、768 × 660），
+  // 编排器的平移与缩放直接加在它身上，原点取它自己的左上角。
+  const lyricsPlacement = placementStyle(boxes.get('right.lyrics'), placements['right.lyrics']);
   const frame: CSSProperties = {
     left: origin.x,
     top: origin.y,
@@ -180,6 +184,7 @@ export function PaperStage({
         {animatedLyrics && group('right.lyrics') && (
           <ImmersiveLyricsPlayer
             fontScale={scale > 0 ? 1 / scale : 1}
+            placement={lyricsPlacement}
             top={
               variant === 'cardLyrics' && cardLayout?.top != null
                 ? cardLayout.top

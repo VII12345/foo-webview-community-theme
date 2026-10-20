@@ -157,6 +157,7 @@ export function placementTransform(
 /**
  * 覆盖落在**元素自己**上的变换：平移与缩放，原点取元素自己的左上角（也就是默认盒子的角）。
  * 版心右栏的块已经按盒子绝对定位了，变换直接加在块上，不必再套一层定位层。
+ * 给了次序的按次序叠放（`z-index`），与 `Placed` 那一套一致。
  */
 export function placementStyle(
   box: StageBox | undefined,
@@ -167,10 +168,12 @@ export function placementStyle(
   const dy = override.dy ?? 0;
   const sw = override.sw ?? 1;
   const sh = override.sh ?? 1;
-  if (dx === 0 && dy === 0 && sw === 1 && sh === 1) return undefined;
+  const order = override.order;
+  if (dx === 0 && dy === 0 && sw === 1 && sh === 1 && order === undefined) return undefined;
   return {
     transform: `translate(${dx}px, ${dy}px) scale(${sw}, ${sh})`,
     transformOrigin: '0 0',
+    ...(order === undefined ? null : { zIndex: order }),
   };
 }
 

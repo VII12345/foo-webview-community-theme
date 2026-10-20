@@ -116,10 +116,19 @@ const FOCUS_LYRICS_ROW: Row = {
 };
 
 /** 歌词、卡片、卡片歌词三档的动画歌词：右半区整块，位置固定。 */
+const ANIMATED_LYRICS_BOX = { x: 1152, y: 300, w: 768, h: 660 } as const;
+
 const ANIMATED_LYRICS_ROW: Row = {
-  cells: [{ id: 'right.lyrics', x: 1152, w: 768, h: 660 }],
+  cells: [
+    {
+      id: 'right.lyrics',
+      x: ANIMATED_LYRICS_BOX.x,
+      w: ANIMATED_LYRICS_BOX.w,
+      h: ANIMATED_LYRICS_BOX.h,
+    },
+  ],
   gap: 4,
-  top: 300,
+  top: ANIMATED_LYRICS_BOX.y,
 };
 
 function rowsFor(scene: ImmersiveScene, tier: PaperTier): readonly Row[] {
@@ -184,6 +193,18 @@ export function stageRightBoxes(
       flowX = x + cell.w + (cell.gap ?? 0);
     }
     cursor = top + height;
+  }
+  // 卡片歌词档的歌词跟着卡片走：上下沿就是卡片的上下沿，不是右半那块固定的位置。
+  if (scene === 'cardLyrics' && tier === 'full') {
+    const tops = cardTops(scene, hidden);
+    const top = tops.top ?? ANIMATED_LYRICS_BOX.y;
+    const bottom = tops.bottom ?? top + ANIMATED_LYRICS_BOX.h;
+    boxes.set('right.lyrics', {
+      x: ANIMATED_LYRICS_BOX.x,
+      y: top,
+      w: ANIMATED_LYRICS_BOX.w,
+      h: Math.max(0, bottom - top),
+    });
   }
   return boxes;
 }

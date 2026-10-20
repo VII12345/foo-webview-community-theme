@@ -1,4 +1,5 @@
 import { useAtomValueRawSync } from 'jotai/react';
+import type { CSSProperties } from 'react';
 import { useService } from '../../kit/useService.ts';
 import { lyricsKey } from '../../lyrics/lyricsService.ts';
 import { lyricsDisplayKey } from '../../lyrics/lyricsDisplay.ts';
@@ -17,6 +18,7 @@ export function ImmersiveLyricsPlayer({
   bottom,
   height,
   extendLines = 0,
+  placement,
 }: {
   readonly fontScale?: number;
   /** full 舞台的动画歌词贴住右区左缘，不用 AMLL 默认的 1em 行内边距。 */
@@ -29,6 +31,11 @@ export function ImmersiveLyricsPlayer({
   readonly height?: number;
   /** 上下各多留几行（AMLL 主行行高 1.2em），卡片歌词用 1。 */
   readonly extendLines?: number;
+  /**
+   * 编排器的摆放覆盖：平移与缩放直接加在这件上，原点取它自己的左上角。
+   * 这件本来就绝对定位在自己的盒子里，变换不用再套一层定位层。
+   */
+  readonly placement?: CSSProperties;
 } = {}) {
   const services = useViewServices();
   const lyrics = useService(lyricsKey);
@@ -52,7 +59,7 @@ export function ImmersiveLyricsPlayer({
   return (
     <div
       className={styles.root}
-      style={box}
+      style={{ ...box, ...placement }}
       data-immersive-lyrics-player
       data-edge-aligned={edgeAligned || undefined}
     >

@@ -33,9 +33,16 @@ describe('full 舞台右栏重排', () => {
       header: 82,
       lyrics: 300,
     });
+    // 卡片歌词档的歌词跟着左边的卡片走：上沿就是卡片的顶（220），不是右半那块固定的 300。
     expect(stageRightTops('cardLyrics', 'full', none)).toMatchObject({
       header: null,
-      lyrics: 300,
+      lyrics: 220,
+    });
+    expect(stageRightBoxes('cardLyrics', 'full', none).get('right.lyrics')).toEqual({
+      x: 1152,
+      y: 220,
+      w: 768,
+      h: 758,
     });
   });
 

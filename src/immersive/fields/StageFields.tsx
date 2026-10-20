@@ -6,6 +6,7 @@ import { MISSING, stageQualityLine } from '../paper/paperScale.ts';
 import { STAGE_TITLE, STAGE_TITLE_SOFTNESS, STAGE_TITLE_SPEED } from '../paper/paperStage.ts';
 import type { StageBox } from '../paper/paperComponentLayout.ts';
 import { Placed, type Placements } from '../layout/Placed.tsx';
+import { placementStyle } from '../layout/immersiveBoxes.ts';
 import { trackExtrasAtom } from './trackExtras.ts';
 import styles from './StageFields.module.css';
 import { StageMeterRow } from './StageMeterRow.tsx';
@@ -103,7 +104,11 @@ export function StageFields({
     boxOf('right.meter.soundPressure')?.y ??
     boxOf('right.meter.duration')?.y ??
     null;
-  const lyricsTop = boxOf('right.lyrics')?.y ?? null;
+  const lyricsBox = boxOf('right.lyrics');
+  const lyricsTop = lyricsBox?.y ?? null;
+  // 聚焦档的歌词日志这件本来就绝对定位在自己的盒子里（左 760、上按行顶、906 × 230），
+  // 编排器的平移与缩放直接加在它身上，原点取它自己的左上角。
+  const lyricsPlacement = placementStyle(lyricsBox, placements['right.lyrics']);
 
   return (
     <div className={styles.fields}>
@@ -184,7 +189,10 @@ export function StageFields({
       {lyrics && showLyrics && (
         <div
           className={styles.lyrics}
-          style={lyricsTop !== null ? { top: lyricsTop } : undefined}
+          style={{
+            ...(lyricsTop !== null ? { top: lyricsTop } : null),
+            ...lyricsPlacement,
+          }}
           data-stage-lyrics-slot
         >
           {lyrics}
