@@ -4,15 +4,20 @@
   gap: var(--spacingVerticalM);
 }
 
-/* 预览：舞台按比例缩放，框画在舞台坐标上。 */
+/* 预览：按缩放档放大后可以滚动，1 舞台像素才看得见。 */
 .pane {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
+  max-height: 70vh;
+  overflow: auto;
   border: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
   border-radius: var(--borderRadiusMedium);
   background: var(--colorNeutralBackground2);
+}
+
+/* 缩放后的画布尺寸：滚动条按它算。 */
+.canvas {
+  position: relative;
 }
 
 .stage {
@@ -20,6 +25,14 @@
   left: 0;
   top: 0;
   transform-origin: 0 0;
+}
+
+/* 操作提示：紧贴着预览的下沿，常驻可见。 */
+.hint {
+  margin: 0;
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+  line-height: 1.6;
 }
 
 .item {
@@ -38,6 +51,15 @@
 
 .item:active {
   cursor: grabbing;
+}
+
+/*
+ * 编排器自己画焦点框：全局的键盘焦点框已经取消了（见 themes.ts 的 withoutFocusRing），
+ * 而这里键盘是主要的操作方式，得看得见当前选中的是哪个组件。
+ */
+.item:focus-visible {
+  outline: 2px solid var(--colorBrandForeground1);
+  outline-offset: 1px;
 }
 
 .label {

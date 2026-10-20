@@ -8,6 +8,8 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type FocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import type { MessageKey } from '../i18n/en.ts';
@@ -37,8 +39,25 @@ import styles from './ImmersiveLayoutEditor.module.css';
 
 const STAGE_WIDTH = 1920;
 const STAGE_HEIGHT = 1080;
-/** 拖动吸附的步长（舞台像素）。 */
+/** 拖动吸附的步长（舞台像素）；键盘按住 Shift 也用它。 */
 const SNAP = 8;
+
+/** 方向键：键名 → 舞台坐标里的位移。 */
+const ARROWS: Readonly<Record<string, { readonly dx: number; readonly dy: number }>> = {
+  ArrowLeft: { dx: -1, dy: 0 },
+  ArrowRight: { dx: 1, dy: 0 },
+  ArrowUp: { dx: 0, dy: -1 },
+  ArrowDown: { dx: 0, dy: 1 },
+};
+
+/** 预览的缩放档：适应窗口，或按倍数放大后滚动查看。 */
+const ZOOM_CHOICES = ['fit', '1', '2'] as const;
+type ZoomChoice = (typeof ZOOM_CHOICES)[number];
+const ZOOM_LABELS: Readonly<Record<ZoomChoice, MessageKey>> = {
+  fit: 'settings.immersiveLayoutZoomFit',
+  '1': 'settings.immersiveLayoutZoom100',
+  '2': 'settings.immersiveLayoutZoom200',
+};
 
 const SCENE_LABELS: Readonly<Record<ImmersiveScene, MessageKey>> = {
   paper: 'settings.immersiveViewPaper',
@@ -68,13 +87,21 @@ interface Drag {
   readonly mode: 'move' | 'resize';
 }
 
+/** 一次键盘编辑的起点：Esc 撤销时写回这里。 */
+interface KeyboardSession {
+  readonly id: ImmersivePanelId;
+  readonly box: { x: number; y: number; w: number; h: number };
+}
+
 const snap = (value: number) => Math.round(value / SNAP) * SNAP;
 
 /**
  * 沉浸视图的组件编排器。
  *
  * 上半是预览：按舞台比例缩放的一张示意图，每个可摆放的组件一个框，框的位置与大小就是布局算出来的盒子。
- * 拖框挪位置、拖右下角改大小；下半是清单：每个组件一行，写着 x/y/宽/高，可以单独放回默认。
+ * 两条路都能改：鼠标拖框挪位置、拖右下角改大小；键盘用方向键微调（按住不放连发，Shift 走一个网格、
+ * Alt 改宽高），Tab 在组件之间换焦点，Esc 撤销。下半是清单：每个组件一行，写着 x/y/宽/高，
+ * 可以单独放回默认。
  *
  * 改动只写"挪过"的那几项（`immersive/layout/immersivePlacement.ts`），没动过的组件沿用默认盒子，
  * 组件内部照旧按舞台坐标排 —— 覆盖落在组件外层的一套 `translate() scale()` 上。
@@ -84,6 +111,8 @@ export function ImmersiveLayoutEditor() {
   const t = useAtomValueRawSync(translateAtom);
   const [view, setView] = useState<ImmersiveScene>('paper');
   const [drag, setDrag] = useState<Drag | null>(null);
+  const [focused, setFocused] = useState<ImmersivePanelId | null>(null);
+  const [zoom, setZoom] = useState<ZoomChoice>('fit');
   // 目前只有 full 档（1920 × 1080 的整幅舞台）有逐件的盒子：其余各档是版心坐标、由版心的流式排法决定，
   // 组件之间没有独立的位置可改。编排器先把 full 档这一套做通。
   const layout: PaperTier = 'full';
@@ -95,18 +124,36 @@ export function ImmersiveLayoutEditor() {
   const overrides = placementsFor(placements, view, layout);
   const [pane, setPane] = useState<number | null>(null);
   const observe = useElementWidth<HTMLDivElement>(setPane);
-  const scale = pane && pane > 0 ? pane / STAGE_WIDTH : 0.4;
+  const fit = pane && pane > 0 ? pane / STAGE_WIDTH : 0.4;
+  const scale = zoom === 'fit' ? fit : Number(zoom);
 
   // 拖动途中只改本地的状态，松开才写存档；Esc 取消回到按下时的位置。
   const session = useRef<Drag | null>(null);
+  // 键盘编辑没有"松手"这一刻，每一下都直接写存档；Esc 撤销整段编辑。
+  const keyboard = useRef<KeyboardSession | null>(null);
   useCommand({
     id: 'immersiveLayout.drag',
     layer: 'gesture',
     keys: [{ key: 'Escape' }],
-    enabled: () => session.current !== null,
+    enabled: () => session.current !== null || keyboard.current !== null,
     run: () => {
+      const edit = keyboard.current;
       session.current = null;
       setDrag(null);
+      keyboard.current = null;
+      if (!edit) return;
+      // 撤销到本次编辑前的位置；那个位置就是默认位置时直接删掉这条覆盖，
+      // 别留一条"挪过但没挪"的记录（清单里会显示成已改动）。
+      const base = boxes.get(edit.id);
+      const origin = edit.box;
+      const same =
+        base !== undefined &&
+        base.x === origin.x &&
+        base.y === origin.y &&
+        base.w === origin.w &&
+        base.h === origin.h;
+      if (same) resetImmersivePlacement(store, view, effectiveLayout, edit.id);
+      else chooseImmersivePlacement(store, view, effectiveLayout, edit.id, { ...origin });
     },
   });
 
@@ -179,6 +226,52 @@ export function ImmersiveLayoutEditor() {
     [boxes, effectiveLayout, overrides, scale, store, view],
   );
 
+  /**
+   * 方向键微调。走元素自己的 onKeyDown（与表格列头用 Alt+← 换列同一路子），不登记到命令登记处：
+   * 登记处的按键是"和弦"匹配的，方向键的四种修饰组合要登记十六条，而这里一次按键处理里就能读到修饰键。
+   * 按住不放时系统连发 keydown，每一下都走这里，长按即连续微调。
+   */
+  const onKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.defaultPrevented || event.nativeEvent.isComposing || !focused) return;
+      const arrow = ARROWS[event.key];
+      if (!arrow) return;
+      const box = boxes.get(focused);
+      if (!box) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const step = event.shiftKey ? SNAP : 1;
+      const current = resolvedBox(box, overrides[focused]);
+      // 整段键盘编辑的起点：第一次按键前的位置，Esc 撤销时写回它。
+      keyboard.current ??= { id: focused, box: { ...current } };
+      const next = event.altKey
+        ? {
+            ...current,
+            w: Math.max(SNAP, current.w + arrow.dx * step),
+            h: Math.max(SNAP, current.h + arrow.dy * step),
+          }
+        : {
+            ...current,
+            x: current.x + arrow.dx * step,
+            y: current.y + arrow.dy * step,
+          };
+      chooseImmersivePlacement(store, view, effectiveLayout, focused, {
+        x: next.x,
+        y: next.y,
+        w: next.w,
+        h: next.h,
+      });
+    },
+    [boxes, effectiveLayout, focused, overrides, store, view],
+  );
+
+  /** 焦点离开预览：这一段键盘编辑算完了，Esc 不再撤它。 */
+  const onBlur = useCallback((event: FocusEvent<HTMLDivElement>) => {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.currentTarget.contains(next)) return;
+    keyboard.current = null;
+  }, []);
+
   useEffect(
     () => () => {
       session.current = null;
@@ -225,45 +318,80 @@ export function ImmersiveLayoutEditor() {
           />
         )}
       </SettingsRow>
-      <div className={styles.pane} ref={observe} data-layout-pane>
+      <SettingsRow title={t('settings.immersiveLayoutZoom')} field>
+        {(ids2) => (
+          <SettingsSelect
+            {...ids2}
+            value={zoom}
+            options={ZOOM_CHOICES.map((value) => ({
+              value,
+              label: t(ZOOM_LABELS[value]),
+            }))}
+            onChange={(value) => {
+              const next = ZOOM_CHOICES.find((item) => item === value);
+              if (next) setZoom(next);
+            }}
+          />
+        )}
+      </SettingsRow>
+      <div
+        className={styles.pane}
+        ref={observe}
+        data-layout-pane
+        onKeyDown={onKeyDown}
+        onBlur={onBlur}
+      >
         <div
-          className={styles.stage}
-          data-layout-stage
-          style={{
-            width: STAGE_WIDTH,
-            height: STAGE_HEIGHT,
-            transform: `scale(${scale})`,
-          }}
+          className={styles.canvas}
+          style={{ width: STAGE_WIDTH * scale, height: STAGE_HEIGHT * scale }}
         >
-          {ids.map((id) => {
-            const box = boxOf(id);
-            if (!box) return null;
-            const style: CSSProperties = {
-              left: box.x,
-              top: box.y,
-              width: box.w,
-              height: box.h,
-            };
-            return (
-              <div
-                key={id}
-                className={styles.item}
-                style={style}
-                data-layout-item={id}
-                data-moved={overrides[id] ? 'on' : undefined}
-                onPointerDown={(event) => begin(event, id, 'move')}
-              >
-                <span className={styles.label}>{t(IMMERSIVE_PANEL_LABELS[id])}</span>
-                <span
-                  className={styles.handle}
-                  data-layout-handle
-                  onPointerDown={(event) => begin(event, id, 'resize')}
-                />
-              </div>
-            );
-          })}
+          <div
+            className={styles.stage}
+            data-layout-stage
+            style={{
+              width: STAGE_WIDTH,
+              height: STAGE_HEIGHT,
+              transform: `scale(${scale})`,
+            }}
+          >
+            {ids.map((id) => {
+              const box = boxOf(id);
+              if (!box) return null;
+              const style: CSSProperties = {
+                left: box.x,
+                top: box.y,
+                width: box.w,
+                height: box.h,
+              };
+              return (
+                <div
+                  key={id}
+                  className={styles.item}
+                  style={style}
+                  data-layout-item={id}
+                  data-moved={overrides[id] ? 'on' : undefined}
+                  tabIndex={0}
+                  aria-label={t(IMMERSIVE_PANEL_LABELS[id])}
+                  onFocus={() => setFocused(id)}
+                  onPointerDown={(event) => begin(event, id, 'move')}
+                >
+                  <span className={styles.label}>{t(IMMERSIVE_PANEL_LABELS[id])}</span>
+                  <span
+                    className={styles.handle}
+                    data-layout-handle
+                    onPointerDown={(event) => begin(event, id, 'resize')}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
+      <p className={styles.hint} data-layout-hint>
+        {t('settings.immersiveLayoutHintMouse')}
+        <br />
+        {t('settings.immersiveLayoutHintKeys')}
+      </p>
       <div className={styles.list} data-layout-list>
         {ids.map((id) => {
           const box = boxOf(id);

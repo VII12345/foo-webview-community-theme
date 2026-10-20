@@ -131,6 +131,14 @@ export const settingsEn = {
     'Adjust the position and size of every component in the immersive view, per view and layout: drag a box to move it, drag its corner to resize. Changes apply immediately; only the parts you moved are stored.',
   'settings.immersiveLayoutResetOne': 'Reset position',
   'settings.immersiveLayoutResetAll': 'Reset this group',
+  'settings.immersiveLayoutZoom': 'Preview zoom',
+  'settings.immersiveLayoutZoomFit': 'Fit to window',
+  'settings.immersiveLayoutZoom100': '100%',
+  'settings.immersiveLayoutZoom200': '200%',
+  'settings.immersiveLayoutHintMouse':
+    'Mouse: drag a box to move it, drag its corner to resize; press Esc during a drag to cancel it.',
+  'settings.immersiveLayoutHintKeys':
+    'Keyboard: arrow keys nudge by 1 pixel (hold to keep nudging), Shift+arrow moves 8 pixels, Alt+arrow resizes, Tab switches between components, Esc undoes this edit.',
   'settings.immersiveComponentsBackground': 'Background',
   'settings.immersiveComponentsDial': 'Dial',
   'settings.immersiveComponentsCard': 'Card',

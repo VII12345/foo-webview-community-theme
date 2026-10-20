@@ -129,6 +129,14 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
     '按视图与布局逐个调整沉浸视图里每个组件的位置与大小：拖框挪位置、拖右下角改大小。改动即时生效，只存挪过的那几项。',
   'settings.immersiveLayoutResetOne': '恢复默认位置',
   'settings.immersiveLayoutResetAll': '整组恢复默认',
+  'settings.immersiveLayoutZoom': '预览缩放',
+  'settings.immersiveLayoutZoomFit': '适应窗口',
+  'settings.immersiveLayoutZoom100': '100%',
+  'settings.immersiveLayoutZoom200': '200%',
+  'settings.immersiveLayoutHintMouse':
+    '鼠标：拖框挪位置，拖右下角改大小；拖动中按 Esc 取消这一次拖动。',
+  'settings.immersiveLayoutHintKeys':
+    '键盘：方向键移动 1 像素（按住不放连续微调），Shift+方向键一次 8 像素，Alt+方向键改宽高，Tab 换焦点，Esc 撤销本次编辑。',
   'settings.immersiveComponentsBackground': '背景',
   'settings.immersiveComponentsDial': '罗盘',
   'settings.immersiveComponentsCard': '卡片',
