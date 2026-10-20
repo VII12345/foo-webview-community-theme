@@ -13,7 +13,7 @@ import {
   dialLayout,
   narrowLayout,
   TRANSPORT,
-} from '../dial/PaperDial.tsx';
+} from './paperDialLayout.ts';
 
 /** 舞台坐标的盒子：左上角与宽高。 */
 export interface StageBox {
