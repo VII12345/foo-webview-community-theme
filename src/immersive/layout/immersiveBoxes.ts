@@ -113,17 +113,17 @@ export function placeablePanels(
   return [...seen];
 }
 
-/** 覆盖里没有的项沿用默认盒子。 */
+/** 覆盖里没有的项沿用默认盒子；偏移量与比例按默认盒子展开成绝对盒子。 */
 export function resolvedBox(
   box: StageBox,
   override: ImmersivePlacement | undefined,
 ): StageBox {
   if (!override) return box;
   return {
-    x: override.x ?? box.x,
-    y: override.y ?? box.y,
-    w: override.w ?? box.w,
-    h: override.h ?? box.h,
+    x: box.x + (override.dx ?? 0),
+    y: box.y + (override.dy ?? 0),
+    w: box.w * (override.sw ?? 1),
+    h: box.h * (override.sh ?? 1),
   };
 }
 
@@ -145,6 +145,22 @@ export function placementTransform(
   return {
     transform: `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY})`,
     transformOrigin: `${box.x}px ${box.y}px`,
+  };
+}
+
+/**
+ * 一个目标盒子写成覆盖：相对默认盒子的偏移与比例。
+ * 编排器拖出来的绝对位置经这里转成偏移量，窗口怎么变都不漂。
+ */
+export function placementFor(
+  box: StageBox,
+  target: StageBox,
+): ImmersivePlacement {
+  return {
+    dx: target.x - box.x,
+    dy: target.y - box.y,
+    sw: box.w > 0 ? target.w / box.w : 1,
+    sh: box.h > 0 ? target.h / box.h : 1,
   };
 }
 

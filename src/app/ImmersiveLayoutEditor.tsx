@@ -1,5 +1,5 @@
 import { Button, Tooltip } from '@fluentui/react-components';
-import { ArrowReset20Regular } from '@fluentui/react-icons';
+import { ArrowDown20Regular, ArrowReset20Regular, ArrowUp20Regular } from '@fluentui/react-icons';
 import { useAtomValueRawSync, useStore } from 'jotai/react';
 import {
   useCallback,
@@ -25,7 +25,12 @@ import {
 import { IMMERSIVE_SCENES, type ImmersiveScene } from '../immersive/page/immersivePrefs.ts';
 import type { PaperTier } from '../immersive/paper/paperTiers.ts';
 import type { StageBox } from '../immersive/paper/paperComponentLayout.ts';
-import { defaultBoxes, placementsFor, resolvedBox } from '../immersive/layout/immersiveBoxes.ts';
+import {
+  defaultBoxes,
+  placementFor,
+  placementsFor,
+  resolvedBox,
+} from '../immersive/layout/immersiveBoxes.ts';
 import {
   chooseImmersivePlacement,
   immersivePlacementsAtom,
@@ -131,6 +136,17 @@ export function ImmersiveLayoutEditor() {
   const session = useRef<Drag | null>(null);
   // 键盘编辑没有"松手"这一刻，每一下都直接写存档；Esc 撤销整段编辑。
   const keyboard = useRef<KeyboardSession | null>(null);
+
+  /** 挪到一个绝对位置：存的是相对默认盒子的偏移与比例，窗口怎么变都不漂。 */
+  const writeBox = useCallback(
+    (id: ImmersivePanelId, target: StageBox) => {
+      const base = boxes.get(id);
+      if (!base) return;
+      chooseImmersivePlacement(store, view, effectiveLayout, id, placementFor(base, target));
+    },
+    [boxes, effectiveLayout, store, view],
+  );
+
   useCommand({
     id: 'immersiveLayout.drag',
     layer: 'gesture',
@@ -153,7 +169,7 @@ export function ImmersiveLayoutEditor() {
         base.w === origin.w &&
         base.h === origin.h;
       if (same) resetImmersivePlacement(store, view, effectiveLayout, edit.id);
-      else chooseImmersivePlacement(store, view, effectiveLayout, edit.id, { ...origin });
+      else writeBox(edit.id, origin);
     },
   });
 
@@ -212,7 +228,7 @@ export function ImmersiveLayoutEditor() {
         session.current = null;
         setDrag(null);
         if (!keep || !current) return;
-        chooseImmersivePlacement(store, view, effectiveLayout, current.id, {
+        writeBox(current.id, {
           x: current.x,
           y: current.y,
           w: current.w,
@@ -223,7 +239,7 @@ export function ImmersiveLayoutEditor() {
       window.addEventListener('pointerup', end);
       window.addEventListener('pointercancel', end);
     },
-    [boxes, effectiveLayout, overrides, scale, store, view],
+    [boxes, overrides, scale, writeBox],
   );
 
   /**
@@ -255,14 +271,9 @@ export function ImmersiveLayoutEditor() {
             x: current.x + arrow.dx * step,
             y: current.y + arrow.dy * step,
           };
-      chooseImmersivePlacement(store, view, effectiveLayout, focused, {
-        x: next.x,
-        y: next.y,
-        w: next.w,
-        h: next.h,
-      });
+      writeBox(focused, next);
     },
-    [boxes, effectiveLayout, focused, overrides, store, view],
+    [boxes, focused, overrides, writeBox],
   );
 
   /** 焦点离开预览：这一段键盘编辑算完了，Esc 不再撤它。 */
@@ -278,6 +289,12 @@ export function ImmersiveLayoutEditor() {
     },
     [],
   );
+
+  /** 改叠放次序：大的在前。没写过次序的按 0 算。 */
+  const shiftOrder = (id: ImmersivePanelId, delta: number) => {
+    const current = overrides[id]?.order ?? 0;
+    chooseImmersivePlacement(store, view, effectiveLayout, id, { order: current + delta });
+  };
 
   const ids = useMemo(() => [...boxes.keys()], [boxes]);
   const boxOf = (id: ImmersivePanelId): StageBox | undefined => {
@@ -403,6 +420,24 @@ export function ImmersiveLayoutEditor() {
               <span className={styles.numbers}>
                 {`${box.x}, ${box.y} · ${box.w} × ${box.h}`}
               </span>
+              <Tooltip content={t('settings.immersiveLayoutOrderFront')} relationship="label">
+                <Button
+                  appearance="subtle"
+                  size="small"
+                  icon={<ArrowUp20Regular />}
+                  aria-label={`${t('settings.immersiveLayoutOrderFront')}: ${t(IMMERSIVE_PANEL_LABELS[id])}`}
+                  onClick={() => shiftOrder(id, 1)}
+                />
+              </Tooltip>
+              <Tooltip content={t('settings.immersiveLayoutOrderBack')} relationship="label">
+                <Button
+                  appearance="subtle"
+                  size="small"
+                  icon={<ArrowDown20Regular />}
+                  aria-label={`${t('settings.immersiveLayoutOrderBack')}: ${t(IMMERSIVE_PANEL_LABELS[id])}`}
+                  onClick={() => shiftOrder(id, -1)}
+                />
+              </Tooltip>
               {moved && (
                 <Tooltip content={t('settings.immersiveLayoutResetOne')} relationship="label">
                   <Button

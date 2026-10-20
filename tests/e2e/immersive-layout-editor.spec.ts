@@ -19,10 +19,10 @@ const placementOf = async (page: Page, id: string) =>
 
 /** 编排器里当前视图/布局下某个组件的覆盖；没有就是 null。 */
 const placement = (page: Page, id: string) => placementOf(page, id) as Promise<{
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  dx: number;
+  dy: number;
+  sw: number;
+  sh: number;
 } | null>;
 
 test('拖动一个组件：位置写进存档，恢复默认后清掉', async ({ page }) => {
@@ -39,7 +39,8 @@ test('拖动一个组件：位置写进存档，恢复默认后清掉', async ({
 
   // 存档是异步落盘的，等它写进去。
   await expect.poll(() => placement(page, 'right.header.title')).not.toBeNull();
-  expect((await placement(page, 'right.header.title'))!.x).not.toBe(1000);
+  // 存的是相对默认盒子的偏移：默认左缘 1000，拖到 1060 就是 +60。
+  expect((await placement(page, 'right.header.title'))!.dx).toBeGreaterThan(0);
 
   // 刷新后还在（刷新回到首页，重新进设置页）。
   await page.reload();
@@ -66,7 +67,8 @@ test('拖右下角改大小：宽高写进存档', async ({ page }) => {
   await page.mouse.up();
 
   await expect.poll(() => placement(page, 'right.spectrum')).not.toBeNull();
-  expect((await placement(page, 'right.spectrum'))!.w).not.toBe(1020);
+  // 宽存的是相对默认宽的比例：默认 1020，拖宽一点就是大于 1。
+  expect((await placement(page, 'right.spectrum'))!.sw).toBeGreaterThan(1);
 });
 
 test('方向键微调 1 像素，Shift 一次 8 像素，Alt 改宽高', async ({ page }) => {
@@ -77,13 +79,15 @@ test('方向键微调 1 像素，Shift 一次 8 像素，Alt 改宽高', async (
 
   // 标题行默认在 (1000, 108)、792 × 114。
   await page.keyboard.press('ArrowRight');
-  await expect.poll(async () => (await placement(page, 'right.header.title'))?.x ?? -1).toBe(1001);
+  await expect.poll(async () => (await placement(page, 'right.header.title'))?.dx ?? -1).toBe(1);
 
   await page.keyboard.press('Shift+ArrowDown');
-  await expect.poll(async () => (await placement(page, 'right.header.title'))?.y ?? -1).toBe(116);
+  await expect.poll(async () => (await placement(page, 'right.header.title'))?.dy ?? -1).toBe(8);
 
   await page.keyboard.press('Alt+ArrowRight');
-  await expect.poll(async () => (await placement(page, 'right.header.title'))?.w ?? -1).toBe(793);
+  await expect
+    .poll(async () => (await placement(page, 'right.header.title'))?.sw ?? -1)
+    .toBeCloseTo(793 / 792, 6);
 });
 
 test('按住方向键连发：每一下都挪一点', async ({ page }) => {
@@ -94,7 +98,7 @@ test('按住方向键连发：每一下都挪一点', async ({ page }) => {
 
   // 系统按住不放时连发 keydown，编排器每一下都挪一次。
   for (let at = 0; at < 5; at += 1) await page.keyboard.press('ArrowDown');
-  await expect.poll(async () => (await placement(page, 'right.header.title'))?.y ?? -1).toBe(113);
+  await expect.poll(async () => (await placement(page, 'right.header.title'))?.dy ?? -1).toBe(5);
 });
 
 test('Esc 撤销本次键盘编辑', async ({ page }) => {
@@ -105,7 +109,7 @@ test('Esc 撤销本次键盘编辑', async ({ page }) => {
 
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
-  await expect.poll(async () => (await placement(page, 'right.header.title'))?.x ?? -1).toBe(1002);
+  await expect.poll(async () => (await placement(page, 'right.header.title'))?.dx ?? -1).toBe(2);
 
   await page.keyboard.press('Escape');
   await expect.poll(() => placement(page, 'right.header.title')).toBeNull();

@@ -32,13 +32,13 @@ describe('沉浸组件摆放存档', () => {
     const { storage, map } = fakeStorage();
     const store = createStore();
     loadImmersivePlacements(store, storage);
-    chooseImmersivePlacement(store, 'paper', 'full', 'right.header.title', { x: 1200, y: 200 }, storage);
+    chooseImmersivePlacement(store, 'paper', 'full', 'right.header.title', { dx: 200, dy: 92 }, storage);
     expect(map.get('default-theme.immersive.layout.v1')).toContain('right.header.title');
     const again = createStore();
     loadImmersivePlacements(again, storage);
     expect(again.get(immersivePlacementsAtom).groups['paper/full']?.['right.header.title']).toEqual({
-      x: 1200,
-      y: 200,
+      dx: 200,
+      dy: 92,
     });
   });
 
@@ -51,12 +51,26 @@ describe('沉浸组件摆放存档', () => {
       'paper',
       'full',
       'right.spectrum',
-      { w: 800, h: 180, order: 2 },
+      { sw: 1.2, sh: 0.8, order: 2 },
       storage,
     );
     expect(
       store.get(immersivePlacementsAtom).groups['paper/full']?.['right.spectrum'],
-    ).toEqual({ w: 800, h: 180, order: 2 });
+    ).toEqual({ sw: 1.2, sh: 0.8, order: 2 });
+  });
+
+  it('旧格式的绝对坐标认不出来，按缺省读', () => {
+    const store = createStore();
+    loadImmersivePlacements(
+      store,
+      fakeStorage({
+        'default-theme.immersive.layout.v1': JSON.stringify({
+          version: 1,
+          groups: { 'paper/full': { 'right.header.title': { x: 1200, y: 200 } } },
+        }),
+      }).storage,
+    );
+    expect(store.get(immersivePlacementsAtom).groups).toEqual({});
   });
 
   it('单个恢复默认与整组恢复默认', () => {

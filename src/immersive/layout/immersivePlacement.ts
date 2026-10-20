@@ -18,18 +18,19 @@ import type { PaperTier } from '../paper/paperTiers.ts';
  * 组件的默认位置由布局算出来（`paperComponentLayout.ts`），这里只存"挪过"的部分：
  * 组键 `${view}/${tier}` → 模块 id → 覆盖。缺哪一项就用默认盒子。
  *
- * 坐标是舞台坐标（full 档 1920 × 1080；其余各档是版心坐标）。`w`/`h` 缺省表示沿用默认的尺寸，
- * 给了就按比例缩放那一格。
+ * 存的是**相对默认盒子的偏移**而不是绝对坐标：版心两档（compact / narrow）的版心宽度随窗口变，
+ * 绝对坐标在窗口一变窄就会漂；偏移量与窗口无关。
+ * 尺寸存**比例**而不是像素：频谱、波形、歌词这些宽度跟着右栏变动的件，比例才说得清。
  */
 export interface ImmersivePlacement {
-  /** 左缘。 */
-  readonly x?: number;
-  /** 顶边。 */
-  readonly y?: number;
-  /** 宽；给了就按这一档的宽缩放。 */
-  readonly w?: number;
-  /** 高；给了就按这一档的高缩放。 */
-  readonly h?: number;
+  /** 相对默认盒子的横向偏移，舞台/版心像素。 */
+  readonly dx?: number;
+  /** 相对默认盒子的纵向偏移，舞台/版心像素。 */
+  readonly dy?: number;
+  /** 宽相对默认宽的比例；1 = 默认。 */
+  readonly sw?: number;
+  /** 高相对默认高的比例；1 = 默认。 */
+  readonly sh?: number;
   /** 组内次序：小的在前，叠放时也按它排。 */
   readonly order?: number;
 }
@@ -53,13 +54,13 @@ function parsePlacement(raw: unknown): ImmersivePlacement | undefined {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const source = recordOf(raw);
   const placement: {
-    x?: number;
-    y?: number;
-    w?: number;
-    h?: number;
+    dx?: number;
+    dy?: number;
+    sw?: number;
+    sh?: number;
     order?: number;
   } = {};
-  for (const key of ['x', 'y', 'w', 'h', 'order'] as const) {
+  for (const key of ['dx', 'dy', 'sw', 'sh', 'order'] as const) {
     const value = numberOf(source[key]);
     if (value !== undefined) placement[key] = value;
   }

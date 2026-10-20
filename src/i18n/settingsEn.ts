@@ -131,6 +131,8 @@ export const settingsEn = {
     'Adjust the position and size of every component in the immersive view, per view and layout: drag a box to move it, drag its corner to resize. Changes apply immediately; only the parts you moved are stored.',
   'settings.immersiveLayoutResetOne': 'Reset position',
   'settings.immersiveLayoutResetAll': 'Reset this group',
+  'settings.immersiveLayoutOrderFront': 'Bring forward',
+  'settings.immersiveLayoutOrderBack': 'Send backward',
   'settings.immersiveLayoutZoom': 'Preview zoom',
   'settings.immersiveLayoutZoomFit': 'Fit to window',
   'settings.immersiveLayoutZoom100': '100%',

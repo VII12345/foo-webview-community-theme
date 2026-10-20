@@ -129,6 +129,8 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
     '按视图与布局逐个调整沉浸视图里每个组件的位置与大小：拖框挪位置、拖右下角改大小。改动即时生效，只存挪过的那几项。',
   'settings.immersiveLayoutResetOne': '恢复默认位置',
   'settings.immersiveLayoutResetAll': '整组恢复默认',
+  'settings.immersiveLayoutOrderFront': '上移一层',
+  'settings.immersiveLayoutOrderBack': '下移一层',
   'settings.immersiveLayoutZoom': '预览缩放',
   'settings.immersiveLayoutZoomFit': '适应窗口',
   'settings.immersiveLayoutZoom100': '100%',
