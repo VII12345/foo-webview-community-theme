@@ -194,13 +194,20 @@
   line-height: var(--lineHeightBase200);
 }
 
-/* 副标题与评分一行；评分 104 宽、右对齐，与下面工具组的右缘对齐。不能评分时这一格空着，字不挪位。 */
+/* 副标题与评分一行；评分按内容宽、右对齐，与下面工具组的右缘对齐。 */
 .byline {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 104px;
+  grid-template-columns: minmax(0, 1fr) auto;
   column-gap: var(--spacingHorizontalS);
   align-items: center;
   min-width: 0;
+}
+
+/* 评分组件对不可评分的曲目渲染空节点：整列连同间距一起收掉，副标题占满右侧。
+   以前固定留 104px，空着也占位，右边明明还有地方字却显示不全。 */
+.byline:has(> .rating:empty) {
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 0;
 }
 
 .subtitle {
