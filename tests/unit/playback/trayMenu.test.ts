@@ -18,15 +18,26 @@ const icon = (name: TrayIconName) => ({ viewBox: '0 0 24 24', content: `<path d=
 
 describe('buildTrayMenu', () => {
   it('三区：歌曲卡留空给宿主补；三个播放键走宿主原生路由；显示主窗口与退出是原生项', () => {
-    const { top, playback, bottom } = buildTrayMenu({ t, icon, order: 'default', volume: 50 });
+    const { top, playback, bottom } = buildTrayMenu({ t, icon, order: 'default', volume: 50, playing: false });
     expect(top).toEqual([{ id: TRAY_IDS.nowPlaying, type: 'nowplaying', label: '未在播放' }]);
     expect(playback.map((item) => item.playbackAction)).toEqual(['previous', 'play-pause', 'next']);
     expect(bottom.map((item) => item.id)).toEqual(['_sys_show', 'volume', 'order', '_sys_exit']);
   });
 
+  it('播放键跟着状态走：暂停时写“播放”，出声时写“暂停”并换图标', () => {
+    const row = (playing: boolean) =>
+      buildTrayMenu({ t, icon, order: null, volume: 0, playing }).playback.find(
+        (item) => item.id === TRAY_IDS.playPause,
+      );
+    expect(row(false)).toMatchObject({ label: '播放', playbackAction: 'play-pause' });
+    expect(row(false)?.iconSvg).toMatchObject({ content: '<path d="playPause"/>' });
+    expect(row(true)).toMatchObject({ label: '暂停', playbackAction: 'play-pause' });
+    expect(row(true)?.iconSvg).toMatchObject({ content: '<path d="pause"/>' });
+  });
+
   it('音量条的值是 0–100 内的整数', () => {
     const volume = (value: number) =>
-      buildTrayMenu({ t, icon, order: null, volume: value }).bottom.find(
+      buildTrayMenu({ t, icon, order: null, volume: value, playing: false }).bottom.find(
         (item) => item.id === TRAY_IDS.volume,
       );
     expect(volume(37.6)).toMatchObject({ value: 38, min: 0, max: 100 });
@@ -36,7 +47,7 @@ describe('buildTrayMenu', () => {
 
   it('顺序一行写当前模式，子菜单七项与宿主同序、只勾当前那项；没读到时不勾', () => {
     const order = (current: (typeof ORDER_IDS)[number] | null) =>
-      buildTrayMenu({ t, icon, order: current, volume: 0 }).bottom.find(
+      buildTrayMenu({ t, icon, order: current, volume: 0, playing: false }).bottom.find(
         (item) => item.id === TRAY_IDS.order,
       );
     const shuffled = order('shuffle-albums');

@@ -1,4 +1,5 @@
 import { useAtomValueRawSync } from 'jotai/react';
+import type { CSSProperties } from 'react';
 import { currentTrackAtom } from '../../playback/playback.ts';
 import { moduleHidden } from '../page/immersiveComponents.ts';
 import { MISSING, formatChannels, formatKHz, formatKbps, formatMB } from '../paper/paperScale.ts';
@@ -8,8 +9,11 @@ import styles from './PaperFileInfo.module.css';
 /** 图纸右栏的文件信息 3 × 2：采样率、位深、声道、码率、文件大小、格式；缺值写 `—`。 */
 export function PaperFileInfo({
   hidden = new Set<string>(),
+  style,
 }: {
   readonly hidden?: ReadonlySet<string>;
+  /** 编排器里挪过这一块时，落位由外层给。 */
+  readonly style?: CSSProperties;
 } = {}) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const { bitDepth } = useAtomValueRawSync(trackExtrasAtom);
@@ -22,7 +26,7 @@ export function PaperFileInfo({
     { id: 'format', key: 'Format', value: track?.codec || MISSING },
   ].filter((item) => !moduleHidden(hidden, `right.fileInfo.${item.id}` as never));
   return (
-    <dl className={styles['file-info']}>
+    <dl className={styles['file-info']} style={style}>
       {items.map((item) => (
         <div key={item.id} className={styles.field}>
           <dt className={styles.key}>{item.key}</dt>

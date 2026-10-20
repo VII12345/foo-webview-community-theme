@@ -1,65 +1,22 @@
 import { useAtomValueRawSync } from 'jotai/react';
 import { useEffect, useRef, useState } from 'react';
 import { translateAtom } from '../../i18n/locale.ts';
-import type { MessageKey } from '../../i18n/en.ts';
 import { useLightDismiss } from '../../nav/useLightDismiss.ts';
 import {
   formatMargin,
   formatPower,
   formatSpl,
   formatVoltage,
-  type SoundPressureReading,
 } from '../../playback/soundPressure.ts';
 import { splUnit } from '../../playback/splWeighting.ts';
-import { soundPressureViewAtom, type SoundPressureAuto } from './soundPressureReading.ts';
+import { soundPressureViewAtom } from './soundPressureReading.ts';
+import { autoHint, stateHint } from './soundPressureHints.ts';
 import { SoundPressurePanel } from './SoundPressurePanel.tsx';
 import styles from './SoundPressureCell.module.css';
 
 export interface SoundPressureCellProps {
   /** `stage` 是 1920 × 1080 舞台上的三行；`sheet` 是版心档右栏里的一格。 */
   readonly variant: 'stage' | 'sheet';
-}
-
-function stateHint(reading: SoundPressureReading): MessageKey | null {
-  switch (reading.state) {
-    case 'no-device':
-      return 'immersive.soundPressureNoDevice';
-    case 'no-amp':
-      return 'immersive.soundPressureNoAmp';
-    case 'no-headphone':
-      return 'immersive.soundPressureNoHeadphone';
-    case 'no-loudness':
-      return 'immersive.soundPressureNoLoudness';
-    default:
-      return null;
-  }
-}
-
-function autoHint(auto: SoundPressureAuto): MessageKey | null {
-  switch (auto.reason) {
-    case 'unsupported':
-      return 'settings.dx52Unsupported';
-    case 'unauthorized':
-      return 'settings.dx52Unauthorized';
-    case 'waiting':
-      return 'settings.dx52Waiting';
-    case 'partial':
-      return 'settings.dx52Partial';
-    case 'connecting':
-      return 'settings.dx52Connecting';
-    case 'busy':
-      return 'settings.dx52Busy';
-    case 'error':
-      return 'settings.dx52Error';
-    case 'not-usb':
-      return 'settings.dx52NotUsb';
-    case 'line':
-      return 'settings.dx52LineOutput';
-    case 'off':
-      return 'settings.dx52PoweredOff';
-    default:
-      return null;
-  }
 }
 
 /** 平均 LUFS 的显示：负数用排版减号，与余量一致。 */

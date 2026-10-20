@@ -31,7 +31,13 @@ export const TRAY_IDS = {
 
 /** 菜单里要用的图标：三键、两条系统项，加七种顺序。图标本体由调用方按名给。 */
 export type TrayIconName =
-  'previous' | 'playPause' | 'next' | 'showMainWindow' | 'exit' | `order:${OrderName}`;
+  | 'previous'
+  | 'playPause'
+  | 'pause'
+  | 'next'
+  | 'showMainWindow'
+  | 'exit'
+  | `order:${OrderName}`;
 
 export interface TrayMenuZones {
   readonly top: TrayMenuItem[];
@@ -46,6 +52,8 @@ export interface TrayMenuInput {
   readonly order: OrderName | null;
   /** 音量条的位置，0–100，按用户的刻度换算好。 */
   readonly volume: number;
+  /** 正在出声：菜单里的播放键跟着变成"暂停"。 */
+  readonly playing: boolean;
 }
 
 /** `Shell_NotifyIcon` 的 `szTip` 是 128 个 UTF-16 单元，含结尾的 NUL。 */
@@ -87,7 +95,8 @@ export function buildTrayMenu(input: TrayMenuInput): TrayMenuZones {
     top: [{ id: TRAY_IDS.nowPlaying, type: 'nowplaying', label: t('tray.noTrack') }],
     playback: [
       action(input, TRAY_IDS.previous, 'tray.previous', 'previous', 'previous'),
-      action(input, TRAY_IDS.playPause, 'tray.playPause', 'playPause', 'play-pause'),
+      action(input, TRAY_IDS.playPause, input.playing ? 'tray.pause' : 'tray.play',
+        input.playing ? 'pause' : 'playPause', 'play-pause'),
       action(input, TRAY_IDS.next, 'tray.next', 'next', 'next'),
     ],
     bottom: [

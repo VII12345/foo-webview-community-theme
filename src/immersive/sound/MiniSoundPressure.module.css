@@ -1,0 +1,8 @@
+/* 迷你播放器底部进度行右侧的声压读数：小字、等宽数字，宽度只占文字本身。 */
+.value {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

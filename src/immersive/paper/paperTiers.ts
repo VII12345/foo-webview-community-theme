@@ -189,6 +189,30 @@ function layoutFor(tier: PaperTier, width: number): Layout {
   }
 }
 
+/** 版心最宽时的名义容器宽：取它，两档的版心就都是最宽的。 */
+const MAX_SHEET_WIDTH = 4096;
+
+/**
+ * 各档版心的名义尺寸与右栏位置：编排器预览与版心盒子模型按它算。
+ *
+ * compact / narrow 两档的版心宽度随容器变（`layoutFor` 里按容器宽取），但左右位置是定的、
+ * 变的只有右栏的宽 —— 摆放覆盖存的是相对默认盒子的偏移量，所以窗口怎么变都还对得上。
+ * 这里给的是版心最宽时的名义值。
+ */
+export function sheetGeometry(tier: PaperTier): {
+  readonly sheet: { readonly width: number; readonly height: number };
+  readonly fields: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly mode: FieldsMode;
+  };
+  readonly dial: DialPlacement | null;
+} {
+  const layout = layoutFor(tier, MAX_SHEET_WIDTH);
+  return { sheet: layout.sheet, fields: layout.fields, dial: layout.dial };
+}
+
 /** 容器 `width` × `height`（CSS 像素）下的图纸几何。 */
 export function paperGeometry(width: number, height: number): PaperGeometry {
   const tier = paperTier(width, height);

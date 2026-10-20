@@ -40,6 +40,13 @@
   height: 155px;
 }
 
+/* 包一层的定位锚：铺满仪表行，只用来承接横移——藏掉一格，后面的格子跟着左移。 */
+.cell-shift {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 .divider {
   position: absolute;
   top: 296px;

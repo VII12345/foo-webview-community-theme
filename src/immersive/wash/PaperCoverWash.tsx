@@ -1,6 +1,6 @@
 import { useAtomValueRawSync, useStore } from 'jotai/react';
 import { atom } from 'jotai/vanilla';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { reducedMotionAtom } from '../../motion/reducedMotion.ts';
 import { DURATION_MS } from '../../motion/timing.ts';
 import { playbackAtom } from '../../playback/playback.ts';
@@ -8,10 +8,11 @@ import { colorSchemeAtom } from '../../theme/colorScheme.ts';
 import type { ColorScheme } from '../../theme/themes.ts';
 import { coverRampAtom as accentRampAtom } from '../../theme/accentState.ts';
 import { rgbaOf } from '../frame/cssColor.ts';
-import { immersiveWashAtom } from '../page/immersivePrefs.ts';
-import { coverSourceAtom } from './coverSource.ts';
+import { immersiveSceneLiftAtom, immersiveWashAtom } from '../page/immersivePrefs.ts';
+import { coverLumaAtom, coverSourceAtom } from './coverSource.ts';
 import { PaperCoverFlow } from './PaperCoverFlow.tsx';
 import { PaperCoverStatic } from './PaperCoverStatic.tsx';
+import { linearLuminance, PAPER_LUMA_FALLBACK, sceneTone } from './sceneLift.ts';
 import styles from './PaperCoverWash.module.css';
 import { offer, retire, reveal, type WashLayer, type WashLayerState } from './washLayers.ts';
 import { flowUnavailableAtom, markFlowUnavailable, washModeOf } from './washMode.ts';
@@ -72,6 +73,8 @@ export function PaperCoverWash() {
   const scheme = useAtomValueRawSync(colorSchemeAtom);
   const mode = washModeOf(reduced, unavailable, choice === 'static');
   const strength = WASH_STRENGTH[scheme];
+  const coverLuma = useAtomValueRawSync(coverLumaAtom);
+  const lift = useAtomValueRawSync(immersiveSceneLiftAtom);
   // 减弱动效下过渡是 1 ms，也等新层落定一帧再撤，免得撤旧层跑在新层显出来之前。
   const retireMs = (reduced ? 1 : DURATION_MS.faster) + SETTLE_MS;
   const root = useRef<HTMLDivElement>(null);
@@ -79,6 +82,18 @@ export function PaperCoverWash() {
   const [layers, setLayers] = useState<WashLayer[]>([]);
   /** 撤层的计时器，按层的 key 记；淡入淡出走完才撤。 */
   const [timers] = useState(() => new Map<string, ReturnType<typeof setTimeout>>());
+
+  // 场景提亮：封面亮度离纸面越远，这一层就被拉回纸面附近（见 `sceneLift.ts`）。
+  // 没有封面源图时没有层要画，给一个不动的提亮量。
+  const paperLuma = useMemo(() => {
+    // 纸面色还没读到时（挂载后的第一帧）用缺省值，免得底色先亮一下再跳。
+    if (paper === NO_PAPER) return PAPER_LUMA_FALLBACK[scheme];
+    return linearLuminance(paper);
+  }, [paper, scheme]);
+  const tone = useMemo(
+    () => sceneTone(coverLuma ?? paperLuma, paperLuma, strength, lift, scheme),
+    [coverLuma, paperLuma, strength, lift, scheme],
+  );
 
   // 根元素的 color 取 `--paper-tint`，计算值就是算好的颜色。主题的样式规则在同一次提交里先于各 effect 写进
   // 文档，封面 ramp 或深浅一变，这里现读就是新值。
@@ -127,6 +142,7 @@ export function PaperCoverWash() {
             cover={layer.source.image}
             paper={paper}
             strength={strength}
+            tone={tone}
             playing={playing}
             onReady={() => show(layer.key)}
             onFallback={fallBack}
@@ -138,6 +154,7 @@ export function PaperCoverWash() {
             cover={layer.source.image}
             paper={paper}
             strength={strength}
+            tone={tone}
             onReady={() => show(layer.key)}
           />
         ),

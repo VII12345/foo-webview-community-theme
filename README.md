@@ -27,7 +27,7 @@ Default Theme is the default theme for [foo_ui_webview2](https://github.com/Nere
 
 | Area | Upstream 0.2.0 | This fork |
 |---|---|---|
-| Immersive view | Paper stage, focus view | Five scenes: paper, focus, lyrics, card, card lyrics; per-element visibility with automatic reflow; contrast-first text correction; in-view lyric search |
+| Immersive view | Paper stage, focus view | Five scenes: paper, focus, lyrics, card, card lyrics; per-element visibility with automatic reflow; the cover-tinted layer adapts to the colour extracted from the cover so the whole view brightens; every component can be moved and resized; in-view lyric search |
 | Lyrics | Line/word highlighting | Word highlighting, multi-source online search (ID mode defaults to Kugou hash), local-word priority, drag/wheel preview seeking, automatic online word lyrics saved back to tags |
 | Playback | Stock experience | Restore track/playlist/position after closing and reopening; reworked card transport keys, volume and seek bar |
 | Sidebar | Fixed sections | A “My headphones” section between Library and Playlists; click a headphone to switch immediately, with a matching rail flyout |
@@ -42,7 +42,14 @@ Default Theme is the default theme for [foo_ui_webview2](https://github.com/Nere
 
 - Cover-coloured Now Playing page; closing and reopening restores the last track, playlist and position.
 - The bottom player bar restores the cover; the mini player has cover and compact layouts.
+- The mini player shows a live SPL readout next to the seek bar (`72.4 dBA`, `—` when there is no reading); the artist/album line uses the full width when a track has no rating.
 - The five card transport keys are centred; order and volume keys use transparent outlines.
+
+### Tray and background activity
+
+- The tray menu's play/pause row follows the playback state: it shows Play when stopped or paused and Pause while audio is playing.
+- Double-clicking the tray icon restores the main window, including when it was hidden to the tray — the restore runs natively, so it works while the page is suspended.
+- Settings → General → **Background activity** controls what the page does while the window is hidden or minimised: **Normal** (default) keeps live audio analysis running, **Eco** pauses visual work but keeps timers running, and **Stop loading** stops page timers and analysis (the `foo_acoustic_stats` plugin keeps recording when installed). Background sampling in Normal mode is best-effort because the browser throttles timers in hidden pages.
 
 ### Sidebar
 
@@ -57,7 +64,8 @@ Default Theme is the default theme for [foo_ui_webview2](https://github.com/Nere
 - **Lyrics view**: dial on the left, word-level lyrics on the right.
 - **Card view** / **Card lyrics**: cover, title, rating, more button, seek bar and transport keys.
 - Settings → Components: hide individual elements per view and layout tier — background grid/arcs, the four header lines, meter cells, gauges, the six file-info fields, dial/card cells, lyric main/sub lines and more; remaining content reflows while analysis services keep running.
-- In the lyrics, card and card-lyrics scenes, text is corrected for contrast: the theme picks black or white by the cover-tinted background and the slider controls the strength; raising it never lowers contrast. The background and the paper/focus views are unchanged.
+- The cover-tinted layer fills the whole immersive view: a dark cover darkens it, the view goes dim and the lyrics get hard to read. The layer now adapts to the colour extracted from the cover — brightness and chroma are separated, brightness is pulled back towards the paper brightness and the cover only contributes its colour; how much it brightens follows how dark the cover is, and bright covers are left alone. The “Scene brightness” slider in Settings → Background controls the strength.
+- Settings → Immersive arrangement: move and resize components per view and layout tier. Click a box to select it (the selected box gets a solid ring and its list row is marked), then drag it to move or drag its corner to resize; nudge by 1 pixel with the arrow keys (hold to keep nudging, Shift for 8 pixels, Alt to resize), Tab switches components, Esc undoes. The preview carries a short usage hint next to it and can be zoomed to 100% / 200% for fine work. The view, layout and selected component are remembered, so you can check the result and carry on. Only the parts you moved are stored, so nothing drifts when the window changes.
 - A search button in the top-right opens the lyric search panel without leaving the immersive view; Escape closes the panel first and leaves the view on the second press.
 
 ### Lyrics
@@ -203,7 +211,7 @@ src/
 ├── shell/        # title bar, sidebar, player bar, right card
 ├── library/      # home, albums, artists, genres, songs, folders, search, biographies
 ├── playlist/     # playlists
-├── immersive/    # five immersive scenes, component visibility, SPL and meters
+├── immersive/    # five immersive scenes, component visibility and arrangement, SPL and meters
 ├── lyrics/       # local/online lyrics, priority, drag preview, tag writes
 ├── stats/        # playback statistics
 ├── settings/     # settings pages

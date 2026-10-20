@@ -4,7 +4,7 @@
 
 | 组件 | 状态 | 大小 | SHA-256 |
 |---|---|---|---|
-| `foo_ui_webview2/foo_ui_webview2.dll` | 修改版（非官方） | 6,233,088 | `80e6cbb27597fa391c04da8815d108f2915f6286b308bc62c38170dd034ee7c3` |
+| `foo_ui_webview2/foo_ui_webview2.dll` | 修改版（非官方） | 6,233,088 | `628be3f1e9db8d3349d59043e177cbc2bdf9f551d8191191cd88dad3b73e0651` |
 | `foo_ui_webview2/WebView2Loader.dll` | 官方 Microsoft 1.0.3719.77 | 160,368 | `ae69309c5e356350ea28d6b71a900bc43ee7e3f7a457d80a1f82efe6c419cc08` |
 | `foo_monthly_stats/foo_monthly_stats.dll` | 修改版（非官方） | 1,651,200 | `75c7d8bc62d6bc6d6c04dd0a6755923fc3a3b794ecb5463385d88f3f036d3773` |
 

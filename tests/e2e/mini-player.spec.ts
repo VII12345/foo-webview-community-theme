@@ -267,6 +267,22 @@ test('界面与窗口同比缩小，封面与按键按缩放后的尺寸排', as
   expect(x.errors).toEqual([]);
 });
 
+test('底部进度行右侧显示瞬时声压，换到封面态仍在且不压住进度条', async ({ page }) => {
+  const x = await openMini(page);
+  const spl = x.root.locator('[data-mini-spl]');
+  await expect(spl).toBeVisible();
+  // 没有读数时是占位符 "—"，有读数时是数字加单位；总之不能是空的。
+  await expect(spl).not.toHaveText('');
+  const seek = await x.root.getByRole('slider', { name: '播放进度' }).boundingBox();
+  const readout = await spl.boundingBox();
+  expect(seek).not.toBeNull();
+  expect(readout).not.toBeNull();
+  expect((seek?.x ?? 0) + (seek?.width ?? 0)).toBeLessThanOrEqual((readout?.x ?? 0) + 1);
+  await x.root.getByRole('button', { name: '展开封面' }).click();
+  await expect(page.locator('[data-mini-player="cover"] [data-mini-spl]')).toBeVisible();
+  expect(x.errors).toEqual([]);
+});
+
 test('停止时只留标题与播放控制，网络流以直播标记代替进度', async ({ page }) => {
   const stopped = await openMini(page, { state: { state: 'stopped', track: null } });
   await expect(stopped.root.getByText('未在播放', { exact: true })).toBeVisible();

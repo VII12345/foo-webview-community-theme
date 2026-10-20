@@ -1,5 +1,6 @@
 import { makeStyles, Title2 } from '@fluentui/react-components';
 import {
+  ArrowMove20Regular,
   Globe20Regular,
   Headphones20Regular,
   Info20Regular,
@@ -47,9 +48,14 @@ import { useSettingsNav } from './useSettingsNav.ts';
 import { OnlineSettingsContext, OnlineSettingsNavigationContext } from './onlineSettingsContext.ts';
 import { LyricsSettingsContext, LyricsSettingsNavigationContext } from './lyricsSettingsContext.ts';
 import { ImmersiveSettingsContext } from './immersiveSettingsContext.ts';
+import { ImmersiveLayoutContext } from './immersiveLayoutContext.ts';
 
 function ImmersiveSection() {
   return useContext(ImmersiveSettingsContext);
+}
+
+function ImmersiveLayoutSection() {
+  return useContext(ImmersiveLayoutContext);
 }
 
 function OnlineSection() {
@@ -98,6 +104,12 @@ const GROUPS: readonly GroupSpec[] = [
     label: 'settings.groupImmersive',
     icon: <FullScreenMaximize20Regular />,
     content: <ImmersiveSection />,
+  },
+  {
+    id: 'immersive-layout',
+    label: 'settings.immersiveLayoutEditor',
+    icon: <ArrowMove20Regular />,
+    content: <ImmersiveLayoutSection />,
   },
   {
     id: 'lyrics',

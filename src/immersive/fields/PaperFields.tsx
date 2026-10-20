@@ -7,12 +7,15 @@ import {
 } from '../page/immersiveComponents.ts';
 import { MISSING, qualityLine } from '../paper/paperScale.ts';
 import type { FieldsMode } from '../paper/paperTiers.ts';
+import type { StageBox } from '../paper/paperComponentLayout.ts';
+import { placementStyle } from '../layout/immersiveBoxes.ts';
+import type { Placements } from '../layout/Placed.ts';
 import styles from './PaperFields.module.css';
 import { PaperFileInfo } from './PaperFileInfo.tsx';
 import { PaperMetaRow } from './PaperMetaRow.tsx';
 import { useTitleScroll, type TitleScrollOptions } from './useTitleScroll.ts';
 
-/** 长标题先从 48 降到 36，仍放不下再滚动；滚动速度与擦除软边按版心档的缺省。 */
+/** 长标题先从 48 降到 36，仍放不下就滚动；滚动速度与擦切软边按版心档的缺省。 */
 const TITLE_SCROLL: TitleScrollOptions = { font: { max: 48, min: 36, step: 12 } };
 
 const FOOTNOTE =
@@ -73,15 +76,23 @@ export interface PaperFieldsProps {
   readonly lyricsOnly?: boolean;
   /** 当前视图/布局隐藏的模块。 */
   readonly hidden?: ReadonlySet<string>;
+  /**
+   * 布局算出的每一块的盒子（版心坐标）。右栏改成按盒子绝对定位：藏掉一块，后面的跟着上移，
+   * 不留空白；编排器改的就是这些盒子。
+   */
+  readonly boxes?: ReadonlyMap<ImmersivePanelId, StageBox>;
+  /** 编排器里挪过或改过大小的组件；变换直接加在块上。 */
+  readonly placements?: Placements;
 }
 
 /**
- * 收缩档与竖版的图纸右栏：From 行、标题、By 与 Quality，横线下依次是 `PaperMetaRow`（声场、声压 / Year / Label、
+ * 收缩档与竖版的图纸右栏：From 行、标题、By 与 Quality，横线依次是 `PaperMetaRow`（声场、声压 / Year / Label、
  * Duration / Elapsed）、频谱、整轨波形、量表与文件信息 3 × 2（`PaperFileInfo`）、脚注、歌词。
  * 字段名是等宽英文，是版式的一部分，不进语言包；缺值写 `—`，键名保留，图纸的格子不因为空就塌。
  *
- * 位置与宽由档位给。`compact` 去掉声场与 3 × 2、频谱柱区矮 40；`narrow` 只留 From / 标题 / By / 频谱 / 波形 / 歌词，
- * 频谱柱区同样矮 40，并左缩 26 给幅度刻度（单栏两侧只有 16 的边距）。各块高度是定值，不随内容伸缩；
+ * 位置与宽由档位给，块的纵向位置由布局算出的盒子给（`sheetBoxes`）。`compact` 去掉声场与 3 × 2、
+ * 频谱柱区矮 40；`narrow` 只留 From / 标题 / By / 频谱 / 波形 / 歌词，频谱柱区同样矮 40，
+ * 并左缩 26 给幅度刻度（单栏两侧只有 16 的边距）。各块的高度是定值，不随内容伸缩；
  * 频谱、整轨波形、量表与文件信息的几何变量在这里按版心档给全。
  *
  * 长标题先降字号（48 → 36），仍放不下就循环滚动与擦除（`useTitleScroll`），减弱动效下留省略号。
@@ -93,6 +104,8 @@ export function PaperFields({
   slots,
   lyricsOnly = false,
   hidden = new Set<string>(),
+  boxes,
+  placements,
 }: PaperFieldsProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const title = track?.title || MISSING;
@@ -116,12 +129,56 @@ export function PaperFields({
     width: placement.width,
     height,
   };
+  /**
+   * 一块在右栏里的落位：盒子给的是版心坐标，这里换算成右栏内的偏移（左上角对齐右栏的 0,0）。
+   * 没有盒子时退回按内容流（降级路径）。
+   */
+  /**
+   * 一块在右栏里的落位：盒子给的是版心坐标，这里换算成右栏内的偏移（左上角对齐右栏的 0,0）。
+   * 没有盒子时退回按内容流（降级路径）。
+   */
+  const at = (id: ImmersivePanelId, offset = 0): CSSProperties | undefined => {
+    const found = boxes?.get(id);
+    if (!found) return undefined;
+    return {
+      position: 'absolute',
+      left: 0,
+      top: found.y - placement.y + offset,
+      width: '100%',
+      height: found.h,
+      // 外边距已经算进盒子的纵向位置里了，绝对定位下别再让外边距顶一次。
+      margin: 0,
+      ...placementStyle(found, placements?.[id]),
+    };
+  };
+  /** 一块在另一个块里的落位（相对那个块的左上角）。 */
+  const atIn = (
+    host: ImmersivePanelId,
+    id: ImmersivePanelId,
+  ): CSSProperties | undefined => {
+    const found = boxes?.get(id);
+    const container = boxes?.get(host);
+    if (!found || !container) return undefined;
+    return {
+      position: 'absolute',
+      left: found.x - container.x,
+      top: found.y - container.y,
+      width: found.w,
+      height: found.h,
+      margin: 0,
+      ...placementStyle(found, placements?.[id]),
+    };
+  };
   return (
     <div className={styles.fields} data-paper-fields={mode} style={box}>
       {showHeader && (
         <>
           {shown('right.header.from') && (
-            <div className={styles.from} data-decor-guard="36">
+            <div
+              className={styles.from}
+              data-decor-guard="36"
+              style={at('right.header.from')}
+            >
               <span className={styles['hot-square']} aria-hidden />
               <span>From:</span>
               <span className={styles['from-album']} data-field="album">
@@ -136,6 +193,7 @@ export function PaperFields({
               className={styles.title}
               data-rolling={rolling || undefined}
               data-field="title"
+              style={at('right.header.title')}
             >
               <span ref={titleText} className={styles['title-text']}>
                 {title}
@@ -143,7 +201,11 @@ export function PaperFields({
             </h1>
           )}
           {(showBy || showQuality) && (
-            <div className={styles.byline} data-decor-guard="36">
+            <div
+              className={styles.byline}
+              data-decor-guard="36"
+              style={at('right.header.by')}
+            >
               {showBy && (
                 <div>
                   <span className={styles.key}>By</span>
@@ -162,36 +224,50 @@ export function PaperFields({
               )}
             </div>
           )}
-          <hr className={styles.rule} />
+          <hr className={styles.rule} style={at('right.header.by', 60)} />
         </>
       )}
       {!lyricsOnly && mode !== 'narrow' && showMeta && (
-        <PaperMetaRow
-          compact={mode === 'compact'}
-          stereo={slots.stereo}
-          soundPressure={slots.soundPressure}
-          hidden={hidden}
-        />
+        <div style={at('right.meta')}>
+          <PaperMetaRow
+            compact={mode === 'compact'}
+            stereo={slots.stereo}
+            soundPressure={slots.soundPressure}
+            hidden={hidden}
+          />
+        </div>
       )}
       {!lyricsOnly && slots.spectrum !== null && shown('right.spectrum') && (
-        <div className={styles.spectrum} data-field-slot="spectrum">{slots.spectrum}</div>
+        <div className={styles.spectrum} data-field-slot="spectrum" style={at('right.spectrum')}>
+          {slots.spectrum}
+        </div>
       )}
       {!lyricsOnly && shown('right.waveform') && (
-        <div className={styles.waveform}>{slots.waveform}</div>
+        <div className={styles.waveform} style={at('right.waveform')}>
+          {slots.waveform}
+        </div>
       )}
       {!lyricsOnly &&
         mode !== 'narrow' &&
         (showGauges || (mode === 'full' && showFileInfo)) && (
-          <div className={styles['row-file']}>
-            {showGauges && <div className={styles.gauges}>{slots.gauges}</div>}
-            {mode === 'full' && showFileInfo && <PaperFileInfo hidden={hidden} />}
+          <div className={styles['row-file']} style={at('right.gauges')}>
+            {showGauges && (
+              <div className={styles.gauges} style={atIn('right.gauges', 'right.gauges')}>
+                {slots.gauges}
+              </div>
+            )}
+            {mode === 'full' && showFileInfo && (
+              <PaperFileInfo hidden={hidden} style={atIn('right.gauges', 'right.fileInfo')} />
+            )}
           </div>
         )}
       {!lyricsOnly && mode !== 'narrow' && shown('right.footnote') && (
-        <p className={styles.footnote}>{FOOTNOTE}</p>
+        <p className={styles.footnote} style={at('right.footnote')}>
+          {FOOTNOTE}
+        </p>
       )}
       {shown('right.lyrics') && (
-        <div className={styles.lyrics} data-lyrics-slot>
+        <div className={styles.lyrics} data-lyrics-slot style={at('right.lyrics')}>
           {slots.lyrics}
         </div>
       )}

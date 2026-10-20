@@ -13,17 +13,17 @@ import { translateAtom } from '../i18n/locale.ts';
 import {
   chooseImmersiveFpsCap,
   chooseImmersiveHostFullscreen,
+  chooseImmersiveSceneLift,
   chooseImmersiveTerrain,
   chooseImmersiveWash,
   chooseImmersiveScene,
-  chooseImmersiveTextBoost,
   chooseWaveformMode,
   FPS_CAPS,
   immersiveFpsCapAtom,
   immersiveHostFullscreenAtom,
   immersiveSceneAtom,
+  immersiveSceneLiftAtom,
   immersiveTerrainAtom,
-  immersiveTextBoostAtom,
   immersiveWashAtom,
   IMMERSIVE_PREF_KEYS,
   IMMERSIVE_SCENES,
@@ -94,7 +94,7 @@ export function ImmersiveSettings() {
   const fullscreen = useAtomValueRawSync(immersiveHostFullscreenAtom);
   const wash = useAtomValueRawSync(immersiveWashAtom);
   const terrain = useAtomValueRawSync(immersiveTerrainAtom);
-  const textBoost = useAtomValueRawSync(immersiveTextBoostAtom);
+  const sceneLift = useAtomValueRawSync(immersiveSceneLiftAtom);
   const waveform = useAtomValueRawSync(waveformModeAtom);
   const scene = useAtomValueRawSync(immersiveSceneAtom);
   const fps = useAtomValueRawSync(immersiveFpsCapAtom);
@@ -141,7 +141,7 @@ export function ImmersiveSettings() {
             keys={[
               IMMERSIVE_PREF_KEYS.wash,
               IMMERSIVE_PREF_KEYS.terrain,
-              IMMERSIVE_PREF_KEYS.textBoost,
+              IMMERSIVE_PREF_KEYS.sceneLift,
             ]}
           />
         }
@@ -167,22 +167,22 @@ export function ImmersiveSettings() {
           )}
         </SettingsRow>
         <SettingsRow
-          title={t('settings.immersiveTextBoost')}
-          description={t('settings.immersiveTextBoostHint')}
+          title={t('settings.immersiveSceneLift')}
+          description={t('settings.immersiveSceneLiftHint')}
           field
         >
           {({ labelId }) => (
-            <div className={styles.textBoost}>
+            <div className={styles.sceneLift}>
               <Slider
                 min={0}
                 max={100}
                 step={1}
-                value={textBoost}
+                value={sceneLift}
                 aria-labelledby={labelId}
-                aria-valuetext={`${textBoost}%`}
-                onChange={(_, data) => chooseImmersiveTextBoost(store, data.value)}
+                aria-valuetext={`${sceneLift}%`}
+                onChange={(_, data) => chooseImmersiveSceneLift(store, data.value)}
               />
-              <output className={styles.textBoostValue}>{textBoost}%</output>
+              <output className={styles.sceneLiftValue}>{sceneLift}%</output>
             </div>
           )}
         </SettingsRow>

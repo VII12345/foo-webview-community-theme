@@ -60,6 +60,7 @@ async function health(
 export function startBackendConnection(
   store: Store,
   host: BackendConnectionHost = fb,
+  options: { readonly suspended?: Atom<boolean> } = {},
 ): BackendConnection {
   const failed = atom(false);
   const lifetime = new AbortController();
@@ -170,8 +171,10 @@ export function startBackendConnection(
     }
     throw new Error('本地后端连接超时');
   }
-  const timer = setInterval(() => {
+  function checkHealth(): void {
     if (!descriptor || checking || lifetime.signal.aborted) return;
+    // 后台"停止加载"档：不查；恢复可见时订阅那边会立刻补一次。
+    if (options.suspended && store.get(options.suspended)) return;
     checking = true;
     const expected = descriptor;
     void health(expected, lifetime.signal)
@@ -181,10 +184,17 @@ export function startBackendConnection(
       .finally(() => {
         checking = false;
       });
-  }, 10000);
+  }
+  const timer = setInterval(checkHealth, 10000);
+  const offSuspended = options.suspended
+    ? store.sub(options.suspended, () => {
+        if (!store.get(options.suspended!)) checkHealth();
+      })
+    : undefined;
   function dispose(): void {
     lifetime.abort();
     clearInterval(timer);
+    offSuspended?.();
     off?.();
     void stop();
   }

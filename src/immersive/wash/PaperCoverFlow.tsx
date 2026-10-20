@@ -4,6 +4,7 @@ import { createWarpRenderer } from './warpShader.ts';
 import { createFrameGovernor } from '../frame/frameGovernor.ts';
 import { createFrameScheduler } from '../frame/frameScheduler.ts';
 import { canvasRatio } from '../paper/stageScale.ts';
+import type { SceneTone } from './sceneLift.ts';
 import styles from './PaperCoverFlow.module.css';
 
 export interface PaperCoverFlowProps {
@@ -13,6 +14,8 @@ export interface PaperCoverFlowProps {
   readonly paper: readonly [number, number, number];
   /** 封面混进纸面的比例，0–1。 */
   readonly strength: number;
+  /** 场景提亮：亮度平移量、可读带、色度上限。 */
+  readonly tone: SceneTone;
   /** 播放中才流动；暂停停在当前画面、不再排帧。 */
   readonly playing: boolean;
   /** 按 canvas 实际尺寸画出第一帧后调一次。 */
@@ -43,15 +46,16 @@ export function PaperCoverFlow({
   cover,
   paper,
   strength,
+  tone,
   playing,
   onReady,
   onFallback,
   className,
 }: PaperCoverFlowProps) {
   const host = useRef<HTMLDivElement>(null);
-  const latest = useRef({ paper, strength, playing, onReady, onFallback });
+  const latest = useRef({ paper, strength, tone, playing, onReady, onFallback });
   useLayoutEffect(() => {
-    latest.current = { paper, strength, playing, onReady, onFallback };
+    latest.current = { paper, strength, tone, playing, onReady, onFallback };
   });
   /** 排一次重画；只在 canvas 与上下文活着时有效。 */
   const wake = useRef<() => void>(() => {});
@@ -97,6 +101,7 @@ export function PaperCoverFlow({
         angle: rotationAt(seconds),
         paper: latest.current.paper,
         strength: latest.current.strength,
+        tone: latest.current.tone,
         saturation: SATURATION,
         seed: frameCount + 0.5,
       });
@@ -150,7 +155,7 @@ export function PaperCoverFlow({
 
   useEffect(() => {
     wake.current();
-  }, [paper, strength, playing]);
+  }, [paper, strength, tone, playing]);
 
   return (
     <div

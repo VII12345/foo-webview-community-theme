@@ -1,8 +1,10 @@
 import { useAtomValueRawSync } from 'jotai/react';
 import type { CSSProperties } from 'react';
 import { currentTrackAtom } from '../../playback/playback.ts';
-import { moduleHidden } from '../page/immersiveComponents.ts';
+import { moduleHidden, type ImmersivePanelId } from '../page/immersiveComponents.ts';
 import { STAGE_COVER, STAGE_DIAL, STAGE_ORBIT, STAGE_RINGS, STAGE_TICKS, STAGE_TRANSPORT } from '../paper/paperStage.ts';
+import type { StageBox } from '../paper/paperComponentLayout.ts';
+import { Placed, type Placements } from '../layout/Placed.tsx';
 import { DialCells } from './DialCells.tsx';
 import { DialCover } from './DialCover.tsx';
 import { PaperBrackets } from './PaperBrackets.tsx';
@@ -40,6 +42,9 @@ const TRANSPORT_BOX: CSSProperties = {
 const TICK_CLASS = `${styles.base} ${styles.tick}`;
 const HOT_TICK_CLASS = `${TICK_CLASS} ${styles['hot-tick']}`;
 
+/** 没有布局盒子时（降级路径）用空表。 */
+const NO_BOXES: ReadonlyMap<ImmersivePanelId, StageBox> = new Map();
+
 /** 以环心为圆心、直径是两倍半径的方框；样式里再用 `translate` 拉回中心。 */
 function ringBox(radius: number): CSSProperties {
   return { left: STAGE_DIAL.x, top: STAGE_DIAL.y, width: radius * 2, height: radius * 2 };
@@ -57,45 +62,77 @@ function ringBox(radius: number): CSSProperties {
 export function StageDial({
   offsetX = 0,
   hidden = new Set<string>(),
+  boxes,
+  placements = {},
 }: {
   readonly offsetX?: number;
   readonly hidden?: ReadonlySet<string>;
+  /** 布局算出的每件盒子，编排器里挪过或改过大小的按它落位。 */
+  readonly boxes?: ReadonlyMap<ImmersivePanelId, StageBox>;
+  readonly placements?: Placements;
 } = {}) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const show = (id: string) => !moduleHidden(hidden, id as never);
+  const map = boxes ?? NO_BOXES;
   return (
     <div className={styles.dial} style={offsetX ? { left: offsetX } : undefined}>
-      {show('dial.rings') &&
-        STAGE_RINGS.map((radius) => (
-          <span key={radius} className={styles.ring} style={ringBox(radius)} aria-hidden />
-        ))}
-      {show('dial.orbit') && <PaperOrbit center={STAGE_DIAL} scale={1} spec={STAGE_ORBIT} />}
-      {show('dial.ticks') &&
-        STAGE_TICKS.map((tick) => (
-          <span
-            key={tick.text}
-            className={tick.hot ? HOT_TICK_CLASS : TICK_CLASS}
-            style={{ left: tick.x, top: tick.base }}
-            aria-hidden
-          >
-            {tick.text}
-          </span>
-        ))}
-      {show('dial.albumText') && (
-        <div className={`${styles.base} ${styles.album}`} data-field="dialAlbum">
-          {track?.album ?? ''}
-        </div>
+      {show('dial.rings') && (
+        <Placed id="dial.rings" boxes={map} placements={placements}>
+          {STAGE_RINGS.map((radius) => (
+            <span key={radius} className={styles.ring} style={ringBox(radius)} aria-hidden />
+          ))}
+        </Placed>
       )}
-      {show('dial.cover') && <DialCover box={COVER_BOX} guard={72} />}
-      {show('dial.brackets') && <PaperBrackets box={BRACKET_BOX} arm={BRACKET_ARM} />}
-      {show('dial.cells') && <DialCells hidden={hidden} />}
+      {show('dial.orbit') && (
+        <Placed id="dial.orbit" boxes={map} placements={placements}>
+          <PaperOrbit center={STAGE_DIAL} scale={1} spec={STAGE_ORBIT} />
+        </Placed>
+      )}
+      {show('dial.ticks') && (
+        <Placed id="dial.ticks" boxes={map} placements={placements}>
+          {STAGE_TICKS.map((tick) => (
+            <span
+              key={tick.text}
+              className={tick.hot ? HOT_TICK_CLASS : TICK_CLASS}
+              style={{ left: tick.x, top: tick.base }}
+              aria-hidden
+            >
+              {tick.text}
+            </span>
+          ))}
+        </Placed>
+      )}
+      {show('dial.albumText') && (
+        <Placed id="dial.albumText" boxes={map} placements={placements}>
+          <div className={`${styles.base} ${styles.album}`} data-field="dialAlbum">
+            {track?.album ?? ''}
+          </div>
+        </Placed>
+      )}
+      {show('dial.cover') && (
+        <Placed id="dial.cover" boxes={map} placements={placements}>
+          <DialCover box={COVER_BOX} guard={72} />
+        </Placed>
+      )}
+      {show('dial.brackets') && (
+        <Placed id="dial.brackets" boxes={map} placements={placements}>
+          <PaperBrackets box={BRACKET_BOX} arm={BRACKET_ARM} />
+        </Placed>
+      )}
+      {show('dial.cells') && (
+        <Placed id="dial.cells" boxes={map} placements={placements}>
+          <DialCells hidden={hidden} />
+        </Placed>
+      )}
       {show('dial.transport') && (
-        <PaperTransport
-          className={styles.transport}
-          size={TRANSPORT_SIZE}
-          guard={60}
-          style={TRANSPORT_BOX}
-        />
+        <Placed id="dial.transport" boxes={map} placements={placements}>
+          <PaperTransport
+            className={styles.transport}
+            size={TRANSPORT_SIZE}
+            guard={60}
+            style={TRANSPORT_BOX}
+          />
+        </Placed>
       )}
     </div>
   );

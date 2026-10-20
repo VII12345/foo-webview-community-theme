@@ -7,6 +7,7 @@ import {
   FolderOpen24Regular,
   MusicNote124Regular,
   Next24Regular,
+  Pause24Regular,
   Play24Regular,
   Previous24Regular,
   SignOut24Regular,
@@ -22,6 +23,7 @@ import type { TrayIconName, TrayIconSvg } from '../playback/trayMenu.ts';
 const TRAY_ICONS: Readonly<Record<TrayIconName, FluentIcon>> = {
   previous: Previous24Regular,
   playPause: Play24Regular,
+  pause: Pause24Regular,
   next: Next24Regular,
   showMainWindow: Window24Regular,
   exit: SignOut24Regular,

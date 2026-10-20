@@ -1,6 +1,7 @@
 import { Switch } from '@fluentui/react-components';
 import {
   ArrowMinimize20Regular,
+  BatterySaver20Regular,
   DoorArrowRight20Regular,
   FolderOpen20Regular,
   Open16Regular,
@@ -8,6 +9,14 @@ import {
 } from '@fluentui/react-icons';
 import { useAtomValueRawSync, useStore } from 'jotai/react';
 import type { ReactElement } from 'react';
+import {
+  backgroundModeAtom,
+  BACKGROUND_MODES,
+  BACKGROUND_MODE_STORAGE_KEY,
+  chooseBackgroundMode,
+  type BackgroundMode,
+} from '../host/backgroundMode.ts';
+import type { MessageKey } from '../i18n/en.ts';
 import { translateAtom } from '../i18n/locale.ts';
 import { PLACE_LABELS } from '../nav/places.ts';
 import {
@@ -137,6 +146,46 @@ function StartPlaceCard() {
   );
 }
 
+const BACKGROUND_MODE_LABELS: Readonly<Record<BackgroundMode, MessageKey>> = {
+  normal: 'settings.backgroundModeNormal',
+  eco: 'settings.backgroundModeEco',
+  stop: 'settings.backgroundModeStop',
+};
+
+const BACKGROUND_MODE_HINTS: Readonly<Record<BackgroundMode, MessageKey>> = {
+  normal: 'settings.backgroundModeNormalHint',
+  eco: 'settings.backgroundModeEcoHint',
+  stop: 'settings.backgroundModeStopHint',
+};
+
+/** 窗口不可见时页面做多少事；说明放在下拉列表的选项下面，卡片描述留给错误。 */
+function BackgroundModeCard() {
+  const t = useAtomValueRawSync(translateAtom);
+  const mode = useAtomValueRawSync(backgroundModeAtom);
+  const store = useStore();
+  return (
+    <SettingsCard
+      icon={<BatterySaver20Regular />}
+      title={t('settings.backgroundMode')}
+      feedback={<LocalSaveNotice keys={[BACKGROUND_MODE_STORAGE_KEY]} />}
+      field
+    >
+      {(ids) => (
+        <SettingsSelect
+          {...ids}
+          options={BACKGROUND_MODES.map((value) => ({
+            value,
+            label: t(BACKGROUND_MODE_LABELS[value]),
+            description: t(BACKGROUND_MODE_HINTS[value]),
+          }))}
+          value={mode}
+          onChange={(value) => chooseBackgroundMode(store, value)}
+        />
+      )}
+    </SettingsCard>
+  );
+}
+
 /**
  * 「常规」一组：界面语言、启动时打开、托盘；末尾「相关设置」是去 foobar2000 自己的设置的两个入口。
  */
@@ -146,6 +195,7 @@ export function GeneralSection() {
     <>
       <LanguageCard />
       <StartPlaceCard />
+      <BackgroundModeCard />
       <TrayExpander />
       <h3 className={styles.subheading}>{t('settings.related')}</h3>
       <SettingsActionCard

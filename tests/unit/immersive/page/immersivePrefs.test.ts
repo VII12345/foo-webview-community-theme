@@ -6,7 +6,7 @@ import {
   chooseImmersiveHostFullscreen,
   chooseImmersiveScene,
   chooseImmersiveTerrain,
-  chooseImmersiveTextBoost,
+  chooseImmersiveSceneLift,
   chooseImmersiveWash,
   chooseWaveformMode,
   DEFAULT_SCENE,
@@ -15,14 +15,14 @@ import {
   immersiveHostFullscreenAtom,
   immersiveSceneAtom,
   immersiveTerrainAtom,
-  immersiveTextBoostAtom,
+  immersiveSceneLiftAtom,
   immersiveWashAtom,
   loadImmersivePrefs,
   readImmersiveFpsCap,
   readImmersiveHostFullscreen,
   readImmersiveScene,
   readImmersiveTerrain,
-  readImmersiveTextBoost,
+  readImmersiveSceneLift,
   readImmersiveWash,
   readWaveformMode,
   waveformModeAtom,
@@ -31,7 +31,7 @@ import { WAVEFORM_MODES } from '../../../../src/immersive/waveform/waveformModes
 import type { PrefStorage } from '../../../../src/kit/localPref.ts';
 import type { Store } from '../../../../src/kit/store.ts';
 
-/** 沉浸视图六项偏好的存档：缺省、读回、坏值、写入与存储被禁，以及帧率上限交给重画调度。 */
+/** 沉浸视图七项偏好的存档：缺省、读回、坏值、写入与存储被禁，以及帧率上限交给重画调度。 */
 const KEYS = {
   terrain: 'default-theme.immersive.terrain.v1',
   wash: 'default-theme.immersive.wash.v1',
@@ -39,7 +39,7 @@ const KEYS = {
   fpsCap: 'default-theme.immersive.fpsCap.v1',
   waveformMode: 'default-theme.immersive.waveformMode.v1',
   scene: 'default-theme.immersive.scene.v1',
-  textBoost: 'default-theme.immersive.textBoost.v1',
+  sceneLift: 'default-theme.immersive.sceneLift.v1',
 };
 
 const DEFAULTS = {
@@ -49,7 +49,7 @@ const DEFAULTS = {
   fpsCap: 0,
   waveformMode: 'rms',
   scene: 'paper',
-  textBoost: 50,
+  sceneLift: 70,
 };
 
 function fakeStorage(seed: Record<string, string> = {}) {
@@ -82,7 +82,7 @@ function prefsOf(store: Store) {
     fpsCap: store.get(immersiveFpsCapAtom),
     waveformMode: store.get(waveformModeAtom),
     scene: store.get(immersiveSceneAtom),
-    textBoost: store.get(immersiveTextBoostAtom),
+    sceneLift: store.get(immersiveSceneLiftAtom),
   };
 }
 
@@ -119,14 +119,14 @@ describe('loadImmersivePrefs', () => {
     chooseImmersiveFpsCap(store, 0, storage);
     caps.push(paintFpsCap());
     chooseWaveformMode(store, 'lanes', storage);
-    chooseImmersiveTextBoost(store, 70, storage);
+    chooseImmersiveSceneLift(store, 30, storage);
     expect(Object.fromEntries(map)).toStrictEqual({
       [KEYS.terrain]: 'off',
       [KEYS.wash]: 'off',
       [KEYS.hostFullscreen]: 'on',
       [KEYS.fpsCap]: '0',
       [KEYS.waveformMode]: 'lanes',
-      [KEYS.textBoost]: '70',
+      [KEYS.sceneLift]: '30',
     });
     expect(caps).toStrictEqual([null, 60, null]);
 
@@ -139,7 +139,7 @@ describe('loadImmersivePrefs', () => {
       fpsCap: 0,
       waveformMode: 'lanes',
       scene: 'paper',
-      textBoost: 70,
+      sceneLift: 30,
     });
   });
 
@@ -151,7 +151,7 @@ describe('loadImmersivePrefs', () => {
       [KEYS.fpsCap]: '45',
       [KEYS.waveformMode]: 'bars',
       [KEYS.scene]: 'nope',
-      [KEYS.textBoost]: '101',
+      [KEYS.sceneLift]: '101',
     }).storage;
     const store = createStore();
     loadImmersivePrefs(store, bad);
@@ -160,7 +160,7 @@ describe('loadImmersivePrefs', () => {
     expect(readImmersiveWash(bad)).toBe('flow');
     expect(readImmersiveHostFullscreen(bad)).toBe(false);
     expect(readImmersiveFpsCap(bad)).toBe(0);
-    expect(readImmersiveTextBoost(bad)).toBe(50);
+    expect(readImmersiveSceneLift(bad)).toBe(70);
 
     const muted = createStore();
     loadImmersivePrefs(muted, broken);
@@ -170,7 +170,7 @@ describe('loadImmersivePrefs', () => {
     chooseImmersiveHostFullscreen(muted, true, broken);
     chooseImmersiveFpsCap(muted, 144, broken);
     chooseWaveformMode(muted, 'weighted', broken);
-    chooseImmersiveTextBoost(muted, 80, broken);
+    chooseImmersiveSceneLift(muted, 80, broken);
     expect(prefsOf(muted)).toStrictEqual({
       terrain: false,
       wash: 'static',
@@ -178,14 +178,14 @@ describe('loadImmersivePrefs', () => {
       fpsCap: 144,
       waveformMode: 'weighted',
       scene: 'paper',
-      textBoost: 80,
+      sceneLift: 80,
     });
     expect(paintFpsCap()).toBe(144);
 
     expect(readImmersiveFpsCap(fakeStorage({ [KEYS.fpsCap]: '120' }).storage)).toBe(120);
     expect(readImmersiveFpsCap(fakeStorage({ [KEYS.fpsCap]: '240' }).storage)).toBe(240);
     for (const raw of ['-1', '100.5', 'abc', '']) {
-      expect(readImmersiveTextBoost(fakeStorage({ [KEYS.textBoost]: raw }).storage), raw).toBe(50);
+      expect(readImmersiveSceneLift(fakeStorage({ [KEYS.sceneLift]: raw }).storage), raw).toBe(70);
     }
   });
 
@@ -203,7 +203,7 @@ describe('loadImmersivePrefs', () => {
     chooseImmersiveFpsCap(store, 60, storage);
     chooseWaveformMode(store, 'rms', storage);
     chooseImmersiveScene(store, 'paper', storage);
-    chooseImmersiveTextBoost(store, 50, storage);
+    chooseImmersiveSceneLift(store, 70, storage);
     expect(writes()).toBe(0);
     chooseImmersiveWash(store, 'flow', storage);
     expect(writes()).toBe(1);

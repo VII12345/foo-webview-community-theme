@@ -19,6 +19,15 @@ export const settingsEn = {
   'settings.closeToTray': 'Close to tray',
   'settings.tray': 'System tray',
   'settings.startPlace': 'Open at startup',
+  'settings.backgroundMode': 'Background activity',
+  'settings.backgroundModeNormal': 'Normal',
+  'settings.backgroundModeEco': 'Eco',
+  'settings.backgroundModeStop': 'Stop loading',
+  'settings.backgroundModeNormalHint':
+    'Keep live audio analysis running while hidden; background sampling may be throttled.',
+  'settings.backgroundModeEcoHint': 'Pause visual work when hidden; timers keep running.',
+  'settings.backgroundModeStopHint':
+    'Stop page timers and analysis when hidden. foo_acoustic_stats keeps recording if installed.',
   'settings.related': 'Related settings',
   'settings.trayRejected': 'Tray setting was not applied',
   'settings.trayUnsaved': 'Applied, but the setting could not be saved',
@@ -106,9 +115,9 @@ export const settingsEn = {
   'settings.immersiveWashStatic': 'Static',
   'settings.immersiveWashOff': 'Hidden',
   'settings.immersiveTerrain': 'Terrain background',
-  'settings.immersiveTextBoost': 'Lyrics and card text contrast',
-  'settings.immersiveTextBoostHint':
-    'Moves text toward black or white to raise contrast against the cover-tinted background. 0% keeps the base colors; higher values never reduce contrast. Applies to the lyrics, card and card+lyrics scenes.',
+  'settings.immersiveSceneLift': 'Scene brightness',
+  'settings.immersiveSceneLiftHint':
+    'The cover-tinted layer fills the whole immersive view. A dark cover darkens it, and the whole view goes dim with the lyrics hard to read. This slider decides how far that layer is pulled back toward the paper brightness: 0% keeps the old look (the cover decides the brightness), higher values keep the layer bright and leave only the cover color. The amount adapts to the color extracted from the cover; bright covers are left alone.',
   'settings.immersivePerformance': 'Performance',
   'settings.immersiveFps': 'Frame rate limit',
   'settings.immersiveFpsUnlimited': 'Unlimited',
@@ -124,6 +133,29 @@ export const settingsEn = {
     'Choose which modules to show in this view and layout. Hiding only stops rendering; analysis keeps running.',
   'settings.immersiveComponentsView': 'View',
   'settings.immersiveComponentsLayout': 'Layout',
+  'settings.immersiveLayoutEditor': 'Immersive arrangement',
+  'settings.immersiveLayoutEditorView': 'Current view',
+  'settings.immersiveLayoutEditorLayout': 'Current layout',
+  'settings.immersiveLayoutEditorHint':
+    'Adjust the position and size of every component in the immersive view, per view and layout: drag a box to move it, drag its corner to resize. Changes apply immediately; only the parts you moved are stored.',
+  'settings.immersiveLayoutResetOne': 'Reset position',
+  'settings.immersiveLayoutResetAll': 'Reset this group',
+  'settings.immersiveLayoutOrderFront': 'Bring forward',
+  'settings.immersiveLayoutOrderBack': 'Send backward',
+  'settings.immersiveLayoutZoom': 'Preview zoom',
+  'settings.immersiveLayoutZoomFit': 'Fit to window',
+  'settings.immersiveLayoutZoom100': '100%',
+  'settings.immersiveLayoutZoom200': '200%',
+  'settings.immersiveLayoutHintMouse':
+    'Mouse: click a box to select it, drag a box to move it, drag its corner to resize; press Esc during a drag to cancel it.',
+  'settings.immersiveLayoutHintKeys':
+    'Keyboard: arrow keys nudge by 1 pixel (hold to keep nudging), Shift+arrow moves 8 pixels, Alt+arrow resizes, Tab switches between components, Esc undoes this edit.',
+  'settings.immersiveLayoutSelected': 'Selected: {name}',
+  'settings.immersiveLayoutSelectedNone':
+    'No component selected: click a box in the preview, or a name in the list below.',
+  'settings.immersiveLayoutSelectOne': 'Select this component',
+  'settings.immersiveLayoutRemember':
+    'The view, layout and selected component are remembered: come back after checking the result and carry on.',
   'settings.immersiveComponentsBackground': 'Background',
   'settings.immersiveComponentsDial': 'Dial',
   'settings.immersiveComponentsCard': 'Card',

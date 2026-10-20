@@ -65,6 +65,7 @@ export function SettingsSelect<T extends string>({
           key={option.value}
           value={option.value}
           text={option.label}
+          aria-label={option.label}
           disabled={option.disabled}
         >
           {option.description ? (

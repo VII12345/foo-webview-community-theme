@@ -398,4 +398,50 @@ describe('读写统计文件', () => {
     expect(text.days[ymdOf(start)]?.['hp-1']?.seconds).toBeCloseTo(1, 6);
     service.dispose();
   });
+
+  it('后台停止加载：停掉采样并在恢复时从此刻重新计数', async () => {
+    vi.useFakeTimers();
+    onTestFinished(() => vi.useRealTimers());
+    const start = new Date(2026, 9, 17, 12, 0, 0);
+    vi.setSystemTime(start);
+    const store = createStore();
+    const view = atom<LoudnessSampleView>({
+      reading: { splA: 80, splK: 80, splZ: 80 },
+      auto: { active: true, state: { updatedAtMs: start.getTime() } },
+      headphone: { id: 'hp-1', name: 'M1' },
+    });
+    const playback = atom<LoudnessPlaybackView>({
+      state: 'playing',
+      position: 0,
+      trackGeneration: 1,
+    });
+    const active = atom(true);
+    const { host, writes } = hostWith(NOT_FOUND);
+    const service = startLoudnessStats(store, {
+      view,
+      playback,
+      host,
+      document: null,
+      intervalMs: 1000,
+      debounceMs: 1000,
+      now: () => Date.now(),
+      active,
+    });
+    await service.ready;
+    await vi.advanceTimersByTimeAsync(1000);
+
+    store.set(active, false);
+    await vi.advanceTimersByTimeAsync(5000);
+    await service.flush();
+    const paused = JSON.parse(writes.at(-1)!.text) as LoudnessFile;
+    expect(paused.days[ymdOf(start)]?.['hp-1']?.seconds).toBeCloseTo(1, 6);
+
+    store.set(active, true);
+    await vi.advanceTimersByTimeAsync(1000);
+    await service.flush();
+    const resumed = JSON.parse(writes.at(-1)!.text) as LoudnessFile;
+    // 只多记一秒：停掉的那五秒不算进收听时长。
+    expect(resumed.days[ymdOf(start)]?.['hp-1']?.seconds).toBeCloseTo(2, 6);
+    service.dispose();
+  });
 });

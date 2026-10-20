@@ -1,0 +1,153 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacingVerticalM);
+}
+
+/* 预览：按缩放档放大后可以滚动，1 舞台像素才看得见。 */
+.pane {
+  position: relative;
+  width: 100%;
+  max-height: 70vh;
+  overflow: auto;
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground2);
+}
+
+/* 缩放后的画布尺寸：滚动条按它算。 */
+.canvas {
+  position: relative;
+}
+
+.stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+/* 操作提示：紧贴着预览的下沿，常驻可见。 */
+.hint {
+  margin: 0;
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+  line-height: 1.6;
+}
+
+/* 当前选中的是哪一个：写在操作提示下面，不必靠描边猜。 */
+.status {
+  margin: 0;
+  color: var(--colorNeutralForeground2);
+  font-size: var(--fontSizeBase200);
+}
+
+.item {
+  position: absolute;
+  border: 1px solid var(--colorBrandStroke1);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--colorBrandBackground1) 18%, transparent);
+  cursor: grab;
+  touch-action: none;
+}
+
+.item[data-moved] {
+  border-style: dashed;
+  border-color: var(--colorBrandForeground1);
+}
+
+.item:active {
+  cursor: grabbing;
+}
+
+/*
+ * 编排器自己画焦点与选中：全局的键盘焦点框已经取消了（见 themes.ts 的 withoutFocusRing），
+ * 而这里键盘是主要的操作方式，得看得见当前选中的是哪个组件。
+ */
+
+/* 选中的框：实心品牌色描边、标签反白——一眼看出当前动的是哪一个。 */
+.item[data-selected] {
+  border-color: var(--colorBrandForeground1);
+  box-shadow: 0 0 0 2px var(--colorBrandForeground1);
+}
+
+.item[data-selected] .label {
+  background: var(--colorBrandForeground1);
+  color: var(--colorNeutralBackground1);
+}
+
+/* 键盘焦点另给一条虚线描边，与"选中"分开：鼠标点的是选中，Tab 走到的是焦点。 */
+.item:focus-visible {
+  outline: 2px dashed var(--colorNeutralForeground1);
+  outline-offset: 3px;
+}
+
+.label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 100%;
+  padding: 0 4px;
+  overflow: hidden;
+  color: var(--colorBrandForeground1);
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--colorBrandForeground1);
+  background: var(--colorBrandBackground1);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingHorizontalS);
+  min-height: 28px;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: var(--colorNeutralForeground1);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+/* 清单里选中的那一行：与预览里的选中框对上。 */
+.row[data-selected] .name {
+  color: var(--colorBrandForeground1);
+  font-weight: var(--fontWeightSemibold);
+}
+
+.numbers {
+  color: var(--colorNeutralForeground3);
+  font-family: var(--fontFamilyMonospace);
+  font-size: var(--fontSizeBase200);
+  font-variant-numeric: tabular-nums;
+}

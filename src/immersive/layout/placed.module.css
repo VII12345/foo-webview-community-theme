@@ -1,0 +1,13 @@
+/* 铺满舞台的定位层：里面的件照旧相对舞台定位，这一层只承接编排器的平移与缩放。
+   自己不接指针，免得盖住下面的件；里面的按钮与链接各自接回来（这一层铺满舞台，
+   不接住的话传输键这些就点不着了）。 */
+.placed {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.placed :global(button),
+.placed :global(a) {
+  pointer-events: auto;
+}

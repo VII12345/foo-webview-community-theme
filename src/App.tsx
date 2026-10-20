@@ -23,6 +23,8 @@ import { OnboardingDialog } from './settings/onboarding/OnboardingDialog.tsx';
 import { WindowRoot } from './app/WindowRoot.tsx';
 import { LyricsRoot } from './app/LyricsRoot.tsx';
 import { ImmersiveSettingsContext } from './settings/immersiveSettingsContext.ts';
+import { ImmersiveLayoutContext } from './settings/immersiveLayoutContext.ts';
+import { ImmersiveLayoutEditor } from './app/ImmersiveLayoutEditor.tsx';
 
 const ImmersiveSettings = lazy(() =>
   import('./app/ImmersiveSettings.tsx').then(({ ImmersiveSettings }) => ({
@@ -67,14 +69,18 @@ export function App({ services }: AppProps) {
                                 </Suspense>
                               }
                             >
-                              <ShellSlotsContext value={SHELL_SLOTS}>
-                                <WindowRoot>
-                                  <MainWindow />
-                                </WindowRoot>
-                              </ShellSlotsContext>
-                              <AppToasts />
-                              <Dx52FailureDialog />
-                              <OnboardingDialog />
+                              <ImmersiveLayoutContext
+                                value={<ImmersiveLayoutEditor />}
+                              >
+                                <ShellSlotsContext value={SHELL_SLOTS}>
+                                  <WindowRoot>
+                                    <MainWindow />
+                                  </WindowRoot>
+                                </ShellSlotsContext>
+                                <AppToasts />
+                                <Dx52FailureDialog />
+                                <OnboardingDialog />
+                              </ImmersiveLayoutContext>
                             </ImmersiveSettingsContext>
                           </UpdateRoot>
                         </HomeRoot>

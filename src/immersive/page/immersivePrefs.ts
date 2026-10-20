@@ -49,7 +49,7 @@ export const IMMERSIVE_PREF_KEYS = {
   fpsCap: 'default-theme.immersive.fpsCap.v1',
   waveformMode: 'default-theme.immersive.waveformMode.v1',
   scene: 'default-theme.immersive.scene.v1',
-  textBoost: 'default-theme.immersive.textBoost.v1',
+  sceneLift: 'default-theme.immersive.sceneLift.v1',
 } as const;
 const WAVEFORM_MODE: PrefCodec<WaveformMode> = {
   parse: (raw) => (isWaveformMode(raw) ? raw : undefined),
@@ -82,9 +82,9 @@ const scene = defineLocalPref<ImmersiveScene>({
   fallback: DEFAULT_SCENE,
   ...choiceCodec(IMMERSIVE_SCENES),
 });
-const textBoost = defineLocalPref<number>({
-  key: IMMERSIVE_PREF_KEYS.textBoost,
-  fallback: 50,
+const sceneLift = defineLocalPref<number>({
+  key: IMMERSIVE_PREF_KEYS.sceneLift,
+  fallback: 70,
   parse: (raw) => {
     const text = raw.trim();
     if (!/^\d{1,3}$/.test(text)) return undefined;
@@ -138,10 +138,13 @@ export const immersiveSceneAtom: Atom<ImmersiveScene> = scene.atom;
 export const readImmersiveScene = scene.read;
 export const chooseImmersiveScene = scene.set;
 
-/** 歌词/卡片文字按封面明暗提亮的强度，0–100，缺省 50；只作用于歌词、卡片、卡片歌词三视图。 */
-export const immersiveTextBoostAtom: Atom<number> = textBoost.atom;
-export const readImmersiveTextBoost = textBoost.read;
-export const chooseImmersiveTextBoost = textBoost.set;
+/**
+ * 场景提亮强度，0–100，缺省 70；只作用于封面底色那一层（`wash/sceneLift.ts`）。
+ * 0 是旧样（封面亮度直接决定底色），越大越把底色拉回纸面亮度附近，封面只留颜色。
+ */
+export const immersiveSceneLiftAtom: Atom<number> = sceneLift.atom;
+export const readImmersiveSceneLift = sceneLift.read;
+export const chooseImmersiveSceneLift = sceneLift.set;
 
 /**
  * 把全部存档读进 `store`，帧率上限随之交给重画调度。整页在首帧之前或头一次进沉浸视图之前调一次：
@@ -157,6 +160,6 @@ export function loadImmersivePrefs(
   applyFpsCap(fpsCap.load(store, storage));
   waveformMode.load(store, storage);
   scene.load(store, storage);
-  textBoost.load(store, storage);
+  sceneLift.load(store, storage);
   loadImmersiveComponents(store, storage);
 }

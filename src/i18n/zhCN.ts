@@ -253,6 +253,8 @@ export const zhCN: Messages = {
   'tray.noTrack': '未在播放',
   'tray.previous': '上一首',
   'tray.playPause': '播放 / 暂停',
+  'tray.play': '播放',
+  'tray.pause': '暂停',
   'tray.next': '下一首',
   'tray.showMainWindow': '显示主窗口',
   'tray.volume': '音量',
