@@ -138,9 +138,13 @@ export const settingsEn = {
   'settings.immersiveLayoutZoom100': '100%',
   'settings.immersiveLayoutZoom200': '200%',
   'settings.immersiveLayoutHintMouse':
-    'Mouse: drag a box to move it, drag its corner to resize; press Esc during a drag to cancel it.',
+    'Mouse: click a box to select it, drag a box to move it, drag its corner to resize; press Esc during a drag to cancel it.',
   'settings.immersiveLayoutHintKeys':
     'Keyboard: arrow keys nudge by 1 pixel (hold to keep nudging), Shift+arrow moves 8 pixels, Alt+arrow resizes, Tab switches between components, Esc undoes this edit.',
+  'settings.immersiveLayoutSelected': 'Selected: {name}',
+  'settings.immersiveLayoutSelectedNone':
+    'No component selected: click a box in the preview, or a name in the list below.',
+  'settings.immersiveLayoutSelectOne': 'Select this component',
   'settings.immersiveComponentsBackground': 'Background',
   'settings.immersiveComponentsDial': 'Dial',
   'settings.immersiveComponentsCard': 'Card',

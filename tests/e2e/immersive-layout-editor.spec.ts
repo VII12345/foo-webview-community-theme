@@ -147,3 +147,64 @@ test('版心各档也能排：紧凑档里拖一个组件，存档写的是偏�
   await expect.poll(stored).not.toBeNull();
   expect((await stored())!.dx).toBeGreaterThan(0);
 });
+
+// 选中与键盘：真实用户是拿鼠标点上去的。拖拽要 preventDefault，浏览器默认的"点谁聚焦谁"
+// 被挡掉了，以前没有自己补，焦点一直留在上一个点过的组件上——方向键动的是别的组件，
+// 看上去就像"时好时坏"。
+
+test('鼠标点中一个组件之后方向键就能挪它', async ({ page }) => {
+  await openSettings(page);
+  const item = page.locator('[data-layout-item="right.header.title"]');
+  await expect(item).toBeVisible();
+  await item.scrollIntoViewIfNeeded();
+
+  const box = (await item.boundingBox())!;
+  await page.mouse.click(box.x + 10, box.y + 10);
+  await expect(item).toHaveAttribute('data-selected', 'on');
+
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(async () => (await placement(page, 'right.header.title'))?.dx ?? -1).toBe(1);
+});
+
+test('点一下没拖动，不该在存档里留下一条"挪过"的记录', async ({ page }) => {
+  await openSettings(page);
+  const item = page.locator('[data-layout-item="right.header.title"]');
+  await expect(item).toBeVisible();
+  await item.scrollIntoViewIfNeeded();
+
+  const box = (await item.boundingBox())!;
+  await page.mouse.click(box.x + 10, box.y + 10);
+  await expect(item).toHaveAttribute('data-selected', 'on');
+  await expect.poll(() => placement(page, 'right.header.title')).toBeNull();
+});
+
+test('选中的组件看得见：预览里描边、清单里标出、下面写着当前选中', async ({ page }) => {
+  await openSettings(page);
+  const item = page.locator('[data-layout-item="right.header.title"]');
+  await expect(item).toBeVisible();
+  await item.scrollIntoViewIfNeeded();
+
+  const box = (await item.boundingBox())!;
+  await page.mouse.click(box.x + 10, box.y + 10);
+
+  await expect(item).toHaveAttribute('data-selected', 'on');
+  await expect(page.locator('[data-layout-row="right.header.title"]')).toHaveAttribute(
+    'data-selected',
+    'on',
+  );
+  await expect(page.locator('[data-layout-status]')).toContainText('当前选中');
+});
+
+test('清单里点名字也能选中那个组件', async ({ page }) => {
+  await openSettings(page);
+  const row = page.locator('[data-layout-select="right.spectrum"]');
+  await expect(row).toBeVisible();
+  await row.click();
+
+  await expect(page.locator('[data-layout-item="right.spectrum"]')).toHaveAttribute(
+    'data-selected',
+    'on',
+  );
+  await page.keyboard.press('ArrowDown');
+  await expect.poll(async () => (await placement(page, 'right.spectrum'))?.dy ?? -1).toBe(1);
+});

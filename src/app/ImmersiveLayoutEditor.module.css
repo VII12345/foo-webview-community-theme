@@ -35,6 +35,13 @@
   line-height: 1.6;
 }
 
+/* 当前选中的是哪一个：写在操作提示下面，不必靠描边猜。 */
+.status {
+  margin: 0;
+  color: var(--colorNeutralForeground2);
+  font-size: var(--fontSizeBase200);
+}
+
 .item {
   position: absolute;
   border: 1px solid var(--colorBrandStroke1);
@@ -57,9 +64,22 @@
  * 编排器自己画焦点框：全局的键盘焦点框已经取消了（见 themes.ts 的 withoutFocusRing），
  * 而这里键盘是主要的操作方式，得看得见当前选中的是哪个组件。
  */
+
+/* 选中的框：实心品牌色描边、标签反白——一眼看出当前动的是哪一个。 */
+.item[data-selected] {
+  border-color: var(--colorBrandForeground1);
+  box-shadow: 0 0 0 2px var(--colorBrandForeground1);
+}
+
+.item[data-selected] .label {
+  background: var(--colorBrandForeground1);
+  color: var(--colorNeutralBackground1);
+}
+
+/* 键盘焦点另给一条虚线描边，与"选中"分开：鼠标点的是选中，Tab 走到的是焦点。 */
 .item:focus-visible {
-  outline: 2px solid var(--colorBrandForeground1);
-  outline-offset: 1px;
+  outline: 2px dashed var(--colorNeutralForeground1);
+  outline-offset: 3px;
 }
 
 .label {
@@ -107,9 +127,22 @@
 .name {
   flex: 1;
   min-width: 0;
+  padding: 0;
   overflow: hidden;
+  border: 0;
+  background: none;
+  color: var(--colorNeutralForeground1);
+  font: inherit;
+  text-align: left;
   white-space: nowrap;
   text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+/* 清单里选中的那一行：与预览里的选中框对上。 */
+.row[data-selected] .name {
+  color: var(--colorBrandForeground1);
+  font-weight: var(--fontWeightSemibold);
 }
 
 .numbers {

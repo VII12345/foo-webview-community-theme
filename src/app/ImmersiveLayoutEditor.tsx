@@ -103,6 +103,15 @@ interface KeyboardSession {
 const snap = (value: number) => Math.round(value / SNAP) * SNAP;
 
 /**
+ * 这些控件自己要用方向键（下拉框展开时用方向键选项、输入框里移动光标），不抢。
+ * Fluent 的下拉框触发按钮带 `aria-haspopup`，一并算进去。
+ */
+function usesArrowKeys(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.closest('input, textarea, select, [aria-haspopup]') !== null;
+}
+
+/**
  * 沉浸视图的组件编排器。
  *
  * 上半是预览：按舞台比例缩放的一张示意图，每个可摆放的组件一个框，框的位置与大小就是布局算出来的盒子。
@@ -110,26 +119,40 @@ const snap = (value: number) => Math.round(value / SNAP) * SNAP;
  * Alt 改宽高），Tab 在组件之间换焦点，Esc 撤销。下半是清单：每个组件一行，写着 x/y/宽/高，
  * 可以单独放回默认。
  *
+ * 点谁就选中谁：点下去时把 DOM 焦点交给那个组件（拖拽要 `preventDefault`，浏览器默认的聚焦被挡掉了，
+ * 得自己补），选中的框画实心描边、清单里对应那行也标出来。键盘挂在整块编排器上，焦点在预览里、
+ * 在清单里都一样能微调。
+ *
  * 改动只写"挪过"的那几项（`immersive/layout/immersivePlacement.ts`），没动过的组件沿用默认盒子，
  * 组件内部照旧按舞台坐标排 —— 覆盖落在组件外层的一套 `translate() scale()` 上。
  */
 export function ImmersiveLayoutEditor() {
   const store = useStore();
   const t = useAtomValueRawSync(translateAtom);
+  const root = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<ImmersiveScene>('paper');
-  const [drag, setDrag] = useState<Drag | null>(null);
   const [focused, setFocused] = useState<ImmersivePanelId | null>(null);
   const [zoom, setZoom] = useState<ZoomChoice>('fit');
   const [layout, setLayout] = useState<PaperTier>('full');
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const placements = useAtomValueRawSync(immersivePlacementsAtom);
+  const components = useAtomValueRawSync(immersiveComponentsAtom);
   // 卡片两档本来就按 full 舞台排，编排器里也只有它一个布局可选。
   const card = view === 'card' || view === 'cardLyrics';
   const effectiveLayout: PaperTier = card ? 'full' : layout;
   const layouts = card ? (['full'] as const) : IMMERSIVE_LAYOUTS;
-  const placements = useAtomValueRawSync(immersivePlacementsAtom);
-  const components = useAtomValueRawSync(immersiveComponentsAtom);
-  const hidden = hiddenModulesFor(components, view, effectiveLayout);
-  const boxes = defaultBoxes(view, effectiveLayout, hidden);
-  const overrides = placementsFor(placements, view, effectiveLayout);
+  const hidden = useMemo(
+    () => hiddenModulesFor(components, view, effectiveLayout),
+    [components, effectiveLayout, view],
+  );
+  const boxes = useMemo(
+    () => defaultBoxes(view, effectiveLayout, hidden),
+    [effectiveLayout, hidden, view],
+  );
+  const overrides = useMemo(
+    () => placementsFor(placements, view, effectiveLayout),
+    [effectiveLayout, placements, view],
+  );
   const [pane, setPane] = useState<number | null>(null);
   const observe = useElementWidth<HTMLDivElement>(setPane);
   // 预览画的是这一档的版心：full 档是 1920 × 1080 的舞台，其余各档是版心（竖版三档是竖构图）。
@@ -143,14 +166,47 @@ export function ImmersiveLayoutEditor() {
   // 键盘编辑没有"松手"这一刻，每一下都直接写存档；Esc 撤销整段编辑。
   const keyboard = useRef<KeyboardSession | null>(null);
 
-  /** 挪到一个绝对位置：存的是相对默认盒子的偏移与比例，窗口怎么变都不漂。 */
+  /** 预览里某个框的元素：选中时要把焦点交过去。 */
+  const elementOf = useCallback(
+    (id: ImmersivePanelId): HTMLElement | null =>
+      root.current?.querySelector<HTMLElement>(`[data-layout-item="${id}"]`) ?? null,
+    [],
+  );
+
+  /** 选中一个组件：状态与 DOM 焦点一起换过去。 */
+  const select = useCallback(
+    (id: ImmersivePanelId) => {
+      setFocused(id);
+      elementOf(id)?.focus({ preventScroll: true });
+    },
+    [elementOf],
+  );
+
+  /**
+   * 挪到一个绝对位置：存的是相对默认盒子的偏移与比例，窗口怎么变都不漂。
+   *
+   * 位置与大小都没变时不写：点一下（没拖动）不该在存档里留下一条"挪过"的记录，
+   * 清单里也不该多出一个"恢复默认位置"的按钮。
+   */
   const writeBox = useCallback(
     (id: ImmersivePanelId, target: StageBox) => {
       const base = boxes.get(id);
       if (!base) return;
-      chooseImmersivePlacement(store, view, effectiveLayout, id, placementFor(base, target));
+      const patch = placementFor(base, target);
+      if (patch.dx === 0 && patch.dy === 0 && patch.sw === 1 && patch.sh === 1) {
+        const existing = overrides[id];
+        if (!existing) return;
+        // 位置回到默认：删掉这条覆盖。叠放次序是另一回事，留着。
+        const { order } = existing;
+        resetImmersivePlacement(store, view, effectiveLayout, id);
+        if (order !== undefined) {
+          chooseImmersivePlacement(store, view, effectiveLayout, id, { order });
+        }
+        return;
+      }
+      chooseImmersivePlacement(store, view, effectiveLayout, id, patch);
     },
-    [boxes, effectiveLayout, store, view],
+    [boxes, effectiveLayout, overrides, store, view],
   );
 
   useCommand({
@@ -186,6 +242,9 @@ export function ImmersiveLayoutEditor() {
       if (!box) return;
       event.preventDefault();
       event.stopPropagation();
+      // 按下就把焦点交给这个组件：拖拽要 preventDefault，浏览器默认的"点谁聚焦谁"被挡掉了，
+      // 不自己补上的话方向键动的还是上一个组件，看着就像"方向键时好时坏"。
+      select(id);
       const target = resolvedBox(box, overrides[id]);
       const next: Drag = {
         id,
@@ -245,17 +304,20 @@ export function ImmersiveLayoutEditor() {
       window.addEventListener('pointerup', end);
       window.addEventListener('pointercancel', end);
     },
-    [boxes, overrides, scale, writeBox],
+    [boxes, overrides, scale, select, writeBox],
   );
 
   /**
    * 方向键微调。走元素自己的 onKeyDown（与表格列头用 Alt+← 换列同一路子），不登记到命令登记处：
    * 登记处的按键是"和弦"匹配的，方向键的四种修饰组合要登记十六条，而这里一次按键处理里就能读到修饰键。
    * 按住不放时系统连发 keydown，每一下都走这里，长按即连续微调。
+   *
+   * 挂在整块编排器上而不是只挂预览：焦点在预览的框上、在右边的清单里，都一样能微调。
    */
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (event.defaultPrevented || event.nativeEvent.isComposing || !focused) return;
+      if (usesArrowKeys(event.target)) return;
       const arrow = ARROWS[event.key];
       if (!arrow) return;
       const box = boxes.get(focused);
@@ -282,7 +344,7 @@ export function ImmersiveLayoutEditor() {
     [boxes, focused, overrides, writeBox],
   );
 
-  /** 焦点离开预览：这一段键盘编辑算完了，Esc 不再撤它。 */
+  /** 焦点离开编排器：这一段键盘编辑算完了，Esc 不再撤它。 */
   const onBlur = useCallback((event: FocusEvent<HTMLDivElement>) => {
     const next = event.relatedTarget;
     if (next instanceof Node && event.currentTarget.contains(next)) return;
@@ -295,6 +357,28 @@ export function ImmersiveLayoutEditor() {
     },
     [],
   );
+
+  // 换到那一档没有这个组件的视图时，选中项作废（清单里也不再标它）。
+  useEffect(() => {
+    if (focused && !boxes.has(focused)) setFocused(null);
+  }, [boxes, focused]);
+
+  /**
+   * 点目录跳到「沉浸编排」这一组时，焦点落在组标题上（`useSettingsNav` 的做法）。
+   * 再把焦点挪到上次选中的那个组件上：回来就能接着按方向键调，不用重新点一遍。
+   */
+  useEffect(() => {
+    const section = root.current?.closest('[data-settings-group]');
+    if (!section) return undefined;
+    const onFocusIn = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || target.tagName !== 'H2') return;
+      if (!focused) return;
+      elementOf(focused)?.focus({ preventScroll: true });
+    };
+    section.addEventListener('focusin', onFocusIn);
+    return () => section.removeEventListener('focusin', onFocusIn);
+  }, [elementOf, focused]);
 
   /** 改叠放次序：大的在前。没写过次序的按 0 算。 */
   const shiftOrder = (id: ImmersivePanelId, delta: number) => {
@@ -313,7 +397,13 @@ export function ImmersiveLayoutEditor() {
   };
 
   return (
-    <div className={styles.editor}>
+    <div
+      className={styles.editor}
+      ref={root}
+      onKeyDown={onKeyDown}
+      onBlur={onBlur}
+      data-layout-editor
+    >
       <SettingsRow title={t('settings.immersiveLayoutEditorView')} field>
         {(ids2) => (
           <SettingsSelect
@@ -363,13 +453,7 @@ export function ImmersiveLayoutEditor() {
           />
         )}
       </SettingsRow>
-      <div
-        className={styles.pane}
-        ref={observe}
-        data-layout-pane
-        onKeyDown={onKeyDown}
-        onBlur={onBlur}
-      >
+      <div className={styles.pane} ref={observe} data-layout-pane>
         <div
           className={styles.canvas}
           style={{ width: preview.width * scale, height: preview.height * scale }}
@@ -399,6 +483,7 @@ export function ImmersiveLayoutEditor() {
                   style={style}
                   data-layout-item={id}
                   data-moved={overrides[id] ? 'on' : undefined}
+                  data-selected={focused === id ? 'on' : undefined}
                   tabIndex={0}
                   aria-label={t(IMMERSIVE_PANEL_LABELS[id])}
                   onFocus={() => setFocused(id)}
@@ -421,14 +506,38 @@ export function ImmersiveLayoutEditor() {
         <br />
         {t('settings.immersiveLayoutHintKeys')}
       </p>
+      <p className={styles.status} data-layout-status>
+        {focused
+          ? t('settings.immersiveLayoutSelected', {
+              name: t(IMMERSIVE_PANEL_LABELS[focused]),
+            })
+          : t('settings.immersiveLayoutSelectedNone')}
+      </p>
       <div className={styles.list} data-layout-list>
         {ids.map((id) => {
           const box = boxOf(id);
           if (!box) return null;
           const moved = overrides[id];
           return (
-            <div key={id} className={styles.row}>
-              <span className={styles.name}>{t(IMMERSIVE_PANEL_LABELS[id])}</span>
+            <div
+              key={id}
+              className={styles.row}
+              data-layout-row={id}
+              data-selected={focused === id ? 'on' : undefined}
+            >
+              <button
+                type="button"
+                className={styles.name}
+                data-layout-select={id}
+                aria-pressed={focused === id}
+                title={t('settings.immersiveLayoutSelectOne')}
+                onClick={() => {
+                  select(id);
+                  elementOf(id)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+                }}
+              >
+                {t(IMMERSIVE_PANEL_LABELS[id])}
+              </button>
               <span className={styles.numbers}>
                 {`${box.x}, ${box.y} · ${box.w} × ${box.h}`}
               </span>
