@@ -225,9 +225,10 @@ export function ImmersiveLayoutEditor() {
           />
         )}
       </SettingsRow>
-      <div className={styles.pane} ref={observe}>
+      <div className={styles.pane} ref={observe} data-layout-pane>
         <div
           className={styles.stage}
+          data-layout-stage
           style={{
             width: STAGE_WIDTH,
             height: STAGE_HEIGHT,
@@ -248,12 +249,14 @@ export function ImmersiveLayoutEditor() {
                 key={id}
                 className={styles.item}
                 style={style}
+                data-layout-item={id}
                 data-moved={overrides[id] ? 'on' : undefined}
                 onPointerDown={(event) => begin(event, id, 'move')}
               >
                 <span className={styles.label}>{t(IMMERSIVE_PANEL_LABELS[id])}</span>
                 <span
                   className={styles.handle}
+                  data-layout-handle
                   onPointerDown={(event) => begin(event, id, 'resize')}
                 />
               </div>
@@ -261,7 +264,7 @@ export function ImmersiveLayoutEditor() {
           })}
         </div>
       </div>
-      <div className={styles.list}>
+      <div className={styles.list} data-layout-list>
         {ids.map((id) => {
           const box = boxOf(id);
           if (!box) return null;
