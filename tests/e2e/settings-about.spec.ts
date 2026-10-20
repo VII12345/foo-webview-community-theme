@@ -81,7 +81,7 @@ test('版本写成一行；复制把主题版本与诊断信息放进剪贴板�
   });
   const settings = await openSettings(page);
   await expect(settings.card('版本')).toContainText(
-    '默认主题 0.3.0 · foo_ui_webview2 2.0.0 · foobar2000 v2.25（64 位）',
+    '默认主题 0.4.0 · foo_ui_webview2 2.0.0 · foobar2000 v2.25（64 位）',
   );
   const copy = page.getByRole('button', { name: '复制 版本' });
   await copy.click();
@@ -89,7 +89,7 @@ test('版本写成一行；复制把主题版本与诊断信息放进剪贴板�
   expect(settings.host.callsTo('clipboard.write')).toEqual([
     {
       text: [
-        'foo-webview-community-theme 0.3.0',
+        'foo-webview-community-theme 0.4.0',
         'foobar2000 v2.25 (64-bit, portable)',
         'foo_ui_webview2 2.0.0 (requires 2.0.0 or later)',
         'Window platform: windows11',
