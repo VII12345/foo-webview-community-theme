@@ -108,8 +108,6 @@ export async function writeAcousticConfig(
 }
 
 /**
- * 盯着相关的设置，变了就把配置重写一遍。
- *
  * 耳机换了、增益档变了、加权换了、DX52 的档位变了 —— 插件读的是最新那份。
  */
 export function startAcousticConfigWriter(
