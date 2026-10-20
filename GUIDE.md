@@ -106,7 +106,11 @@ The immersive view and right panel share the current track's lyrics, the online 
 
 ### Arranging the components
 
-Settings → Immersive arrangement: pick a view and a layout tier, then the preview shows a box per component — drag a box to move it, drag its corner to resize. The keyboard works too: arrow keys nudge by 1 pixel (hold to keep nudging, Shift for 8 pixels, Alt to resize), Tab switches between components, Esc undoes the edit. The usage hint sits next to the preview, and it can be zoomed to 100% / 200% for fine work. Changes apply immediately, and each view and layout keeps its own set.
+Settings → Immersive arrangement: pick a view and a layout tier, then the preview shows a box per component. Clicking a box selects it — the selected box gets a solid ring and a reversed label, its row in the list on the right is marked too, and the line under the preview names it; clicking a component name in the list selects it as well (and scrolls it into view). Drag a box to move it, drag its corner to resize. The keyboard works too: arrow keys nudge by 1 pixel (hold to keep nudging, Shift for 8 pixels, Alt to resize), Tab switches between components, Esc undoes the edit. It works whether the focus is in the preview or in the list; an open drop-down keeps its own arrow keys. The usage hint sits next to the preview, and it can be zoomed to 100% / 200% for fine work.
+
+The view, layout tier and selected component are remembered (on this machine): move something, go and look at the actual immersive view, then come back — click the section in the nav and the focus lands on the same component, so you can carry on with the arrow keys.
+
+Changes apply immediately, and each view and layout keeps its own set.
 
 ## Mini Player
 

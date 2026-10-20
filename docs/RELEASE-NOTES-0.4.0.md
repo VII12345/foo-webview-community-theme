@@ -8,9 +8,11 @@
 
 - 封面底色那一层铺满整个沉浸视图，原先深色封面会把底色压暗、整个界面跟着发暗，歌词贴在上面看不清。底色现在按封面提取的颜色自适应：亮度与色度分开，亮度拉回纸面亮度附近、封面只留下颜色；提亮程度按封面的深浅自适应，亮封面不受影响。设置 → 背景里的滑杆改名为"界面提亮"（0–100，默认 70），换用新键 `default-theme.immersive.sceneLift.v1`；旧的 `textBoost.v1` 不再读写。
 - 组件隐藏后按组件高度回流：藏掉四行字里的某一行、藏掉仪表行里的一格，后面的跟着上移，不再留一段空白。
-- 新增"沉浸编排"：按视图与布局档逐件挪位置、改大小。鼠标拖框或拖右下角；键盘用方向键微调 1 像素（按住不放连续微调，Shift 一次 8 像素，Alt 改宽高），Tab 换焦点，Esc 撤销。预览边上写着操作提示，可缩放到 100% / 200% 细调。
+- 新增"沉浸编排"：按视图与布局档逐件挪位置、改大小。点框即选中（实心描边、清单里那一行也标出来，预览下面写着当前选中）；鼠标拖框或拖右下角；键盘用方向键微调 1 像素（按住不放连续微调，Shift 一次 8 像素，Alt 改宽高），Tab 换焦点，Esc 撤销。预览边上写着操作提示，可缩放到 100% / 200% 细调。
+- 编排器记住上次在弄的视图、布局档与选中的组件（`default-theme.immersive.layoutEditor.v1`）：挪完去看沉浸视图的实际效果，回来接着弄，不用重选一遍。
+- 歌词组件接上了摆放覆盖：聚焦视图的歌词日志与歌词、卡片、卡片歌词三档的动画歌词都能挪了（原先只在预览里能拖，实际一动不动）。
 - 覆盖按组存（`${view}/${tier}`），只存挪过的那几项，存的是相对默认位置的偏移与比例，窗口怎么变都不漂。
-- 取消全局键盘焦点框：焦点圈画在 `colorStrokeFocus2` 一个 token 上，把主题里这个 token 置成透明即全局生效。焦点本身与 Tab 顺序不变，只是键盘聚焦不再有可见提示（编排器自己画焦点框）。
+- 取消全局键盘焦点框：焦点圈画在 `colorStrokeFocus2` 一个 token 上，把主题里这个 token 置成透明即全局生效。焦点本身与 Tab 顺序不变，只是键盘聚焦不再有可见提示（编排器自己画：选中的框画实心描边，键盘焦点另给一条虚线描边）。
 - 耳机 SPL 改为频谱级计算：PCM 原始 RMS 提供总电平，宿主 FFT 频谱提供频率分布，不再用 K 加权 LUFS 反推电压。设置 → 耳机可给 FT1/JT7/MDR-M1 选测量配置（频响 + 阻抗）。
 - 设置 → 耳机新增“从 huihifi 链接导入”：粘贴评测链接、预览后导入，自动选中；自定义档案存在便携版 profile 的 `webview-ui-headphones\measurements-v1.json`，支持列表与删除。
 - SPL 显示加权可选 A/K/Z，默认 A；Loudness 表仍是 K 加权 LUFS。80 dB 安全余量固定按 A 计算。
@@ -57,6 +59,7 @@
 
 - 旧沉浸组件存档（`right.header`、`right.meter`、`right.meta` 等父 ID）继续有效。
 - 沉浸组件的摆放覆盖是新的存档键 `default-theme.immersive.layout.v1`；旧的"文字对比度"键 `default-theme.immersive.textBoost.v1` 不再读写，界面提亮改用 `default-theme.immersive.sceneLift.v1`（0–100，默认 70）。
+- 编排器记住的视图、布局档与选中项是新键 `default-theme.immersive.layoutEditor.v1`；它只影响编排器自己打开时的位置，不影响沉浸视图，删掉这条即回到默认值。
 - 旧侧边栏存档没有“我的耳机”开合项时按展开处理，不需要迁移。
 - 耳机平均音量从本版本开始积累；新文件为 `loudness-v2.json`，旧 `loudness-v1.json` 只作为 legacy 时长读取，不参与 A/K/Z 平均。
 - SPL 新方法不额外叠加 ReplayGain；读数跟随宿主实际提供的 PCM/频谱电平，宿主已在播放链路中应用时会计入。
@@ -67,4 +70,4 @@
 
 ## English summary
 
-Community-enhanced fork based on 0.3.0. Highlights: the cover-tinted layer of the immersive view now adapts to the colour extracted from the cover, so a dark cover no longer dims the whole view (brightness and chroma are separated, the cover only contributes its colour; the “Scene brightness” slider replaces the old text-contrast one); hidden components reflow by their own height instead of leaving a gap; a new Immersive arrangement editor moves and resizes components per view and layout tier, with arrow-key nudging (hold to keep nudging), a usage hint and a zoomable preview; the global keyboard focus ring is removed. Also an in-view lyric search panel, per-element immersive component switches, spectrum-level SPL from raw PCM RMS and measured headphone FR/impedance profiles with selectable A/K/Z weighting (default A, fixed-A safety margin), weekly playback statistics, DX52 per-headphone average SPL (energy-weighted, day/week/month/year plus an all-headphones average), an all-headphones average tile and headphone-time tile, an all-statistics detail page with a searchable/sortable all-songs table and per-headphone duration matrix, a “My headphones” sidebar selector between Library and Playlists, Kugou-hash as the default ID search source, and hardened DX52 snapshot assembly with descriptor-aware output/feature transport probing. Existing component, sidebar and WebHID settings keep working after upgrading. Full details are in `CHANGES-SINCE-0.3.0.zh-CN.md`.
+Community-enhanced fork based on 0.3.0. Highlights: the cover-tinted layer of the immersive view now adapts to the colour extracted from the cover, so a dark cover no longer dims the whole view (brightness and chroma are separated, the cover only contributes its colour; the “Scene brightness” slider replaces the old text-contrast one); hidden components reflow by their own height instead of leaving a gap; a new Immersive arrangement editor moves and resizes components per view and layout tier, with arrow-key nudging (hold to keep nudging), a usage hint and a zoomable preview; clicking a component selects it (a solid ring marks the selection and the line under the preview names it), the editor remembers the view, layout tier and selected component, and the lyric components of every scene now follow the arrangement; the global keyboard focus ring is removed. Also an in-view lyric search panel, per-element immersive component switches, spectrum-level SPL from raw PCM RMS and measured headphone FR/impedance profiles with selectable A/K/Z weighting (default A, fixed-A safety margin), weekly playback statistics, DX52 per-headphone average SPL (energy-weighted, day/week/month/year plus an all-headphones average), an all-headphones average tile and headphone-time tile, an all-statistics detail page with a searchable/sortable all-songs table and per-headphone duration matrix, a “My headphones” sidebar selector between Library and Playlists, Kugou-hash as the default ID search source, and hardened DX52 snapshot assembly with descriptor-aware output/feature transport probing. Existing component, sidebar and WebHID settings keep working after upgrading. Full details are in `CHANGES-SINCE-0.3.0.zh-CN.md`.
