@@ -11,8 +11,13 @@ import { PaperSpectrum } from '../spectrum/PaperSpectrum.tsx';
 import { StageStereo } from '../stereo/StageStereo.tsx';
 import { PaperWaveform } from '../waveform/PaperWaveform.tsx';
 import { STAGE_CROSSES, STAGE_HEIGHT, STAGE_PAD, STAGE_WIDTH } from './paperStage.ts';
-import { cardTops, stageRightTops } from './paperComponentLayout.ts';
-import { groupVisible, moduleHidden, type ImmersivePanelId } from '../page/immersiveComponents.ts';
+import { cardTops, type StageBox } from './paperComponentLayout.ts';
+import { Placed, type Placements } from '../layout/Placed.tsx';
+import {
+  groupVisible,
+  moduleHidden,
+  type ImmersivePanelId,
+} from '../page/immersiveComponents.ts';
 import { PaperMarks } from './PaperMarks.tsx';
 import styles from './PaperStage.module.css';
 import { StageScaleContext } from './stageScale.ts';
@@ -26,6 +31,10 @@ export interface PaperStageProps {
   readonly variant?: PaperVariant;
   /** 当前视图/布局隐藏的模块。 */
   readonly hidden?: ReadonlySet<string>;
+  /** 编排器里挪过或改过大小的组件；落在组件外层的一套变换上。 */
+  readonly placements?: Placements;
+  /** 布局算出的每件盒子：右栏按行排布，罗盘与卡片各按图纸坐标。 */
+  readonly boxes: ReadonlyMap<ImmersivePanelId, StageBox>;
 }
 
 /**
@@ -43,7 +52,14 @@ export interface PaperStageProps {
  * | `card` | 卡片 | 四行字 | 动画歌词（同歌词视图） |
  * | `cardLyrics` | 卡片（带曲名/艺人） | — | 动画歌词 |
  */
-export function PaperStage({ scale, origin, variant = 'paper', hidden = new Set<string>() }: PaperStageProps) {
+export function PaperStage({
+  scale,
+  origin,
+  variant = 'paper',
+  hidden = new Set<string>(),
+  placements = {},
+  boxes,
+}: PaperStageProps) {
   const card = variant === 'card' || variant === 'cardLyrics';
   // 右半整块放动画歌词的三档：歌词、卡片、卡片歌词。
   const animatedLyrics =
@@ -55,7 +71,8 @@ export function PaperStage({ scale, origin, variant = 'paper', hidden = new Set<
   const showFields = variant !== 'cardLyrics';
   const show = (id: ImmersivePanelId) => !moduleHidden(hidden, id);
   const group = (id: ImmersivePanelId) => groupVisible(variant, 'full', hidden, id);
-  const rightTops = stageRightTops(variant, 'full', hidden);
+  // 每一格的盒子：右栏可见的按行排布，藏掉的行整行收掉，后面的跟着上移。
+  const topOf = (id: ImmersivePanelId): number | null => boxes.get(id)?.y ?? null;
   const cardLayout = card ? cardTops(variant, hidden) : null;
   const frame: CSSProperties = {
     left: origin.x,
@@ -88,58 +105,77 @@ export function PaperStage({ scale, origin, variant = 'paper', hidden = new Set<
                 bottom: null,
               }
             }
+            boxes={boxes}
+            placements={placements}
           />
         ) : (
-          <StageDial offsetX={variant === 'lyrics' ? 100 : 0} hidden={hidden} />
+          <StageDial
+            offsetX={variant === 'lyrics' ? 100 : 0}
+            hidden={hidden}
+            boxes={boxes}
+            placements={placements}
+          />
         )}
         <StageFields
           stereo={<StageStereo />}
           showMeter={metered && group('right.meter')}
           showFields={showFields}
           showHeader={group('right.header')}
-          headerTop={rightTops.header}
-          meterTop={rightTops.meter}
           lyrics={focus ? <FocusLyricLog /> : undefined}
           showLyrics={group('right.lyrics')}
-          lyricsTop={rightTops.lyrics}
           hidden={hidden}
+          boxes={boxes}
+          placements={placements}
         />
-        {variant === 'paper' && show('right.spectrum') && rightTops.spectrum !== null && (
-          <div
-            className={`${styles.slot} ${styles.spectrum}`}
-            style={{ top: rightTops.spectrum }}
-            data-field-slot="spectrum"
-          >
-            <PaperSpectrum />
-          </div>
+        {variant === 'paper' && show('right.spectrum') && topOf('right.spectrum') !== null && (
+          <Placed id="right.spectrum" boxes={boxes} placements={placements}>
+            <div
+              className={`${styles.slot} ${styles.spectrum}`}
+              style={{ top: topOf('right.spectrum') ?? undefined }}
+              data-field-slot="spectrum"
+            >
+              <PaperSpectrum />
+            </div>
+          </Placed>
         )}
         {metered && (
           <>
-            {show('right.waveform') && rightTops.waveform !== null && (
-              <div
-                className={`${styles.slot} ${styles.waveform}`}
-                style={{ top: rightTops.waveform }}
-              >
-                <PaperWaveform />
-              </div>
+            {show('right.waveform') && topOf('right.waveform') !== null && (
+              <Placed id="right.waveform" boxes={boxes} placements={placements}>
+                <div
+                  className={`${styles.slot} ${styles.waveform}`}
+                  style={{ top: topOf('right.waveform') ?? undefined }}
+                >
+                  <PaperWaveform />
+                </div>
+              </Placed>
             )}
-            {group('right.gauges') && rightTops.gauges !== null && (
-              <div className={`${styles.slot} ${styles.gauges}`} style={{ top: rightTops.gauges }}>
-                <PaperGauges hidden={hidden} />
-              </div>
+            {group('right.gauges') && topOf('right.gauges') !== null && (
+              <Placed id="right.gauges" boxes={boxes} placements={placements}>
+                <div
+                  className={`${styles.slot} ${styles.gauges}`}
+                  style={{ top: topOf('right.gauges') ?? undefined }}
+                >
+                  <PaperGauges hidden={hidden} />
+                </div>
+              </Placed>
             )}
-            {group('right.fileInfo') && rightTops.fileInfo !== null && (
-              <div
-                className={`${styles.slot} ${styles['file-info']}`}
-                style={{ top: rightTops.fileInfo }}
-              >
-                <PaperFileInfo hidden={hidden} />
-              </div>
+            {group('right.fileInfo') && topOf('right.fileInfo') !== null && (
+              <Placed id="right.fileInfo" boxes={boxes} placements={placements}>
+                <div
+                  className={`${styles.slot} ${styles['file-info']}`}
+                  style={{ top: topOf('right.fileInfo') ?? undefined }}
+                >
+                  <PaperFileInfo hidden={hidden} />
+                </div>
+              </Placed>
             )}
           </>
         )}
         {variant === 'paper' && group('right.lyrics') && (
-          <LyricCard top={rightTops.lyrics} hidden={hidden} />
+          <Placed id="right.lyrics" boxes={boxes} placements={placements}>
+            <LyricCard top={topOf('right.lyrics') ?? undefined} hidden={hidden} />
+          </Placed>
         )}
         {animatedLyrics && group('right.lyrics') && (
           <ImmersiveLyricsPlayer
@@ -147,7 +183,7 @@ export function PaperStage({ scale, origin, variant = 'paper', hidden = new Set<
             top={
               variant === 'cardLyrics' && cardLayout?.top != null
                 ? cardLayout.top
-                : rightTops.lyrics
+                : (topOf('right.lyrics') ?? undefined)
             }
             bottom={
               variant === 'cardLyrics' && cardLayout?.bottom != null

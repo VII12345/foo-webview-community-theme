@@ -4,7 +4,9 @@ import { useAtomValueRawSync } from 'jotai/react';
 import type { CSSProperties } from 'react';
 import { translateAtom } from '../../i18n/locale.ts';
 import { currentTrackAtom } from '../../playback/playback.ts';
-import { moduleHidden } from '../page/immersiveComponents.ts';
+import { moduleHidden, type ImmersivePanelId } from '../page/immersiveComponents.ts';
+import type { CardTops, StageBox } from '../paper/paperComponentLayout.ts';
+import { Placed, type Placements } from '../layout/Placed.tsx';
 import { NowPlayingRating } from '../../shell/player/now-playing/NowPlayingRating.tsx';
 import { displayTitle } from '../../shell/player/now-playing/nowPlaying.ts';
 import { NowPlayingMenu } from '../../shell/player/context-menu/NowPlayingMenu.tsx';
@@ -13,7 +15,6 @@ import { SeekBar } from '../../shell/player/SeekBar.tsx';
 import { DialCells } from './DialCells.tsx';
 import { DialCover } from './DialCover.tsx';
 import { STAGE_CARD_COVER, STAGE_CARD_SCALE } from './stageCard.ts';
-import type { CardTops } from '../paper/paperComponentLayout.ts';
 import styles from './StageCard.module.css';
 import { PaperTransport } from './PaperTransport.tsx';
 
@@ -29,6 +30,9 @@ export interface StageCardProps {
   readonly title: boolean;
   readonly hidden: ReadonlySet<string>;
   readonly tops: CardTops;
+  /** 布局算出的每件盒子，编排器里挪过或改过大小的按它落位。 */
+  readonly boxes?: ReadonlyMap<ImmersivePanelId, StageBox>;
+  readonly placements?: Placements;
 }
 
 const useStyles = makeStyles({
@@ -37,12 +41,16 @@ const useStyles = makeStyles({
   },
 });
 
-export function StageCard({ title, hidden, tops }: StageCardProps) {
+/** 没有布局盒子时（降级路径）用空表。 */
+const NO_BOXES: ReadonlyMap<ImmersivePanelId, StageBox> = new Map();
+
+export function StageCard({ title, hidden, tops, boxes, placements = {} }: StageCardProps) {
   const t = useAtomValueRawSync(translateAtom);
   const track = useAtomValueRawSync(currentTrackAtom);
   const menu = useNowPlayingMenu(track);
   const classes = useStyles();
   const show = (id: string) => !moduleHidden(hidden, id as never);
+  const map = boxes ?? NO_BOXES;
   const coverBox: CSSProperties = {
     left: STAGE_CARD_COVER.x,
     top: tops.cover ?? STAGE_CARD_COVER.y,
@@ -55,7 +63,11 @@ export function StageCard({ title, hidden, tops }: StageCardProps) {
       data-card-top={tops.top ?? undefined}
       data-card-bottom={tops.bottom ?? undefined}
     >
-      {tops.cover !== null && <DialCover box={coverBox} guard={72} />}
+      {tops.cover !== null && (
+        <Placed id="card.cover" boxes={map} placements={placements}>
+          <DialCover box={coverBox} guard={72} />
+        </Placed>
+      )}
       {tops.meta !== null && (
         <div
           className={styles.meta}
@@ -66,51 +78,69 @@ export function StageCard({ title, hidden, tops }: StageCardProps) {
           {title && (show('card.titleText') || show('card.artist')) && (
             <div className={styles.text} data-card-text>
               {show('card.titleText') && (
-                <div className={styles.title} data-field="cardTitle">
-                  {track ? displayTitle(track) : t('player.idle')}
-                </div>
+                <Placed id="card.titleText" boxes={map} placements={placements}>
+                  <div className={styles.title} data-field="cardTitle">
+                    {track ? displayTitle(track) : t('player.idle')}
+                  </div>
+                </Placed>
               )}
               {show('card.artist') && track?.artist && (
-                <div className={styles.artist} data-field="cardArtist">
-                  {track.artist}
-                </div>
+                <Placed id="card.artist" boxes={map} placements={placements}>
+                  <div className={styles.artist} data-field="cardArtist">
+                    {track.artist}
+                  </div>
+                </Placed>
               )}
             </div>
           )}
           {(show('card.rating') || show('card.more')) && (
             <div className={styles.actions}>
-              {show('card.rating') && <NowPlayingRating size="card" track={track} />}
+              {show('card.rating') && (
+                <Placed id="card.rating" boxes={map} placements={placements}>
+                  <NowPlayingRating size="card" track={track} />
+                </Placed>
+              )}
               {show('card.more') && (
-                <Tooltip content={t('player.more')} relationship="label">
-                  <Button
-                    appearance="subtle"
-                    size="large"
-                    className={classes.more}
-                    icon={<MoreHorizontal24Regular />}
-                    aria-label={t('player.more')}
-                    {...menu.more}
-                  />
-                </Tooltip>
+                <Placed id="card.more" boxes={map} placements={placements}>
+                  <Tooltip content={t('player.more')} relationship="label">
+                    <Button
+                      appearance="subtle"
+                      size="large"
+                      className={classes.more}
+                      icon={<MoreHorizontal24Regular />}
+                      aria-label={t('player.more')}
+                      {...menu.more}
+                    />
+                  </Tooltip>
+                </Placed>
               )}
             </div>
           )}
         </div>
       )}
       {tops.seek !== null && (
-        <div className={styles.seek} style={{ top: tops.seek }} data-card-seek>
-          <SeekBar interactive thickness={6} thumb clock />
-        </div>
+        <Placed id="card.seek" boxes={map} placements={placements}>
+          <div className={styles.seek} style={{ top: tops.seek }} data-card-seek>
+            <SeekBar interactive thickness={6} thumb clock />
+          </div>
+        </Placed>
       )}
       {tops.transport !== null && (
-        <PaperTransport
-          className={styles.transport}
-          guard={60}
-          scale={STAGE_CARD_SCALE}
-          style={{ top: tops.transport }}
-          extras
-        />
+        <Placed id="card.transport" boxes={map} placements={placements}>
+          <PaperTransport
+            className={styles.transport}
+            guard={60}
+            scale={STAGE_CARD_SCALE}
+            style={{ top: tops.transport }}
+            extras
+          />
+        </Placed>
       )}
-      {tops.cells !== null && <DialCells card hidden={hidden} scope="card" style={{ left: 250, top: tops.cells }} />}
+      {tops.cells !== null && (
+        <Placed id="card.cells" boxes={map} placements={placements}>
+          <DialCells card hidden={hidden} scope="card" style={{ left: 250, top: tops.cells }} />
+        </Placed>
+      )}
       <NowPlayingMenu at={menu.at} onClose={menu.close} />
     </div>
   );

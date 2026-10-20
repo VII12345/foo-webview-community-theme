@@ -33,6 +33,32 @@ test('full 图纸隐藏 header 后仪表行从 296 上移到 82', async ({ page 
   expect(errors).toStrictEqual([]);
 });
 
+test('藏掉四行字里的一个叶子：那一行收掉，下面跟着上移，不留空白', async ({ page }) => {
+  await setHidden(page, { 'paper/full': ['right.header.title'] });
+  const { view, errors } = await openImmersive(page);
+  await expect(view.locator('[data-field="title"]')).toHaveCount(0);
+  await expect(view.locator('[data-field="artist"]')).toBeVisible();
+  // 标题行 114 高（108…222）：藏掉它，仪表行从 296 上移到 182。
+  expect(await stageTop(view.locator('[data-field="duration"]'))).toBeLessThan(300);
+  expect(errors).toStrictEqual([]);
+});
+
+test('藏掉仪表行里的一格：后面的横向跟着左移，不留空当', async ({ page }) => {
+  await setHidden(page, { 'paper/full': ['right.meter.bpm'] });
+  const { view, errors } = await openImmersive(page);
+  await expect(view.locator('[data-field="soundPressure"]')).toBeVisible();
+  // BPM 格（1140…1276）收掉：声压格从 1336 左移到 1140。
+  const left = await view.locator('[data-field="soundPressure"]').evaluate((element) => {
+    const stage = element.closest('[data-paper-content]');
+    if (!stage) throw new Error('不在舞台上');
+    const stageRect = stage.getBoundingClientRect();
+    const scale = stageRect.width / 1920;
+    return Math.round((element.getBoundingClientRect().left - stageRect.left) / scale);
+  });
+  expect(left).toBeLessThan(1300);
+  expect(errors).toStrictEqual([]);
+});
+
 test('卡片隐藏封面后进度条从 766 上移到 286', async ({ page }) => {
   await setHidden(page, { 'card/full': ['card.cover'] });
   const { view, errors } = await openImmersive(page);

@@ -1,4 +1,5 @@
 import { loadImmersivePrefs } from '../immersive/page/immersivePrefs.ts';
+import { loadImmersivePlacements } from '../immersive/layout/immersivePlacement.ts';
 import { loadPerfOverlay } from '../immersive/perf/perfOverlay.ts';
 import type { Store } from '../kit/store.ts';
 
@@ -12,5 +13,6 @@ export function initializeImmersivePrefs(store: Store): void {
   if (initializedStores.has(store)) return;
   initializedStores.add(store);
   loadImmersivePrefs(store);
+  loadImmersivePlacements(store);
   loadPerfOverlay(store);
 }

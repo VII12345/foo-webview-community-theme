@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { cardTops, stageRightTops } from '../../../../src/immersive/paper/paperComponentLayout.ts';
+import {
+  cardTops,
+  stageRightBoxes,
+  stageRightTops,
+} from '../../../../src/immersive/paper/paperComponentLayout.ts';
 
 const none = new Set<string>();
 
@@ -68,6 +72,45 @@ describe('full 舞台右栏重排', () => {
       fileInfo: 828,
       lyrics: 964,
     });
+  });
+
+  it('藏掉四行字里的一个叶子：那一行收掉，后面的跟着上移', () => {
+    const boxes = stageRightBoxes('paper', 'full', new Set(['right.header.title']));
+    // From 行 82、标题行 108、By 行 222：藏掉标题行，它收成 0，By 行上移到 108。
+    expect(boxes.get('right.header.from')?.y).toBe(82);
+    expect(boxes.get('right.header.title')).toBeUndefined();
+    expect(boxes.get('right.header.by')?.y).toBe(108);
+    // 仪表行跟着上移一个标题行的高（114）。
+    expect(boxes.get('right.meter.stereo')?.y).toBe(182);
+    expect(boxes.get('right.spectrum')?.y).toBe(343);
+  });
+
+  it('藏掉 From 行：标题行上移，下面各行跟着走', () => {
+    const boxes = stageRightBoxes('paper', 'full', new Set(['right.header.from']));
+    expect(boxes.get('right.header.from')).toBeUndefined();
+    expect(boxes.get('right.header.title')?.y).toBe(82);
+    expect(boxes.get('right.header.by')?.y).toBe(196);
+    expect(boxes.get('right.meter.stereo')?.y).toBe(270);
+  });
+
+  it('藏掉仪表行里的一格：后面的横向跟着左移，不留空当', () => {
+    const all = stageRightBoxes('paper', 'full', none);
+    expect(all.get('right.meter.stereo')?.x).toBe(760);
+    expect(all.get('right.meter.bpm')?.x).toBe(1140);
+    expect(all.get('right.meter.soundPressure')?.x).toBe(1336);
+    expect(all.get('right.meter.albumArtist')?.x).toBe(1336);
+
+    const noBpm = stageRightBoxes('paper', 'full', new Set(['right.meter.bpm']));
+    expect(noBpm.get('right.meter.stereo')?.x).toBe(760);
+    // 声压格接着声场格排：760 + 332 + 48 = 1140。
+    expect(noBpm.get('right.meter.soundPressure')?.x).toBe(1140);
+    expect(noBpm.get('right.meter.albumArtist')?.x).toBe(1140);
+  });
+
+  it('藏掉仪表行：整行收掉，下面的块上移', () => {
+    const boxes = stageRightBoxes('paper', 'full', new Set(['right.meter']));
+    expect(boxes.get('right.meter.stereo')).toBeUndefined();
+    expect(boxes.get('right.spectrum')?.y).toBe(302);
   });
 });
 

@@ -11,6 +11,8 @@ import {
   moduleHidden,
 } from '../page/immersiveComponents.ts';
 import { immersiveTerrainAtom, immersiveWashAtom } from '../page/immersivePrefs.ts';
+import { immersivePlacementsAtom } from '../layout/immersivePlacement.ts';
+import { defaultBoxes, placementsFor } from '../layout/immersiveBoxes.ts';
 import { ALPHA_FAR } from '../terrain/terrain.ts';
 import { TerrainCanvas } from '../terrain/TerrainCanvas.tsx';
 import { TerrainRuler } from '../terrain/TerrainRuler.tsx';
@@ -79,6 +81,10 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
   const stage = tier === 'full';
   const components = useAtomValueRawSync(immersiveComponentsAtom);
   const hidden = hiddenModulesFor(components, variant, tier);
+  const placements = useAtomValueRawSync(immersivePlacementsAtom);
+  const overrides = placementsFor(placements, variant, tier);
+  // 每一件的盒子：右栏按行排布，罗盘与卡片按图纸坐标。
+  const boxes = useMemo(() => defaultBoxes(variant, tier, hidden), [variant, tier, hidden]);
   const guards = useDecorGuards(root, {
     origin,
     scale,
@@ -123,7 +129,14 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
       )}
       {terrain && stage && !hidden.has('ruler') && <TerrainRuler />}
       {stage ? (
-        <PaperStage scale={scale} origin={origin} variant={variant} hidden={hidden} />
+        <PaperStage
+          scale={scale}
+          origin={origin}
+          variant={variant}
+          hidden={hidden}
+          placements={overrides}
+          boxes={boxes}
+        />
       ) : (
         <PaperSheet geometry={geometry} variant={variant} hidden={hidden} />
       )}

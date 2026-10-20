@@ -1,9 +1,11 @@
 import { useAtomValueRawSync } from 'jotai/react';
-import { useRef, type ReactNode } from 'react';
+import { useRef, type CSSProperties, type ReactNode } from 'react';
 import { currentTrackAtom } from '../../playback/playback.ts';
-import { moduleHidden } from '../page/immersiveComponents.ts';
+import { moduleHidden, type ImmersivePanelId } from '../page/immersiveComponents.ts';
 import { MISSING, stageQualityLine } from '../paper/paperScale.ts';
 import { STAGE_TITLE, STAGE_TITLE_SOFTNESS, STAGE_TITLE_SPEED } from '../paper/paperStage.ts';
+import type { StageBox } from '../paper/paperComponentLayout.ts';
+import { Placed, type Placements } from '../layout/Placed.tsx';
 import { trackExtrasAtom } from './trackExtras.ts';
 import styles from './StageFields.module.css';
 import { StageMeterRow } from './StageMeterRow.tsx';
@@ -14,6 +16,11 @@ const TITLE_SCROLL: TitleScrollOptions = {
   speed: STAGE_TITLE_SPEED,
   softness: STAGE_TITLE_SOFTNESS,
 };
+
+/** 四行字三行（From / 标题 / By）的默认行顶：82 → 108 → 222。 */
+const HEADER_BASE = { from: 82, title: 108, by: 222 } as const;
+/** 没有布局盒子时（单元测试与降级路径）用空表。 */
+const NO_BOXES: ReadonlyMap<ImmersivePanelId, StageBox> = new Map();
 
 export interface StageFieldsProps {
   /** 仪表第一行左格里的声场件，格子 332 × 155、左上角在舞台 (760, 296)。 */
@@ -26,12 +33,17 @@ export interface StageFieldsProps {
   readonly lyrics?: ReactNode;
   /** 四行字/仪表的模块开关；默认都显示。 */
   readonly showHeader?: boolean;
-  readonly headerTop?: number | null;
-  readonly meterTop?: number | null;
+  /** 右栏底部的歌词是否出。 */
   readonly showLyrics?: boolean;
-  readonly lyricsTop?: number | null;
   /** 当前视图/布局隐藏的模块；四行字与仪表各格按叶子 ID 过滤。 */
   readonly hidden?: ReadonlySet<string>;
+  /**
+   * 布局算出的每格盒子。可见模块按行排布，藏掉的行整行收掉——四行字的三行各自落位、
+   * 仪表行里的格子横向流动，藏一个不留空白。
+   */
+  readonly boxes?: ReadonlyMap<ImmersivePanelId, StageBox>;
+  /** 编排器里挪过或改过大小的组件。 */
+  readonly placements?: Placements;
 }
 
 /**
@@ -49,11 +61,10 @@ export function StageFields({
   showFields = true,
   lyrics,
   showHeader = true,
-  headerTop = 82,
-  meterTop = 296,
   showLyrics = true,
-  lyricsTop = 700,
   hidden = new Set<string>(),
+  boxes,
+  placements = {},
 }: StageFieldsProps) {
   const track = useAtomValueRawSync(currentTrackAtom);
   const extras = useAtomValueRawSync(trackExtrasAtom);
@@ -74,40 +85,67 @@ export function StageFields({
     show('right.header.title') ||
     show('right.header.by') ||
     show('right.header.quality');
+  // 三行各自落位：藏掉一行，这一行收掉、下面两行跟着上移。
+  const boxOf = (id: ImmersivePanelId): StageBox | undefined => boxes?.get(id);
+  const headerTops = {
+    from: boxOf('right.header.from')?.y ?? HEADER_BASE.from,
+    title: boxOf('right.header.title')?.y ?? HEADER_BASE.title,
+    by:
+      boxOf('right.header.by')?.y ??
+      boxOf('right.header.quality')?.y ??
+      HEADER_BASE.by,
+  };
+  const shift = (y: number, base: number): CSSProperties | undefined =>
+    y === base ? undefined : { transform: `translateY(${y - base}px)` };
+  const meterTop =
+    boxOf('right.meter.stereo')?.y ??
+    boxOf('right.meter.bpm')?.y ??
+    boxOf('right.meter.soundPressure')?.y ??
+    boxOf('right.meter.duration')?.y ??
+    null;
+  const lyricsTop = boxOf('right.lyrics')?.y ?? null;
 
   return (
     <div className={styles.fields}>
-      {showFields && showHeader && headerTop !== null && headerShown && (
-        <div
-          className={styles.headerBlock}
-          style={headerTop !== 82 ? { transform: `translateY(${headerTop - 82}px)` } : undefined}
-        >
+      {showFields && showHeader && headerShown && (
+        <div className={styles.headerBlock}>
           {show('right.header.from') && (
-            <>
-              <span className={styles['hot-square']} aria-hidden />
-              <div className={`${styles.base} ${styles.from}`} data-decor-guard="40">
+            <Placed id="right.header.from" boxes={boxes ?? NO_BOXES} placements={placements}>
+              <span
+                className={styles['hot-square']}
+                aria-hidden
+                style={shift(headerTops.from, HEADER_BASE.from)}
+              />
+              <div
+                className={`${styles.base} ${styles.from}`}
+                data-decor-guard="40"
+                style={shift(headerTops.from, HEADER_BASE.from)}
+              >
                 <span>From:</span> <span data-field="album">{track?.album || MISSING}</span>
               </div>
-            </>
+            </Placed>
           )}
           {show('right.header.title') && (
-            <h1
-              ref={titleBox}
-              className={`${styles.base} ${styles.title}`}
-              style={{ width: STAGE_TITLE.width }}
-              data-rolling={rolling || undefined}
-              data-field="title"
-            >
-              <span ref={titleText} className={styles['title-text']}>
-                {title}
-              </span>
-            </h1>
+            <Placed id="right.header.title" boxes={boxes ?? NO_BOXES} placements={placements}>
+              <h1
+                ref={titleBox}
+                className={`${styles.base} ${styles.title}`}
+                style={{ width: STAGE_TITLE.width, ...shift(headerTops.title, HEADER_BASE.title) }}
+                data-rolling={rolling || undefined}
+                data-field="title"
+              >
+                <span ref={titleText} className={styles['title-text']}>
+                  {title}
+                </span>
+              </h1>
+            </Placed>
           )}
           {show('right.header.by') && (
-            <>
+            <Placed id="right.header.by" boxes={boxes ?? NO_BOXES} placements={placements}>
               <span
                 className={`${styles.base} ${styles.key} ${styles['by-key']}`}
                 data-decor-guard="40"
+                style={shift(headerTops.by, HEADER_BASE.by)}
               >
                 By
               </span>
@@ -115,23 +153,33 @@ export function StageFields({
                 className={`${styles.base} ${styles.artist}`}
                 data-field="artist"
                 data-decor-guard="40"
+                style={shift(headerTops.by, HEADER_BASE.by)}
               >
                 {track?.artist || MISSING}
               </div>
-            </>
+            </Placed>
           )}
           {show('right.header.quality') && quality && (
-            <>
-              <span className={`${styles.base} ${styles.key} ${styles['quality-key']}`}>Quality</span>
-              <div className={`${styles.base} ${styles.quality}`} data-field="quality">
+            <Placed id="right.header.quality" boxes={boxes ?? NO_BOXES} placements={placements}>
+              <span
+                className={`${styles.base} ${styles.key} ${styles['quality-key']}`}
+                style={shift(headerTops.by, HEADER_BASE.by)}
+              >
+                Quality
+              </span>
+              <div
+                className={`${styles.base} ${styles.quality}`}
+                data-field="quality"
+                style={shift(headerTops.by, HEADER_BASE.by)}
+              >
                 {quality}
               </div>
-            </>
+            </Placed>
           )}
         </div>
       )}
       {showMeter && meterTop !== null && (
-        <StageMeterRow stereo={stereo} offsetY={meterTop - 296} hidden={hidden} />
+        <StageMeterRow stereo={stereo} offsetY={meterTop - 296} hidden={hidden} boxes={boxes} />
       )}
       {lyrics && showLyrics && (
         <div
