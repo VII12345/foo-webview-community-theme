@@ -106,9 +106,9 @@ export const settingsEn = {
   'settings.immersiveWashStatic': 'Static',
   'settings.immersiveWashOff': 'Hidden',
   'settings.immersiveTerrain': 'Terrain background',
-  'settings.immersiveTextBoost': 'Lyrics and card text contrast',
-  'settings.immersiveTextBoostHint':
-    'Moves text toward black or white to raise contrast against the cover-tinted background. 0% keeps the base colors; higher values never reduce contrast. Applies to the lyrics, card and card+lyrics scenes.',
+  'settings.immersiveSceneLift': 'Scene brightness',
+  'settings.immersiveSceneLiftHint':
+    'The cover-tinted layer fills the whole immersive view. A dark cover darkens it, and the whole view goes dim with the lyrics hard to read. This slider decides how far that layer is pulled back toward the paper brightness: 0% keeps the old look (the cover decides the brightness), higher values keep the layer bright and leave only the cover color. The amount adapts to the color extracted from the cover; bright covers are left alone.',
   'settings.immersivePerformance': 'Performance',
   'settings.immersiveFps': 'Frame rate limit',
   'settings.immersiveFpsUnlimited': 'Unlimited',
@@ -124,6 +124,13 @@ export const settingsEn = {
     'Choose which modules to show in this view and layout. Hiding only stops rendering; analysis keeps running.',
   'settings.immersiveComponentsView': 'View',
   'settings.immersiveComponentsLayout': 'Layout',
+  'settings.immersiveLayoutEditor': 'Immersive arrangement',
+  'settings.immersiveLayoutEditorView': 'Current view',
+  'settings.immersiveLayoutEditorLayout': 'Current layout',
+  'settings.immersiveLayoutEditorHint':
+    'Adjust the position and size of every component in the immersive view, per view and layout: drag a box to move it, drag its corner to resize. Changes apply immediately; only the parts you moved are stored.',
+  'settings.immersiveLayoutResetOne': 'Reset position',
+  'settings.immersiveLayoutResetAll': 'Reset this group',
   'settings.immersiveComponentsBackground': 'Background',
   'settings.immersiveComponentsDial': 'Dial',
   'settings.immersiveComponentsCard': 'Card',

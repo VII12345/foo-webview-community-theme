@@ -1,41 +1,26 @@
 import { useAtomValueRawSync, useStore } from 'jotai/react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { colorSchemeAtom } from '../../theme/colorScheme.ts';
-import { coverRampAtom as accentRampAtom } from '../../theme/accentState.ts';
 import { PaperDecor } from '../decor/PaperDecor.tsx';
 import type { DecorArc } from '../decor/paperDecor.ts';
 import { useDecorGuards } from '../decor/useDecorGuards.ts';
-import { rgbaOf } from '../frame/cssColor.ts';
 import {
   groupVisible,
   hiddenModulesFor,
   immersiveComponentsAtom,
   moduleHidden,
 } from '../page/immersiveComponents.ts';
-import {
-  immersiveTerrainAtom,
-  immersiveTextBoostAtom,
-  immersiveWashAtom,
-} from '../page/immersivePrefs.ts';
+import { immersiveTerrainAtom, immersiveWashAtom } from '../page/immersivePrefs.ts';
 import { ALPHA_FAR } from '../terrain/terrain.ts';
 import { TerrainCanvas } from '../terrain/TerrainCanvas.tsx';
 import { TerrainRuler } from '../terrain/TerrainRuler.tsx';
-import { PaperCoverWash, WASH_STRENGTH } from '../wash/PaperCoverWash.tsx';
-import { coverLumaAtom } from '../wash/coverSource.ts';
+import { PaperCoverWash } from '../wash/PaperCoverWash.tsx';
 import { paperGeometry, stageGeometry } from './paperTiers.ts';
 import styles from './PaperScene.module.css';
 import { PaperSheet } from './PaperSheet.tsx';
 import { PaperStage } from './PaperStage.tsx';
 import type { PaperVariant } from './paperVariant.ts';
 import { reportSceneTier } from './sceneTier.ts';
-import {
-  contrastBoost,
-  effectiveLuminance,
-  PAPER_LUMA_FALLBACK,
-  paperLuminanceOf,
-  type ContrastBoost,
-  type Rgb,
-} from './textBoost.ts';
 import { useSceneSize } from './useSceneSize.ts';
 
 /**
@@ -94,89 +79,6 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
   const stage = tier === 'full';
   const components = useAtomValueRawSync(immersiveComponentsAtom);
   const hidden = hiddenModulesFor(components, variant, tier);
-  const ramp = useAtomValueRawSync(accentRampAtom);
-  const textBoost = useAtomValueRawSync(immersiveTextBoostAtom);
-  const coverLuma = useAtomValueRawSync(coverLumaAtom);
-  const [paperLuma, setPaperLuma] = useState<number | null>(null);
-  const [boostInputs, setBoostInputs] = useState<{
-    readonly fg1: Rgb;
-    readonly fg2: Rgb;
-    readonly fg3: Rgb;
-    readonly ink: Rgb;
-    readonly hot: Rgb;
-    readonly accent: Rgb;
-  } | null>(null);
-  useLayoutEffect(() => {
-    const element = root.current;
-    if (!element) return;
-    const computed = getComputedStyle(element);
-    const background = rgbaOf(computed.backgroundColor);
-    setPaperLuma(
-      background[3] <= 0
-        ? null
-        : paperLuminanceOf(background[0], background[1], background[2]),
-    );
-    const read = (name: string): Rgb => {
-      const raw = computed.getPropertyValue(name).trim();
-      if (raw && !raw.startsWith('var(')) {
-        const [red, green, blue] = rgbaOf(raw);
-        return [red, green, blue];
-      }
-      const probe = document.createElement('span');
-      probe.style.display = 'none';
-      probe.style.color = `var(${name}, ${computed.color})`;
-      element.appendChild(probe);
-      const resolved = getComputedStyle(probe).color;
-      probe.remove();
-      const [red, green, blue] = rgbaOf(resolved);
-      return [red, green, blue];
-    };
-    setBoostInputs({
-      fg1: read('--paper-fg1-base'),
-      fg2: read('--paper-fg2-base'),
-      fg3: read('--paper-fg3-base'),
-      ink: read('--paper-ink-base'),
-      hot: read('--paper-hot-base'),
-      accent: read('--accent'),
-    });
-  }, [ramp, dark, variant]);
-  const themed = variant === 'lyrics' || variant === 'card' || variant === 'cardLyrics';
-  const washShown = wash && !hidden.has('wash');
-  const scheme = dark ? 'dark' : 'light';
-  const effective =
-    coverLuma === null
-      ? null
-      : effectiveLuminance(
-          coverLuma,
-          paperLuma ?? PAPER_LUMA_FALLBACK[scheme],
-          WASH_STRENGTH[scheme],
-        );
-  const appliedBackground = themed && washShown ? effective : null;
-  const NONE: ContrastBoost = { target: '#fff', pct: 0, baseContrast: 1, targetContrast: 1 };
-  const boostOf = (rgb: Rgb | undefined): ContrastBoost =>
-    rgb ? contrastBoost(rgb, appliedBackground, textBoost) : NONE;
-  const fg1 = boostOf(boostInputs?.fg1);
-  const fg2 = boostOf(boostInputs?.fg2);
-  const fg3 = boostOf(boostInputs?.fg3);
-  const ink = boostOf(boostInputs?.ink);
-  const hot = boostOf(boostInputs?.hot);
-  const active = boostOf(boostInputs?.accent);
-  const maxPct = Math.max(fg1.pct, fg2.pct, fg3.pct, ink.pct, hot.pct, active.pct);
-  const boostStyle = {
-    '--paper-cover-luma': coverLuma === null ? '' : coverLuma.toFixed(3),
-    '--paper-fg1-target': fg1.target,
-    '--paper-fg1-pct': `${fg1.pct.toFixed(1)}%`,
-    '--paper-fg2-target': fg2.target,
-    '--paper-fg2-pct': `${fg2.pct.toFixed(1)}%`,
-    '--paper-fg3-target': fg3.target,
-    '--paper-fg3-pct': `${fg3.pct.toFixed(1)}%`,
-    '--paper-ink-target': ink.target,
-    '--paper-ink-pct': `${ink.pct.toFixed(1)}%`,
-    '--paper-hot-target': hot.target,
-    '--paper-hot-pct': `${hot.pct.toFixed(1)}%`,
-    '--lyrics-active-target': active.target,
-    '--lyrics-active-pct': `${active.pct.toFixed(1)}%`,
-  } as CSSProperties;
   const guards = useDecorGuards(root, {
     origin,
     scale,
@@ -198,9 +100,6 @@ export function PaperScene({ variant = 'paper' }: PaperSceneProps) {
       data-tier={tier}
       data-scene={variant}
       data-dark={dark || undefined}
-      data-text-boost={maxPct > 0 ? (maxPct / 100).toFixed(3) : undefined}
-      data-lyrics-boost={active.pct > 0 ? 'on' : undefined}
-      style={boostStyle}
     >
       {wash && !hidden.has('wash') && <PaperCoverWash />}
       {terrain && !hidden.has('terrain') && (

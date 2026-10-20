@@ -9,7 +9,7 @@
   font-weight: var(--fontWeightSemibold);
 }
 
-.textBoost {
+.sceneLift {
   display: flex;
   align-items: center;
   gap: var(--spacingHorizontalM);
@@ -17,11 +17,11 @@
   width: 100%;
 }
 
-.textBoost :global(.fui-Slider) {
+.sceneLift :global(.fui-Slider) {
   flex: 1;
 }
 
-.textBoostValue {
+.sceneLiftValue {
   min-width: 3.5ch;
   color: var(--colorNeutralForeground3);
   font-variant-numeric: tabular-nums;

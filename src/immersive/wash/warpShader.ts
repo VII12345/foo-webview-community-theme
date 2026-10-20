@@ -1,4 +1,5 @@
 import { GRID, ZOOM } from './coverWarp.ts';
+import type { SceneTone } from './sceneLift.ts';
 
 /**
  * 封面网格变形流动的 WebGL 渲染：`coverWarp.ts` 的 `warp`、`sampleCover`、`shade` 搬进片元着色器，逐像素、全程浮点算。
@@ -33,6 +34,10 @@ uniform float u_angle;
 uniform vec3 u_paper;
 uniform float u_strength;
 uniform float u_saturation;
+uniform float u_offset;
+uniform float u_low;
+uniform float u_high;
+uniform float u_chroma;
 
 vec3 decode(vec3 c) {
   return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
@@ -79,7 +84,14 @@ void main() {
   vec3 cover = decode(texture2D(u_cover, uv).rgb);
   float luma = dot(cover, vec3(0.2126, 0.7152, 0.0722));
   cover = max(mix(vec3(luma), cover, u_saturation), 0.0);
-  vec3 lin = clamp(mix(u_paper, cover, u_strength), 0.0, 1.0);
+  vec3 base = clamp(mix(u_paper, cover, u_strength), 0.0, 1.0);
+  // 亮度与色度分开：亮度平移并夹进可读带，色度限幅后加回去。封面只给颜色、不给亮度。
+  float baseLuma = dot(base, vec3(0.2126, 0.7152, 0.0722));
+  vec3 tint = base - vec3(baseLuma);
+  float peak = max(max(tint.r, tint.g), tint.b);
+  tint *= min(1.0, u_chroma / max(peak, 0.00001));
+  float level = clamp(baseLuma + u_offset, u_low, u_high);
+  vec3 lin = clamp(vec3(level) + tint, 0.0, 1.0);
   float noise = hash(gl_FragCoord.xy + u_seed) + hash(gl_FragCoord.xy * 1.37 + u_seed + 17.0) - 1.0;
   gl_FragColor = vec4(encode(lin) + noise * ${glsl(DITHER_LEVELS)} / 255.0, 1.0);
 }
@@ -96,6 +108,8 @@ export interface WarpFrame {
   paper: readonly [number, number, number];
   strength: number;
   saturation: number;
+  /** 场景提亮：亮度平移量、可读带、色度上限，来自 `sceneLift.ts`。 */
+  tone: SceneTone;
   /** 抖动种子，每帧换一个；取值落在几百以内，太大时 `sin` 哈希在部分显卡上精度不够。 */
   seed: number;
 }
@@ -168,6 +182,10 @@ export function createWarpRenderer(
     paper: at('u_paper'),
     strength: at('u_strength'),
     saturation: at('u_saturation'),
+    offset: at('u_offset'),
+    low: at('u_low'),
+    high: at('u_high'),
+    chroma: at('u_chroma'),
   };
   gl.uniform1i(uniforms.cover, 0);
 
@@ -181,6 +199,10 @@ export function createWarpRenderer(
       gl.uniform3f(uniforms.paper, frame.paper[0], frame.paper[1], frame.paper[2]);
       gl.uniform1f(uniforms.strength, frame.strength);
       gl.uniform1f(uniforms.saturation, frame.saturation);
+      gl.uniform1f(uniforms.offset, frame.tone.offset);
+      gl.uniform1f(uniforms.low, frame.tone.low);
+      gl.uniform1f(uniforms.high, frame.tone.high);
+      gl.uniform1f(uniforms.chroma, frame.tone.chroma);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     },
     lost: () => gl.isContextLost(),

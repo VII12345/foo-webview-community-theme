@@ -12,6 +12,7 @@
  */
 
 import { luminanceOfSrgb } from '../../theme/luminance.ts';
+import { NEUTRAL_TONE, type SceneTone } from './sceneLift.ts';
 
 /** 源图边长：要 2 的幂，WebGL 1 才允许镜像环绕。 */
 export const SOURCE_SIZE = 128;
@@ -182,22 +183,34 @@ function encode(linear: number): number {
 }
 
 /**
- * 源图颜色（sRGB 字节值）在线性光下提饱和、按 `strength` 混进纸面色（线性光 0–1），回到 sRGB 0–1、未量化。
- * 与着色器的末段一致。
+ * 源图颜色（sRGB 字节值）在线性光下提饱和、按 `strength` 混进纸面色（线性光 0–1），再按 `tone` 提亮，
+ * 回到 sRGB 0–1、未量化。与着色器的末段一致。
+ *
+ * 提亮那一步把亮度与色度分开：亮度按 `tone.offset` 平移并夹进 `tone` 的可读带，色度按 `tone.chroma`
+ * 限幅后加回去。封面因此只给颜色、不给亮度（见 `sceneLift.ts`）。
  */
 export function shade(
   color: readonly [number, number, number],
   paper: readonly [number, number, number],
   strength: number,
+  tone: SceneTone = NEUTRAL_TONE,
   saturation = SATURATION,
 ): [number, number, number] {
   const linear = color.map(decode);
   const luma = 0.2126 * (linear[0] ?? 0) + 0.7152 * (linear[1] ?? 0) + 0.0722 * (linear[2] ?? 0);
-  return [0, 1, 2].map((channel) => {
+  const base = [0, 1, 2].map((channel) => {
     const saturated = Math.max(0, luma + ((linear[channel] ?? 0) - luma) * saturation);
-    const base = paper[channel] ?? 0;
-    return encode(base + (saturated - base) * strength);
+    const back = paper[channel] ?? 0;
+    return back + (saturated - back) * strength;
   }) as [number, number, number];
+  const baseLuma = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
+  const tint = [base[0] - baseLuma, base[1] - baseLuma, base[2] - baseLuma];
+  const peak = Math.max(tint[0], tint[1], tint[2]);
+  const scale = Math.min(1, tone.chroma / Math.max(peak, 1e-5));
+  const level = Math.min(tone.high, Math.max(tone.low, baseLuma + tone.offset));
+  return [0, 1, 2].map((channel) =>
+    encode(level + tint[channel] * scale),
+  ) as [number, number, number];
 }
 
 /** 源图平均线性亮度（0…1），按像素等权；空图回答 0。用于判断封面是否会让纸面偏暗。 */

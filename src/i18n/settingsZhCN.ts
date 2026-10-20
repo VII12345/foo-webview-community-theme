@@ -104,9 +104,9 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
   'settings.immersiveWashStatic': '静态',
   'settings.immersiveWashOff': '不显示',
   'settings.immersiveTerrain': '背景山脊图',
-  'settings.immersiveTextBoost': '歌词与卡片文字对比度',
-  'settings.immersiveTextBoostHint':
-    '将文字朝黑或白移动，以提高相对于封面底色背景的对比度；0% 保持原色，数值越高对比度不会降低。只影响歌词、卡片、卡片歌词三个视图。',
+  'settings.immersiveSceneLift': '界面提亮',
+  'settings.immersiveSceneLiftHint':
+    '封面底色那一层铺满整个沉浸视图。深色封面会把底色压暗、整个界面跟着发暗，歌词贴在上面看不清。这个滑杆决定把底色拉回纸面亮度多少：0% 是原来的样子（封面亮度直接决定底色），数值越大底色越亮、封面只留下颜色。提亮程度按封面提取的颜色自适应，亮封面不受影响。',
   'settings.immersivePerformance': '性能',
   'settings.immersiveFps': '帧率上限',
   'settings.immersiveFpsUnlimited': '不限',
@@ -122,6 +122,13 @@ export const settingsZhCN: Record<keyof typeof settingsEn, string> = {
     '选择这个视图与布局要显示哪些模块。隐藏只停止渲染，后台分析仍会运行。',
   'settings.immersiveComponentsView': '视图',
   'settings.immersiveComponentsLayout': '布局',
+  'settings.immersiveLayoutEditor': '沉浸编排',
+  'settings.immersiveLayoutEditorView': '当前视图',
+  'settings.immersiveLayoutEditorLayout': '当前布局',
+  'settings.immersiveLayoutEditorHint':
+    '按视图与布局逐个调整沉浸视图里每个组件的位置与大小：拖框挪位置、拖右下角改大小。改动即时生效，只存挪过的那几项。',
+  'settings.immersiveLayoutResetOne': '恢复默认位置',
+  'settings.immersiveLayoutResetAll': '整组恢复默认',
   'settings.immersiveComponentsBackground': '背景',
   'settings.immersiveComponentsDial': '罗盘',
   'settings.immersiveComponentsCard': '卡片',

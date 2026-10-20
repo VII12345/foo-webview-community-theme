@@ -421,7 +421,7 @@ test('歌词一律排在右半靠左五分之一处，左对齐', async ({ page 
 
 test('当前行主行使用强调色，其他行保持中性', async ({ page }) => {
   await page.addInitScript(() =>
-    localStorage.setItem('default-theme.immersive.textBoost.v1', '0'),
+    localStorage.setItem('default-theme.immersive.sceneLift.v1', '0'),
   );
   const { view, host, state, errors } = await openImmersive(page, {
     onHost(host) {

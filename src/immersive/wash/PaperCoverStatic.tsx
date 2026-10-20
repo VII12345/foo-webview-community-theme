@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { controlOffsets, coverUv, sampleCover, shade, warp } from './coverWarp.ts';
 import { GRAIN_SIZE, grainPixels } from './ditherGrain.ts';
+import type { SceneTone } from './sceneLift.ts';
 import styles from './PaperCoverStatic.module.css';
 
 export interface PaperCoverStaticProps {
@@ -10,12 +11,14 @@ export interface PaperCoverStaticProps {
   readonly paper: readonly [number, number, number];
   /** 封面混进纸面的比例，0–1。 */
   readonly strength: number;
+  /** 场景提亮：亮度平移量、可读带、色度上限。 */
+  readonly tone: SceneTone;
   /** 按 canvas 实际尺寸算完第一帧后调一次。 */
   readonly onReady: () => void;
   readonly className?: string;
 }
 
-type FieldInput = Pick<PaperCoverStaticProps, 'cover' | 'paper' | 'strength'>;
+type FieldInput = Pick<PaperCoverStaticProps, 'cover' | 'paper' | 'strength' | 'tone'>;
 
 /** 色场按 CSS 尺寸的 1/`DOWNSCALE` 算，浏览器放大铺满。 */
 const DOWNSCALE = 8;
@@ -36,7 +39,7 @@ function fieldSize(width: number, height: number): { width: number; height: numb
 }
 
 /** 第 0 秒的变形：逐像素反查封面、混进纸面色，写成不透明的位图，尺寸取 canvas 当前的宽高。 */
-function renderField(canvas: HTMLCanvasElement, { cover, paper, strength }: FieldInput): void {
+function renderField(canvas: HTMLCanvasElement, { cover, paper, strength, tone }: FieldInput): void {
   const context = canvas.getContext('2d');
   if (!context) return;
   const { width, height } = canvas;
@@ -46,7 +49,7 @@ function renderField(canvas: HTMLCanvasElement, { cover, paper, strength }: Fiel
     for (let x = 0; x < width; x += 1) {
       const [u, v] = coverUv(x + 0.5, y + 0.5, width, height);
       const [wu, wv] = warp(u, v, offsets, 0);
-      const color = shade(sampleCover(cover.data, cover.width, wu, wv), paper, strength);
+      const color = shade(sampleCover(cover.data, cover.width, wu, wv), paper, strength, tone);
       const at = (y * width + x) * 4;
       image.data[at] = Math.round(color[0] * 255);
       image.data[at + 1] = Math.round(color[1] * 255);
@@ -83,14 +86,15 @@ export function PaperCoverStatic({
   cover,
   paper,
   strength,
+  tone,
   onReady,
   className,
 }: PaperCoverStaticProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sized = useRef(false);
-  const latest = useRef({ cover, paper, strength, onReady });
+  const latest = useRef({ cover, paper, strength, tone, onReady });
   useLayoutEffect(() => {
-    latest.current = { cover, paper, strength, onReady };
+    latest.current = { cover, paper, strength, tone, onReady };
   });
 
   useEffect(() => {
@@ -119,8 +123,8 @@ export function PaperCoverStatic({
   // 量到尺寸之前不算：canvas 还是缺省的 300 × 150，算了也会被第一次量尺寸盖掉。
   useEffect(() => {
     const element = canvas.current;
-    if (element && sized.current) renderField(element, { cover, paper, strength });
-  }, [cover, paper, strength]);
+    if (element && sized.current) renderField(element, { cover, paper, strength, tone });
+  }, [cover, paper, strength, tone]);
 
   // 颗粒按设备像素 1:1 铺：按 CSS 像素铺会被插值放大，颗粒变软、打散断层的效果变弱。
   const grain = {

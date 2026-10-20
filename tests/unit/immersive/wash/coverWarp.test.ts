@@ -14,6 +14,7 @@ import {
   warp,
   ZOOM,
 } from '../../../../src/immersive/wash/coverWarp.ts';
+import { NEUTRAL_TONE } from '../../../../src/immersive/wash/sceneLift.ts';
 
 const near = (a: number, b: number, epsilon = 1e-9) =>
   expect(Math.abs(a - b), `${a} ≠ ${b}`).toBeLessThan(epsilon);
@@ -123,11 +124,11 @@ test('shade：比例 0 是纸面色，比例 1 且饱和度 1 是原色，饱和
   const paper = [0.2, 0.2, 0.2] as const;
   const encoded = (linear: number) => 1.055 * linear ** (1 / 2.4) - 0.055;
   shade([200, 40, 90], paper, 0).forEach((channel) => near(channel, encoded(0.2), 1e-9));
-  const original = shade([200, 40, 90], paper, 1, 1);
+  const original = shade([200, 40, 90], paper, 1, NEUTRAL_TONE, 1);
   near(original[0], 200 / 255, 1e-9);
   near(original[1], 40 / 255, 1e-9);
   near(original[2], 90 / 255, 1e-9);
-  const gray = shade([200, 40, 90], paper, 1, 0);
+  const gray = shade([200, 40, 90], paper, 1, NEUTRAL_TONE, 0);
   near(gray[0], gray[1], 1e-9);
   near(gray[1], gray[2], 1e-9);
 });
