@@ -46,6 +46,11 @@ export interface AcousticConfigInput {
   readonly profile: HeadphoneMeasurement | null;
   /** 耳放的输出阻抗（Ω）；DX52 是 0.2。 */
   readonly ampOutputImpedanceOhm: number;
+  /**
+   * 页面的「自动读取 DAC/耳放」开关是否打开。插件据此决定记不记统计；
+   * 当前是不是耳机输出由插件自己看设备（页面挂起时路由也可能变）。
+   */
+  readonly autoEnabled: boolean;
   /** 加权：A / K / Z。 */
   readonly weighting: SplWeighting;
 }
@@ -80,6 +85,8 @@ export function buildAcousticConfig(input: AcousticConfigInput): string {
     `ampGainDb ${amp.gainDb}`,
     `ampOutputImpedanceOhm ${input.ampOutputImpedanceOhm}`,
     `weighting ${input.weighting}`,
+    // 统计口径：开关关掉时插件不记；线路输出 / 非 USB / 关机由插件按设备状态判断。
+    `autoEnabled ${input.autoEnabled ? 1 : 0}`,
     `bandResponseDb ${Array.from(responseDb).map((value) => value.toFixed(6)).join(' ')}`,
     '',
   ];
@@ -128,6 +135,7 @@ export function startAcousticConfigWriter(
       profile,
       // DX52 的输出阻抗是 0.2 Ω；别的耳放按 0 算（分压那一项就没有）。
       ampOutputImpedanceOhm: view.auto.active ? 0.2 : 0,
+      autoEnabled: view.auto.enabled,
       weighting: view.weighting,
     });
     if (!text || text === lastText) return;
