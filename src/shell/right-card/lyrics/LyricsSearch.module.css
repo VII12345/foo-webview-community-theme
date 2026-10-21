@@ -40,16 +40,18 @@
   gap: var(--spacingVerticalXS);
 }
 
+/* 来源分组标题：贴边的小标签 + 一条细线，不铺底色。
+   以前这里给整行刷 colorNeutralBackground1，面板是封面取色的表面，纯色条看着就是一个大框。
+   分组通常不长，不再吸顶——吸顶必须有不透明底，怎么配都会变成一块。 */
 .group > h2 {
-  position: sticky;
-  z-index: 1;
-  top: 0;
-  margin: var(--spacingVerticalS) var(--spacingHorizontalM) 0;
-  color: var(--colorNeutralForeground2);
-  background: var(--colorNeutralBackground1);
+  margin: var(--spacingVerticalM) var(--spacingHorizontalM) 0;
+  padding: 0 0 var(--spacingVerticalXXS);
+  border-bottom: var(--strokeWidthThin) solid var(--line);
+  color: var(--colorNeutralForeground3);
   font-size: var(--fontSizeBase200);
   font-weight: var(--fontWeightSemibold);
   line-height: var(--lineHeightBase200);
+  letter-spacing: 0.02em;
 }
 
 /* 来源成功但没有候选、或请求失败：留在组里，不把整个来源藏掉。 */
@@ -66,8 +68,9 @@
   align-items: center;
   gap: var(--spacingHorizontalXS);
   width: 100%;
-  padding: var(--spacingVerticalXS) var(--spacingHorizontalS);
+  padding: var(--spacingVerticalXXS) var(--spacingHorizontalXS);
   border: none;
+  border-radius: var(--borderRadiusMedium);
   background: none;
   color: inherit;
   font: inherit;
@@ -76,6 +79,7 @@
 }
 
 .group-toggle:hover {
+  background: var(--bg-hover);
   color: var(--colorNeutralForeground1);
 }
 
@@ -89,8 +93,13 @@
 }
 
 .group-count {
+  margin-inline-start: auto;
+  padding: 0 var(--spacingHorizontalXS);
+  border-radius: 999px;
+  background: var(--bg-view-control);
   color: var(--colorNeutralForeground3);
   font-weight: var(--fontWeightRegular);
+  font-variant-numeric: tabular-nums;
 }
 
 .results p {
