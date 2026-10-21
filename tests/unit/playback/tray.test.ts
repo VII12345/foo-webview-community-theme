@@ -105,6 +105,36 @@ describe('startTray', () => {
     expect(menu?.['config']).toMatchObject({ backdropDarkMode: false, showSystemItems: false });
   });
 
+  it('播放键跟着播放状态重推：出声写暂停，暂停写播放', async () => {
+    const host = installFakeHost();
+    await start(host);
+    const label = () => {
+      const items = host.callsTo('tray.setMenuZones').at(-1)?.['playback'];
+      if (!Array.isArray(items)) return undefined;
+      const row = items.find((item) => isRecord(item) && item['id'] === 'playPause');
+      return isRecord(row) ? row['label'] : undefined;
+    };
+    expect(label()).toBe('Play');
+    host.emit('playback:stateChanged', {
+      state: 'playing',
+      canSeek: true,
+      position: 1,
+      duration: 200,
+      hostTime: Date.now(),
+    });
+    await new Promise((resolve) => setTimeout(resolve, MENU_COALESCE_MS + 30));
+    expect(label()).toBe('Pause');
+    host.emit('playback:stateChanged', {
+      state: 'paused',
+      canSeek: true,
+      position: 2,
+      duration: 200,
+      hostTime: Date.now(),
+    });
+    await new Promise((resolve) => setTimeout(resolve, MENU_COALESCE_MS + 30));
+    expect(label()).toBe('Play');
+  });
+
   it('图标建不成照走后面，只记一笔', async () => {
     const host = installFakeHost();
     host.answer('tray.create', hostFailure('OPERATION_FAILED'));
